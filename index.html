@@ -1,171 +1,31 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Ludo Baji</title>
+<!doctype html><html lang="bn"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Baji</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Helvetica,sans-serif;background:#ffc61a;color:#352929;min-height:100vh}
-.app{max-width:720px;margin:auto;min-height:100vh;padding-bottom:92px}
-.top{background:#352929;border-radius:0 0 28px 28px;padding:24px 18px 28px}
-.toprow{display:flex;align-items:center;gap:12px}
-.brand img{width:58px;height:58px;object-fit:contain}
-.brand{display:flex;align-items:center;flex:1}
-.brand h1{font-size:25px;color:#ffd11a}
-.search{height:48px;background:#ffc61a;border-radius:28px;display:flex;align-items:center;padding:0 15px;margin-top:20px}
-.search input{border:0;outline:0;background:transparent;flex:1;font-size:15px;color:#352929}
-.search span{font-size:22px}
-.login{background:#ffc61a;border:0;border-radius:12px;padding:12px 18px;font-weight:700;color:#352929}
-.hero{margin:20px 14px 0;background:#352929;border-radius:22px;padding:24px;text-align:center;color:white}
-.hero img{width:115px;height:115px;object-fit:contain;margin-bottom:5px}
-.hero h2{font-size:27px;color:#ffd11a;margin-bottom:8px}
-.hero p{color:#eee;margin-bottom:18px}
-.btn{background:#ffc61a;color:#352929;border:0;border-radius:12px;padding:13px 20px;font-weight:700;font-size:15px}
-.wallet{margin:20px 14px;background:#352929;border-radius:22px;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;color:white}
-.walletbox{display:flex;align-items:center;gap:10px}
-.coin{width:42px;height:42px;border-radius:50%;background:#ffc61a;display:grid;place-items:center;color:#352929;font-size:20px}
-.wallet small{display:block;color:#ddd}.wallet strong{display:block;margin-top:4px;font-size:18px}
-.section{padding:0 14px;margin-top:24px}
-.title{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
-.title h2{font-size:22px}.menu{font-size:25px}
-.categories{display:grid;grid-template-columns:repeat(4,1fr);gap:18px 10px}
-.cat{text-align:center;font-size:13px}.caticon{width:60px;height:60px;background:#352929;color:#ffc61a;border-radius:11px;margin:auto auto 7px;display:grid;place-items:center;font-size:29px}
-.matches{display:grid;gap:12px}
-.match{background:#352929;color:white;border-radius:17px;padding:17px;display:flex;align-items:center;gap:14px}
-.matchlogo{width:54px;height:54px;border-radius:12px;object-fit:cover}
-.matchmain{flex:1}.match h3{font-size:17px;margin-bottom:5px}.match p{color:#ddd;font-size:13px;margin:3px 0}.match .btn{padding:10px 14px}
-.form{background:#352929;border-radius:18px;padding:18px;color:white}
-.form label{display:block;font-size:13px;margin:10px 0 6px;color:#ddd}
-.form input,.form select{width:100%;padding:13px;border-radius:10px;border:0;outline:0;background:#fff;color:#352929}
-.bottom{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(720px,100%);height:78px;background:#352929;border-radius:22px 22px 0 0;display:grid;grid-template-columns:repeat(4,1fr);z-index:20}
-.nav{border:0;background:transparent;color:white;font-size:12px}.nav b{display:block;color:#ffc61a;font-size:24px;margin-bottom:3px}
-.note{background:#fff1b3;border-radius:12px;padding:12px;margin-top:10px;font-size:13px}
-@media(max-width:430px){.brand img{width:48px;height:48px}.brand h1{font-size:22px}.hero h2{font-size:24px}.categories{gap:15px 5px}.caticon{width:54px;height:54px}}
-</style>
-</head>
-<body>
-<div class="app">
-<header class="top">
-  <div class="toprow">
-    <div class="brand"><img src="7543.jpg" alt="Ludo Baji Logo"><h1>Ludo Baji</h1></div>
-    <button class="login" onclick="alert('Login page will connect to your backend.')">Login</button>
-  </div>
-  <div class="search"><input placeholder="Search here ..."><span>⌕</span></div>
-</header>
-
-<section class="hero">
-  <img src="7543.jpg" alt="Ludo Baji">
-  <h2>Welcome to Ludo Baji</h2>
-  <p>Join Ludo matches and tournaments</p>
-  <button class="btn" onclick="document.getElementById('matches').scrollIntoView({behavior:'smooth'})">Join Match</button>
-</section>
-
-<section class="wallet">
-  <div class="walletbox"><div class="coin">▣</div><div><small>My Wallet</small><strong>৳ 0</strong></div></div>
-  <div class="walletbox"><div class="coin">●</div><div><small>My Coins</small><strong>0</strong></div></div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>Category</h2><span class="menu">☰</span></div>
-  <div class="categories">
-    <div class="cat"><div class="caticon">🎯</div>All</div>
-    <div class="cat"><div class="caticon">🏆</div>Classic</div>
-    <div class="cat"><div class="caticon">⚡</div>Quick</div>
-    <div class="cat"><div class="caticon">🎮</div>Game</div>
-    <div class="cat"><div class="caticon">🔥</div>Popular</div>
-    <div class="cat"><div class="caticon">👑</div>Tournament</div>
-    <div class="cat"><div class="caticon">🎁</div>Bonus</div>
-    <div class="cat"><div class="caticon">•••</div>Other</div>
-  </div>
-</section>
-
-<section class="section" id="matches">
-  <div class="title"><h2>Recommended Matches</h2><span class="menu">☰</span></div>
-  <div class="matches">
-    <div class="match">
-      <img class="matchlogo" src="7543.jpg" alt="">
-      <div class="matchmain"><h3>Ludo Classic</h3><p>Entry: ৳10 · Prize: ৳18</p><p>Start: 8:00 PM</p></div>
-      <button class="btn" onclick="join('Ludo Classic')">Join</button>
-    </div>
-    <div class="match">
-      <img class="matchlogo" src="7543.jpg" alt="">
-      <div class="matchmain"><h3>Ludo Pro</h3><p>Entry: ৳20 · Prize: ৳36</p><p>Start: 9:00 PM</p></div>
-      <button class="btn" onclick="join('Ludo Pro')">Join</button>
-    </div>
-    <div class="match">
-      <img class="matchlogo" src="7543.jpg" alt="">
-      <div class="matchmain"><h3>Night Tournament</h3><p>Entry: ৳50 · Prize: ৳90</p><p>Start: 10:00 PM</p></div>
-      <button class="btn" onclick="join('Night Tournament')">Join</button>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>📅 Match Schedule</h2></div>
-  <div class="form">
-    <p><b>Room ID:</b> Match শুরু হওয়ার আগে প্রকাশ হবে</p>
-    <div class="note">Match জিতলে Schedule থেকে Room ID ও প্রয়োজনীয় screenshot submission করা যাবে।</div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>🏆 Winning Screenshot</h2></div>
-  <div class="form">
-    <label>Match Serial</label><input id="serial" placeholder="Match Serial">
-    <label>Room ID</label><input id="room" placeholder="Room ID">
-    <label>Screenshot</label><input id="shot" type="file" accept="image/*">
-    <button class="btn" style="margin-top:12px" onclick="submitWin()">Submit Screenshot</button>
-  </div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>💳 Deposit</h2></div>
-  <div class="form">
-    <label>Payment Method</label><select><option>bKash</option><option>Nagad</option><option>Rocket</option></select>
-    <label>Amount</label><input type="number" placeholder="Amount">
-    <label>Transaction ID</label><input placeholder="Transaction ID">
-    <button class="btn" style="margin-top:12px" onclick="alert('Deposit form ready for backend/API connection.')">Submit Deposit</button>
-  </div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>💰 Withdraw</h2></div>
-  <div class="form">
-    <label>Payment Method</label><select><option>bKash</option><option>Nagad</option><option>Rocket</option></select>
-    <label>Amount</label><input type="number" placeholder="Amount">
-    <label>Account Number</label><input placeholder="Account Number">
-    <button class="btn" style="margin-top:12px" onclick="alert('Withdraw form ready for backend/API connection.')">Submit Withdraw</button>
-  </div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>👥 Referral</h2></div>
-  <div class="form"><label>Your Referral Code</label><input id="ref" value="LUDO1234" readonly><button class="btn" onclick="copyRef()">Copy Code</button></div>
-</section>
-
-<section class="section">
-  <div class="title"><h2>💬 Support</h2></div>
-  <div class="form"><p>Match, Room ID, Payment বা অন্য সমস্যায় Support-এ যোগাযোগ করুন।</p><button class="btn" style="margin-top:12px" onclick="alert('Support system will connect to your backend.')">Contact Support</button></div>
-</section>
-</div>
-
-<nav class="bottom">
-  <button class="nav" onclick="scrollTo(0,0)"><b>⌂</b>Home</button>
-  <button class="nav" onclick="document.getElementById('matches').scrollIntoView({behavior:'smooth'})"><b>⌕</b>Explore</button>
-  <button class="nav" onclick="alert('Your joined matches will appear here.')"><b>◉</b>Matches</button>
-  <button class="nav" onclick="alert('Profile/Login will connect to backend.')"><b>●</b>Profile</button>
-</nav>
-
+*{box-sizing:border-box}body{margin:0;background:#ffc61a;color:#352929;font-family:Arial}.app{max-width:720px;margin:auto;padding-bottom:90px}.top{background:#352929;padding:18px;border-radius:0 0 28px 28px}.brand{display:flex;align-items:center;gap:8px}.brand img{width:55px;height:55px;object-fit:contain}.brand h1{color:#ffd21a;flex:1}.search{margin-top:14px;background:#ffc61a;border-radius:25px;padding:12px}.search input{border:0;background:none;outline:0;width:90%}.hero,.wallet,.panel{margin:18px 14px;background:#352929;color:#fff;border-radius:22px;padding:20px}.hero{text-align:center}.hero img{width:100px;height:100px;object-fit:contain}.hero h2{color:#ffd21a}.btn{background:#ffc61a;border:0;border-radius:11px;padding:12px 18px;font-weight:bold;color:#352929}.wallet{display:grid;grid-template-columns:1fr 1fr;gap:10px}.wallet strong{font-size:19px}.section{padding:0 14px;margin-top:24px}.title{display:flex;justify-content:space-between}.categories{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.cat{background:none;border:0;color:#352929;text-align:center;font-size:14px}.icon{background:#352929;color:#ffc61a;border-radius:12px;width:68px;height:62px;margin:auto auto 7px;display:grid;place-items:center;font-size:28px}.cat.active .icon{outline:4px solid #fff}.panel{display:none}.panel.show{display:block}.panel h3{color:#ffd21a}.item{background:#473737;border-radius:12px;padding:13px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:75px;background:#352929;border-radius:22px 22px 0 0;display:grid;grid-template-columns:repeat(4,1fr)}.nav{background:none;border:0;color:#fff}.nav b{display:block;color:#ffc61a;font-size:22px}@media(max-width:430px){.categories{gap:12px 6px}}
+</style></head><body><div class="app">
+<header class="top"><div class="brand"><img src="7543.jpg"><h1>Ludo Baji</h1><button class="btn" onclick="alert('Login will connect to backend')">Login</button></div><div class="search"><input placeholder="Search here ..."> 🔍</div></header>
+<section class="hero"><img src="7543.jpg"><h2>Welcome to Ludo Baji</h2><p>Join Ludo matches and tournaments</p><button class="btn" onclick="show('match')">Join Match</button></section>
+<section class="wallet"><div>▣ My Wallet<br><strong>৳ 0</strong></div><div>● My Coins<br><strong>0</strong></div></section>
+<section class="section" id="category"><div class="title"><h2>Category</h2><span>☰</span></div>
+<div class="categories">
+<button class="cat active" onclick="show('match')"><div class="icon">🎮</div>Match</button>
+<button class="cat" onclick="show('deposit')"><div class="icon">💳</div>Deposit</button>
+<button class="cat" onclick="show('statement')"><div class="icon">🏷️</div>My Statement</button>
+<button class="cat" onclick="show('withdraw')"><div class="icon">💰</div>Withdraw</button>
+<button class="cat" onclick="show('support')"><div class="icon">✅</div>Support</button>
+<button class="cat" onclick="show('mymatch')"><div class="icon">🎮</div>My Match</button>
+</div><div id="panel" class="panel show"></div></section>
+<section class="section"><div class="title"><h2>📅 Match Schedule</h2></div><div class="panel" style="display:block"><b>Room ID:</b> Match শুরু হওয়ার আগে প্রকাশ হবে</div></section>
+<section class="section"><div class="title"><h2>🏆 Winning Screenshot</h2></div><div class="panel" style="display:block"><input id="serial" placeholder="Match Serial"><br><br><input id="room" placeholder="Room ID"><br><br><input id="shot" type="file" accept="image/*"><br><br><button class="btn" onclick="submitWin()">Submit Screenshot</button></div></section>
+</div><nav class="bottom"><button class="nav" onclick="scrollTo(0,0)"><b>⌂</b>Home</button><button class="nav" onclick="category.scrollIntoView({behavior:'smooth'})"><b>⌕</b>Explore</button><button class="nav" onclick="show('mymatch')"><b>◉</b>Matches</button><button class="nav" onclick="alert('Profile will connect to backend')"><b>●</b>Profile</button></nav>
 <script>
-function join(name){alert(name+' selected. Backend/API যুক্ত হলে join request server-এ যাবে.')}
-function submitWin(){
-  if(!document.getElementById('serial').value || !document.getElementById('room').value || !document.getElementById('shot').files.length){
-    alert('Match Serial, Room ID এবং Screenshot দিন।'); return;
-  }
-  alert('Submission form ready. Backend যুক্ত হলে এটি server-এ যাবে।');
-}
-function copyRef(){navigator.clipboard?.writeText(document.getElementById('ref').value);alert('Referral Code copied.')}
-</script>
-</body>
-</html>
+const d={
+match:['🎮 Match','এখানে সব Match ও Tournament সামনে আসবে.','<div class="item"><span><b>Ludo Classic</b><br>Entry ৳10 · Prize ৳18 · 8:00 PM</span><button class="btn">Join</button></div><div class="item"><span><b>Ludo Pro</b><br>Entry ৳20 · Prize ৳36 · 9:00 PM</span><button class="btn">Join</button></div>'],
+deposit:['💳 Deposit','Deposit করার option এখানে আসবে.','<input placeholder="Amount"><br><br><input placeholder="Transaction ID"><br><br><button class="btn">Submit Deposit</button>'],
+statement:['🏷️ My Statement','আপনার transaction/activity history এখানে আসবে.','<div class="item">No statement yet</div>'],
+withdraw:['💰 Withdraw','Withdrawal request করার option এখানে আসবে.','<input placeholder="Amount"><br><br><input placeholder="Account Number"><br><br><button class="btn">Submit Withdraw</button>'],
+support:['✅ Support','Match, Payment বা Account সমস্যার জন্য Support.','<div class="item"><span>Customer Support</span><button class="btn">Open</button></div>'],
+mymatch:['🎮 My Match','আপনি যে Match join করেছেন সেগুলো এখানে আসবে.','<div class="item">No joined match yet</div>']};
+function show(k){document.querySelectorAll('.cat').forEach((x,i)=>x.classList.toggle('active',i===Object.keys(d).indexOf(k)));let x=d[k];panel.innerHTML='<h3>'+x[0]+'</h3><p>'+x[1]+'</p>'+x[2];panel.classList.add('show');panel.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function submitWin(){if(!serial.value||!room.value||!shot.files.length)return alert('সব তথ্য দিন');alert('Backend যুক্ত হলে submission server-এ যাবে')}
+show('match');
+</script></body></html>
