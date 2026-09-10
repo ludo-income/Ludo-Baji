@@ -1,16 +1,12 @@
-Ludo Baji - Render Ready
-
-Files:
-- index.html = Main Website
-- admin.html = Admin Panel
-- 7543.jpg = Existing logo
-- package.json + server.js = Render Web Service support
-- render.yaml = Render configuration
+Ludo Baji Admin Panel V2
 
 Render:
-Option A (recommended): create a Web Service. Build Command: npm install. Start Command: npm start.
-Option B: create a Static Site. Build Command: leave empty. Publish Directory: .
+Build Command: npm install
+Start Command: npm start
 
-Admin demo login: admin / admin123
+Admin URL: /admin
+Login: admin / admin123
 
-Important: current Admin settings use browser localStorage. They are not a shared server database yet.
+This version uses a Node API and data.json so Admin changes are read by the Main Page from the server, instead of only localStorage.
+
+Important: Render's local filesystem can be reset on redeploy/restart depending on service setup. For permanent production data, connect an external database later.
