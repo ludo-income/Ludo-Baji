@@ -3,215 +3,265 @@
     "name": "Ludo Baji",
     "logo": "7543.jpg"
   },
-  "options": [
+  "adminMenus": [
     {
       "id": "dashboard",
       "name": "Dashboard",
       "icon": "🏠",
-      "content": "Admin Panel Dashboard",
+      "logo": "",
       "visible": true
     },
     {
       "id": "total-users",
       "name": "Total Users",
       "icon": "👥",
-      "content": "Total Users management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "active-users",
       "name": "Active Users",
       "icon": "🟢",
-      "content": "Active Users management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "deposit-management",
       "name": "Deposit Management",
       "icon": "💳",
-      "content": "Deposit Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "withdrawal-management",
       "name": "Withdrawal Management",
       "icon": "💸",
-      "content": "Withdrawal Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "user-balance-management",
       "name": "User Balance Management",
       "icon": "💰",
-      "content": "User Balance Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "gaming-balance",
       "name": "Gaming Balance",
       "icon": "🎮",
-      "content": "Gaming Balance এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "winning-balance",
       "name": "Winning Balance",
       "icon": "🏆",
-      "content": "Winning Balance এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "match-create",
       "name": "Match Create",
       "icon": "➕",
-      "content": "Match Create এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "tournament-create",
       "name": "Tournament Create",
       "icon": "🏟️",
-      "content": "Tournament Create এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "match-schedule",
       "name": "Match Schedule",
       "icon": "📅",
-      "content": "Match Schedule এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "room-id-management",
       "name": "Room ID Management",
       "icon": "🔑",
-      "content": "Room ID Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "screenshot-verification",
       "name": "Screenshot Verification",
       "icon": "🖼️",
-      "content": "Screenshot Verification এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "prize-approval",
       "name": "Prize Approval",
       "icon": "🎁",
-      "content": "Prize Approval এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "user-block-unblock",
       "name": "User Block/Unblock",
       "icon": "🚫",
-      "content": "User Block/Unblock এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "referral-management",
       "name": "Referral Management",
       "icon": "🔗",
-      "content": "Referral Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "support-live-chat",
       "name": "Support/Live Chat",
       "icon": "💬",
-      "content": "Support/Live Chat এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "payment-method-management",
       "name": "Payment Method Management",
       "icon": "💳",
-      "content": "Payment Method Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "deposit-withdrawal-history",
       "name": "Deposit/Withdrawal History",
       "icon": "📜",
-      "content": "Deposit/Withdrawal History এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "transaction-history",
       "name": "Transaction History",
       "icon": "🧾",
-      "content": "Transaction History এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "user-search",
       "name": "User Search",
       "icon": "🔎",
-      "content": "User Search এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "user-details",
       "name": "User Details",
       "icon": "👤",
-      "content": "User Details এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "notifications",
       "name": "Notifications",
       "icon": "🔔",
-      "content": "Notifications এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "banner-management",
       "name": "Banner Management",
       "icon": "🖼️",
-      "content": "Banner Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "homepage-settings",
       "name": "Homepage Settings",
       "icon": "🏠",
-      "content": "Homepage Settings এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "faq-management",
       "name": "FAQ Management",
       "icon": "❓",
-      "content": "FAQ Management এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "rules-terms-management",
       "name": "Rules & Terms Management",
-      "icon": "📄",
-      "content": "Rules & Terms Management এখানে দেখাবে।",
+      "icon": "📋",
+      "logo": "",
       "visible": true
     },
     {
       "id": "admin-roles-permissions",
       "name": "Admin roles/permissions",
       "icon": "🛡️",
-      "content": "Admin roles/permissions এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "reports",
       "name": "Reports",
       "icon": "📊",
-      "content": "Reports এখানে দেখাবে।",
+      "logo": "",
       "visible": true
     },
     {
       "id": "settings",
       "name": "Settings",
       "icon": "⚙️",
-      "content": "System settings এবং menu customization এখানে থাকবে।",
+      "logo": "",
+      "visible": true
+    }
+  ],
+  "mainOptions": [
+    {
+      "id": "match",
+      "name": "Match",
+      "icon": "🎮",
+      "logo": "",
+      "content": "Match system-এর content এখানে Auto Show হবে।",
+      "visible": true
+    },
+    {
+      "id": "deposit",
+      "name": "Deposit",
+      "icon": "💳",
+      "logo": "",
+      "content": "Deposit system-এর content এখানে Auto Show হবে।",
+      "visible": true
+    },
+    {
+      "id": "statement",
+      "name": "My Statement",
+      "icon": "🏷️",
+      "logo": "",
+      "content": "My Statement system-এর content এখানে Auto Show হবে।",
+      "visible": true
+    },
+    {
+      "id": "withdraw",
+      "name": "Withdraw",
+      "icon": "💰",
+      "logo": "",
+      "content": "Withdraw system-এর content এখানে Auto Show হবে।",
+      "visible": true
+    },
+    {
+      "id": "support",
+      "name": "Support",
+      "icon": "✅",
+      "logo": "",
+      "content": "Support system-এর content এখানে Auto Show হবে।",
+      "visible": true
+    },
+    {
+      "id": "mymatch",
+      "name": "My Match",
+      "icon": "🎮",
+      "logo": "",
+      "content": "My Match system-এর content এখানে Auto Show হবে।",
       "visible": true
     }
   ]

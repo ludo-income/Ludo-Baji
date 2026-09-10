@@ -1,20 +1,21 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
-const ROOT=__dirname, DATA=path.join(ROOT,'data.json'), PORT=process.env.PORT||3000, sessions=new Set();
+const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET||'ludo-baji-admin-secret-v9';
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
-function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'));}function write(d){fs.writeFileSync(DATA,JSON.stringify(d,null,2),'utf8');}
-function send(res,status,obj,headers={}){const body=typeof obj==='string'?obj:JSON.stringify(obj);res.writeHead(status,{'Content-Type':headers['Content-Type']||'application/json; charset=utf-8','Cache-Control':'no-store',...headers});res.end(body);}
-function auth(req,res){const t=(req.headers.authorization||'').replace(/^Bearer /,'');if(!t||!sessions.has(t)){send(res,401,{error:'Unauthorized'});return false}return true;}
-function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>35*1024*1024)req.destroy();});req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}});req.on('error',reject)})}
-const server=http.createServer(async(req,res)=>{try{const u=url.parse(req.url,true), p=u.pathname;
- if(req.method==='POST'&&p==='/api/login'){const x=await body(req);if(x.username==='admin'&&x.password==='admin123'){const t=crypto.randomBytes(24).toString('hex');sessions.add(t);return send(res,200,{ok:true,token:t})}return send(res,401,{ok:false,error:'Username অথবা Password ভুল'});}
- if(req.method==='GET'&&p==='/api/site')return send(res,200,read());
- if(p.startsWith('/api/admin')){if(!auth(req,res))return;
-  if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,read());
-  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req),old=read();const d={site:{...old.site,...(x.site||{})},options:Array.isArray(x.options)?x.options:old.options};write(d);return send(res,200,{ok:true,data:d});}
-  if(req.method==='POST'&&p==='/api/admin/options'){const x=await body(req),d=read();if(!String(x.name||'').trim())return send(res,400,{error:'Option name required'});const o={id:'opt-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:x.visible!==false};d.options.push(o);write(d);return send(res,200,{ok:true,data:d});}
-  if(req.method==='DELETE'&&p.startsWith('/api/admin/options/')){const id=decodeURIComponent(p.split('/').pop()),d=read();if(d.options.length<=1)return send(res,400,{error:'At least one option is required'});d.options=d.options.filter(o=>o.id!==id);write(d);return send(res,200,{ok:true,data:d});}
+function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'))} function write(d){fs.writeFileSync(DATA,JSON.stringify(d,null,2),'utf8')}
+function send(res,status,body,type='application/json; charset=utf-8'){res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});res.end(typeof body==='string'?body:JSON.stringify(body))}
+function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>45*1024*1024){req.destroy();reject(new Error('Payload too large'))}});req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}});req.on('error',reject)})}
+function token(){const p=Buffer.from(JSON.stringify({u:'admin',e:Date.now()+7*86400000})).toString('base64url');const s=crypto.createHmac('sha256',SECRET).update(p).digest('base64url');return p+'.'+s}
+function auth(req,res){try{const t=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');const [p,s]=t.split('.');if(!p||!s)throw 0;const es=crypto.createHmac('sha256',SECRET).update(p).digest('base64url');if(s.length!==es.length||!crypto.timingSafeEqual(Buffer.from(s),Buffer.from(es)))throw 0;const x=JSON.parse(Buffer.from(p,'base64url').toString());if(x.u!=='admin'||Date.now()>x.e)throw 0;return true}catch(e){send(res,401,{error:'Unauthorized'});return false}}
+const server=http.createServer(async(req,res)=>{try{const u=url.parse(req.url,true),p=u.pathname;
+ if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
+ if(req.method==='POST'&&p==='/api/login'){const x=await body(req);return x.username==='admin'&&x.password==='admin123'?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
+ if(req.method==='GET'&&p==='/api/site'){return send(res,200,read())}
+ if(p.startsWith('/api/admin')){if(!auth(req,res))return; const d=read();
+  if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
+  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions};write(nd);return send(res,200,{ok:true,data:nd})}
+  if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});write(d);return send(res,200,{ok:true,data:d})}
+  if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);write(d);return send(res,200,{ok:true,data:d})}
  }
- if(req.method==='GET'){let file=p==='/admin'?'admin.html':p==='/admin/'?'admin.html':p==='/' ? 'index.html' : p.slice(1)||'index.html';if(file.includes('..'))return send(res,403,'Forbidden',{'Content-Type':'text/plain'});const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){const ext=path.extname(fp);res.writeHead(200,{'Content-Type':mime[ext]||'application/octet-stream','Cache-Control':ext==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
- send(res,404,'Not found',{'Content-Type':'text/plain; charset=utf-8'});
- }catch(e){console.error(e);send(res,500,{error:e.message})}});
-server.listen(PORT,()=>console.log('Ludo Baji Admin V6 running on '+PORT));
+ if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
+ send(res,404,'Not found','text/plain; charset=utf-8');
+}catch(e){console.error(e);send(res,500,{error:e.message})}});server.listen(PORT,()=>console.log('Ludo Baji V8 listening on '+PORT));
