@@ -1,9 +1,10 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
+const db=require('./database');
 const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET||'Ludo-Baji-Admin-Secret-Change-Me-2026',ADMIN_USERNAME=process.env.ADMIN_USERNAME||'admin',ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||'rakib999';
 // Environment variables can override the defaults above. Defaults keep the existing deployment working; set ADMIN_SECRET and ADMIN_PASSWORD in Render for production security.
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
-function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'))}
-function write(d){const tmp=DATA+'.tmp';fs.writeFileSync(tmp,JSON.stringify(d,null,2),'utf8');fs.renameSync(tmp,DATA)}
+async function read(){return db.getData()}
+async function write(d){return db.saveData(d)}
 function send(res,status,body,type='application/json; charset=utf-8'){res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});res.end(typeof body==='string'?body:JSON.stringify(body))}
 function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>45*1024*1024){req.destroy();reject(new Error('Payload too large'))}});req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}});req.on('error',reject)})}
 function token(){const p=Buffer.from(JSON.stringify({u:'admin',e:Date.now()+7*86400000})).toString('base64url');const s=crypto.createHmac('sha256',SECRET).update(p).digest('base64url');return p+'.'+s}
@@ -11,13 +12,13 @@ function auth(req,res){try{const t=(req.headers.authorization||'').replace(/^Bea
 const server=http.createServer(async(req,res)=>{try{const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
  if(req.method==='POST'&&p==='/api/login'){const x=await body(req);const username=String(x.username||'');const password=String(x.password||'');if(username.length>100||password.length>200)return send(res,400,{ok:false,error:'Invalid login data'});return username===ADMIN_USERNAME&&password===ADMIN_PASSWORD?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
- if(req.method==='GET'&&p==='/api/site'){return send(res,200,read())}
- if(p.startsWith('/api/admin')){if(!auth(req,res))return; const d=read();
+ if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
+ if(p.startsWith('/api/admin')){if(!auth(req,res))return; const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
-  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions};write(nd);return send(res,200,{ok:true,data:nd})}
-  if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});write(d);return send(res,200,{ok:true,data:d})}
-  if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);write(d);return send(res,200,{ok:true,data:d})}
+  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions};await write(nd);return send(res,200,{ok:true,data:nd})}
+  if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});await write(d);return send(res,200,{ok:true,data:d})}
+  if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);await write(d);return send(res,200,{ok:true,data:d})}
  }
  if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
  send(res,404,'Not found','text/plain; charset=utf-8');
-}catch(e){console.error(e);send(res,500,{error:e.message})}});server.listen(PORT,()=>console.log('Ludo Baji V8 listening on '+PORT));
+}catch(e){console.error(e);send(res,500,{error:e.message})}});(async()=>{try{await db.init();server.listen(PORT,()=>console.log('Ludo Baji V8.1 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();
