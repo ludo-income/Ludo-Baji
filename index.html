@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Ludo Baji</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:#0b1020;
+    color:white;
+}
+
+header{
+    background:#151d35;
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    position:sticky;
+    top:0;
+}
+
+.logo{
+    font-size:24px;
+    font-weight:bold;
+    color:#ffd43b;
+}
+
+button{
+    border:0;
+    padding:11px 18px;
+    border-radius:8px;
+    background:#ffb703;
+    color:#111;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.container{
+    width:94%;
+    max-width:1100px;
+    margin:auto;
+}
+
+.hero{
+    margin-top:20px;
+    padding:35px 20px;
+    text-align:center;
+    background:linear-gradient(135deg,#172554,#312e81);
+    border-radius:15px;
+}
+
+.hero h1{
+    font-size:35px;
+    margin-bottom:10px;
+}
+
+.hero p{
+    color:#dbeafe;
+    margin-bottom:20px;
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:15px;
+    margin:20px 0;
+}
+
+.card{
+    background:#151d35;
+    padding:20px;
+    border-radius:12px;
+}
+
+.card h3{
+    margin-bottom:10px;
+    color:#ffd43b;
+}
+
+.balance{
+    font-size:25px;
+    font-weight:bold;
+}
+
+section{
+    margin:25px 0;
+}
+
+section h2{
+    margin-bottom:15px;
+}
+
+.match{
+    background:#151d35;
+    padding:18px;
+    margin-bottom:12px;
+    border-radius:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+
+.match p{
+    margin:5px 0;
+    color:#cbd5e1;
+}
+
+.form{
+    background:#151d35;
+    padding:20px;
+    border-radius:12px;
+}
+
+input,select{
+    width:100%;
+    padding:12px;
+    margin:8px 0 15px;
+    border-radius:8px;
+    border:1px solid #334155;
+    background:#0b1020;
+    color:white;
+}
+
+footer{
+    margin-top:40px;
+    padding:25px;
+    text-align:center;
+    background:#151d35;
+    color:#94a3b8;
+}
+
+@media(max-width:700px){
+    .cards{
+        grid-template-columns:1fr;
+    }
+
+    .match{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .hero h1{
+        font-size:28px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">🎲 Ludo Baji</div>
+    <button onclick="login()">Login</button>
+</header>
+
+<div class="container">
+
+    <div class="hero">
+        <h1>Welcome to Ludo Baji</h1>
+        <p>Join Ludo matches and tournaments</p>
+        <button onclick="showMatches()">Join Match</button>
+    </div>
+
+    <!-- Balance -->
+    <div class="cards">
+
+        <div class="card">
+            <h3>Gaming Balance</h3>
+            <div class="balance">৳ 0</div>
+        </div>
+
+        <div class="card">
+            <h3>Winning Balance</h3>
+            <div class="balance">৳ 0</div>
+        </div>
+
+        <div class="card">
+            <h3>Total Matches</h3>
+            <div class="balance">0</div>
+        </div>
+
+    </div>
+
+    <!-- Matches -->
+    <section id="matches">
+        <h2>🔥 Available Matches</h2>
+
+        <div class="match">
+            <div>
+                <h3>Ludo Classic</h3>
+                <p>Entry: ৳10</p>
+                <p>Prize: ৳18</p>
+                <p>Start: 8:00 PM</p>
+            </div>
+
+            <button onclick="joinMatch('Ludo Classic')">
+                Join
+            </button>
+        </div>
+
+        <div class="match">
+            <div>
+                <h3>Ludo Pro</h3>
+                <p>Entry: ৳20</p>
+                <p>Prize: ৳36</p>
+                <p>Start: 9:00 PM</p>
+            </div>
+
+            <button onclick="joinMatch('Ludo Pro')">
+                Join
+            </button>
+        </div>
+
+    </section>
+
+    <!-- Schedule -->
+    <section>
+        <h2>📅 Match Schedule</h2>
+
+        <div class="card">
+            <p>Match: Ludo Classic</p>
+            <p>Time: 8:00 PM</p>
+            <p>Room ID: Match শুরু হওয়ার আগে প্রকাশ হবে</p>
+        </div>
+
+    </section>
+
+    <!-- Screenshot -->
+    <section>
+        <h2>🏆 Winning Screenshot</h2>
+
+        <div class="form">
+
+            <label>Match Serial</label>
+            <input type="text" placeholder="Match Serial">
+
+            <label>Room ID</label>
+            <input type="text" placeholder="Room ID">
+
+            <label>Screenshot</label>
+            <input type="file" accept="image/*">
+
+            <button onclick="submitWin()">
+                Submit Screenshot
+            </button>
+
+        </div>
+    </section>
+
+    <!-- Deposit -->
+    <section>
+        <h2>💳 Deposit</h2>
+
+        <div class="form">
+
+            <select>
+                <option>bKash</option>
+                <option>Nagad</option>
+                <option>Rocket</option>
+            </select>
+
+            <input type="number" placeholder="Amount">
+
+            <input type="text" placeholder="Transaction ID">
+
+            <button onclick="deposit()">
+                Submit Deposit
+            </button>
+
+        </div>
+    </section>
+
+    <!-- Withdraw -->
+    <section>
+        <h2>💰 Withdraw</h2>
+
+        <div class="form">
+
+            <select>
+                <option>bKash</option>
+                <option>Nagad</option>
+                <option>Rocket</option>
+            </select>
+
+            <input type="number" placeholder="Amount">
+
+            <input type="text" placeholder="Account Number">
+
+            <button onclick="withdraw()">
+                Submit Withdraw
+            </button>
+
+        </div>
+    </section>
+
+    <!-- Referral -->
+    <section>
+        <h2>👥 Referral</h2>
+
+        <div class="card">
+            <p>আপনার Referral Code</p>
+            <br>
+            <input value="LUDO1234" readonly>
+            <button onclick="copyReferral()">Copy Code</button>
+        </div>
+
+    </section>
+
+    <!-- Support -->
+    <section>
+        <h2>💬 Customer Support</h2>
+
+        <div class="card">
+            <p>Match, Room ID, Payment অথবা অন্য কোনো সমস্যার জন্য Support-এ যোগাযোগ করুন।</p>
+            <br>
+            <button onclick="support()">Contact Support</button>
+        </div>
+
+    </section>
+
+</div>
+
+<footer>
+    © 2026 Ludo Baji — All Rights Reserved
+</footer>
+
+
+<script>
+
+function login(){
+    alert("Login system backend যুক্ত করার পর কাজ করবে।");
+}
+
+function showMatches(){
+    document.getElementById("matches").scrollIntoView({
+        behavior:"smooth"
+    });
+}
+
+function joinMatch(name){
+    alert(name + " Join Request পাঠানো হয়েছে।");
+}
+
+function submitWin(){
+    alert("Winning Screenshot Submit করা হয়েছে।");
+}
+
+function deposit(){
+    alert("Deposit Request Submit করা হয়েছে।");
+}
+
+function withdraw(){
+    alert("Withdraw Request Submit করা হয়েছে।");
+}
+
+function support(){
+    alert("Customer Support খুলবে।");
+}
+
+function copyReferral(){
+
+    navigator.clipboard.writeText("LUDO1234");
+
+    alert("Referral Code Copy হয়েছে।");
+
+}
+
+</script>
+
+</body>
+  </html>
