@@ -134,4 +134,42 @@ async function getUserById(id) {
   if (!hasDatabase()) return fallbackUsersRead().find(u=>String(u.id)===String(id))||null;
   await init(); const r=await pool.query('SELECT id,user_code,phone,name,status,created_at FROM users WHERE id=$1',[id]); return r.rows[0]||null;
 }
-module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById };
+
+async function getUserDashboard(id) {
+  if (!hasDatabase()) {
+    const users = fallbackUsersRead();
+    const u = users.find(x => String(x.id) === String(id));
+    if (!u) return null;
+    return {
+      gaming_balance: Number(u.gaming_balance || 0),
+      winning_balance: Number(u.winning_balance || 0),
+      joined_matches: Number(u.joined_matches || 0),
+      notifications: Number(u.notifications || 0)
+    };
+  }
+  await init();
+  await pool.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING', [id]);
+  const r = await pool.query(`
+    SELECT w.gaming_balance, w.winning_balance,
+      (SELECT COUNT(*) FROM match_players mp WHERE mp.user_id=$1)::int AS joined_matches,
+      (SELECT COUNT(*) FROM notifications n WHERE n.user_id=$1 AND n.read_at IS NULL)::int AS notifications
+    FROM wallets w WHERE w.user_id=$1`, [id]);
+  return r.rows[0] || {gaming_balance:0, winning_balance:0, joined_matches:0, notifications:0};
+}
+
+async function ensureUserWallet(id) {
+  if (!hasDatabase()) {
+    const users = fallbackUsersRead();
+    const u = users.find(x => String(x.id) === String(id));
+    if (!u) return null;
+    if (u.gaming_balance == null) u.gaming_balance = 0;
+    if (u.winning_balance == null) u.winning_balance = 0;
+    fallbackUsersWrite(users);
+    return u;
+  }
+  await init();
+  await pool.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING', [id]);
+  return true;
+}
+
+module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet };

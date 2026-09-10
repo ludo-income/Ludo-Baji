@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": 1789057786529,
+    "user_code": "U57786529",
+    "phone": "+8801712345678",
+    "name": "",
+    "status": "active",
+    "otp_hash": "4273f3cc0738f532555e629a32bd65838cfec2e9e3ecf9a89965cbe18c503c99",
+    "otp_expires_at": "2026-09-10T16:34:46.529Z",
+    "otp_sent_at": "2026-09-10T16:29:46.529Z",
+    "otp_attempts": 0,
+    "created_at": "2026-09-10T16:29:46.529Z"
+  }
+]

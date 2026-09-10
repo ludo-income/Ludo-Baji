@@ -51,9 +51,10 @@ const server=http.createServer(async(req,res)=>{try{
    if(Number(user.otp_attempts||0)>=OTP_MAX_ATTEMPTS){await db.clearUserOtp(phone);return send(res,429,{ok:false,error:'অনেকবার ভুল OTP দেওয়া হয়েছে। নতুন OTP নিন'});
    }
    if(otpHash(phone,otp)!==user.otp_hash){await db.updateOtpAttempts(phone,Number(user.otp_attempts||0)+1);return send(res,401,{ok:false,error:'OTP সঠিক নয়'});}
-   await db.clearUserOtp(phone);const fresh=await db.getUserById(user.id);const token=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token,user:{id:fresh.id,user_code:fresh.user_code,phone:fresh.phone,name:fresh.name||'',status:fresh.status}});
+   await db.clearUserOtp(phone);const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const token=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token,user:{id:fresh.id,user_code:fresh.user_code,phone:fresh.phone,name:fresh.name||'',status:fresh.status}});
  }
  if(req.method==='GET'&&p==='/api/auth/me'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
+ if(req.method==='GET'&&p==='/api/user/dashboard'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status},dashboard})}
  if(req.method==='PUT'&&p==='/api/auth/profile'){const x=userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
