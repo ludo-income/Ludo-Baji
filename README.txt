@@ -1,1 +1,1 @@
-Updated Category: Match, Deposit, My Statement, Withdraw, Support, My Match. Recommended Matches area removed.
+Ludo Baji updated green design. No bottom navigation. Profile is top-right. All enabled systems are designed to appear in Category. The Category list is structured for future Admin/API-driven dynamic systems.

@@ -1,31 +1,243 @@
-<!doctype html><html lang="bn"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Baji</title>
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ludo Baji</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#ffc61a;color:#352929;font-family:Arial}.app{max-width:720px;margin:auto;padding-bottom:90px}.top{background:#352929;padding:18px;border-radius:0 0 28px 28px}.brand{display:flex;align-items:center;gap:8px}.brand img{width:55px;height:55px;object-fit:contain}.brand h1{color:#ffd21a;flex:1}.search{margin-top:14px;background:#ffc61a;border-radius:25px;padding:12px}.search input{border:0;background:none;outline:0;width:90%}.hero,.wallet,.panel{margin:18px 14px;background:#352929;color:#fff;border-radius:22px;padding:20px}.hero{text-align:center}.hero img{width:100px;height:100px;object-fit:contain}.hero h2{color:#ffd21a}.btn{background:#ffc61a;border:0;border-radius:11px;padding:12px 18px;font-weight:bold;color:#352929}.wallet{display:grid;grid-template-columns:1fr 1fr;gap:10px}.wallet strong{font-size:19px}.section{padding:0 14px;margin-top:24px}.title{display:flex;justify-content:space-between}.categories{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.cat{background:none;border:0;color:#352929;text-align:center;font-size:14px}.icon{background:#352929;color:#ffc61a;border-radius:12px;width:68px;height:62px;margin:auto auto 7px;display:grid;place-items:center;font-size:28px}.cat.active .icon{outline:4px solid #fff}.panel{display:none}.panel.show{display:block}.panel h3{color:#ffd21a}.item{background:#473737;border-radius:12px;padding:13px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:75px;background:#352929;border-radius:22px 22px 0 0;display:grid;grid-template-columns:repeat(4,1fr)}.nav{background:none;border:0;color:#fff}.nav b{display:block;color:#ffc61a;font-size:22px}@media(max-width:430px){.categories{gap:12px 6px}}
-</style></head><body><div class="app">
-<header class="top"><div class="brand"><img src="7543.jpg"><h1>Ludo Baji</h1><button class="btn" onclick="alert('Login will connect to backend')">Login</button></div><div class="search"><input placeholder="Search here ..."> 🔍</div></header>
-<section class="hero"><img src="7543.jpg"><h2>Welcome to Ludo Baji</h2><p>Join Ludo matches and tournaments</p><button class="btn" onclick="show('match')">Join Match</button></section>
-<section class="wallet"><div>▣ My Wallet<br><strong>৳ 0</strong></div><div>● My Coins<br><strong>0</strong></div></section>
-<section class="section" id="category"><div class="title"><h2>Category</h2><span>☰</span></div>
-<div class="categories">
-<button class="cat active" onclick="show('match')"><div class="icon">🎮</div>Match</button>
-<button class="cat" onclick="show('deposit')"><div class="icon">💳</div>Deposit</button>
-<button class="cat" onclick="show('statement')"><div class="icon">🏷️</div>My Statement</button>
-<button class="cat" onclick="show('withdraw')"><div class="icon">💰</div>Withdraw</button>
-<button class="cat" onclick="show('support')"><div class="icon">✅</div>Support</button>
-<button class="cat" onclick="show('mymatch')"><div class="icon">🎮</div>My Match</button>
-</div><div id="panel" class="panel show"></div></section>
-<section class="section"><div class="title"><h2>📅 Match Schedule</h2></div><div class="panel" style="display:block"><b>Room ID:</b> Match শুরু হওয়ার আগে প্রকাশ হবে</div></section>
-<section class="section"><div class="title"><h2>🏆 Winning Screenshot</h2></div><div class="panel" style="display:block"><input id="serial" placeholder="Match Serial"><br><br><input id="room" placeholder="Room ID"><br><br><input id="shot" type="file" accept="image/*"><br><br><button class="btn" onclick="submitWin()">Submit Screenshot</button></div></section>
-</div><nav class="bottom"><button class="nav" onclick="scrollTo(0,0)"><b>⌂</b>Home</button><button class="nav" onclick="category.scrollIntoView({behavior:'smooth'})"><b>⌕</b>Explore</button><button class="nav" onclick="show('mymatch')"><b>◉</b>Matches</button><button class="nav" onclick="alert('Profile will connect to backend')"><b>●</b>Profile</button></nav>
+:root{
+  --green:#18a957;
+  --green2:#0d7f42;
+  --dark:#242a27;
+  --card:#303833;
+  --soft:#3b443e;
+  --white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:var(--green);
+  color:var(--dark);
+  min-height:100vh;
+}
+.app{max-width:720px;margin:auto;padding-bottom:25px}
+
+/* Top */
+.top{
+  background:var(--dark);
+  padding:16px 18px 20px;
+  border-radius:0 0 28px 28px;
+}
+.toprow{display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:9px;flex:1}
+.brand img{
+  width:54px;height:54px;object-fit:contain;border-radius:10px
+}
+.brand h1{color:#fff;font-size:23px}
+.profile{
+  width:48px;height:48px;border-radius:50%;
+  border:2px solid var(--green);
+  background:var(--green);
+  color:#fff;font-size:24px;cursor:pointer;
+}
+.search{
+  margin-top:14px;background:#fff;border-radius:25px;
+  padding:11px 15px;display:flex;align-items:center
+}
+.search input{
+  width:100%;border:0;outline:0;background:transparent;
+  font-size:15px;color:var(--dark)
+}
+
+/* Category */
+.category{
+  padding:22px 18px 10px;
+}
+.title{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:18px
+}
+.title h2{font-size:25px}
+.menu{font-size:27px}
+.categories{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px 14px;
+}
+.cat{
+  border:0;background:transparent;color:var(--dark);
+  text-align:center;font-size:14px;cursor:pointer
+}
+.icon{
+  width:72px;height:66px;margin:auto auto 7px;
+  background:var(--dark);color:#fff;border-radius:13px;
+  display:grid;place-items:center;font-size:29px;
+  box-shadow:0 3px 0 rgba(0,0,0,.12)
+}
+.cat.active .icon{
+  outline:4px solid #fff;
+  background:var(--green2);
+}
+.cat.active{font-weight:700}
+
+/* Dynamic content: this is the ONLY content area below Category */
+.content{
+  margin:8px 18px 25px;
+  background:var(--dark);
+  color:#fff;border-radius:22px;padding:20px;
+  display:none;
+}
+.content.show{display:block}
+.content h3{color:#58df8a;font-size:22px;margin-bottom:9px}
+.content p{color:#eee;line-height:1.55}
+.list{display:grid;gap:10px;margin-top:14px}
+.item{
+  background:var(--soft);border-radius:13px;padding:14px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px
+}
+.item small{display:block;color:#ddd;margin-top:4px}
+.btn{
+  border:0;background:#27c76a;color:#fff;border-radius:10px;
+  padding:11px 16px;font-weight:700;cursor:pointer
+}
+.form{margin-top:14px}
+.form input,.form select,.form textarea{
+  width:100%;padding:12px;margin:6px 0 10px;
+  border:0;border-radius:9px;outline:0
+}
+.note{
+  background:#3b443e;border-radius:12px;padding:12px;
+  margin-top:10px;color:#eee;font-size:13px
+}
+@media(max-width:430px){
+  .categories{gap:16px 7px}
+  .icon{width:64px;height:60px}
+  .category{padding-left:14px;padding-right:14px}
+  .content{margin-left:14px;margin-right:14px}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<header class="top">
+  <div class="toprow">
+    <div class="brand">
+      <img src="7543.jpg" alt="Ludo Baji Logo">
+      <h1>Ludo Baji</h1>
+    </div>
+    <button class="profile" onclick="openProfile()" title="Profile">👤</button>
+  </div>
+  <div class="search">
+    <input id="search" placeholder="Search here ...">
+    🔍
+  </div>
+</header>
+
+<section class="category" id="category">
+  <div class="title">
+    <h2>Category</h2>
+    <span class="menu">☰</span>
+  </div>
+
+  <!--
+    সব চালু করা system এখানে Category হিসেবে আসবে।
+    Backend/Admin যুক্ত হলে এই array/API response বদলালেই
+    নতুন option automatically এখানে যোগ হবে।
+  -->
+  <div class="categories" id="categories"></div>
+</section>
+
+<!-- Category click করলে শুধু এই জায়গাতেই selected option সামনে আসবে -->
+<section id="content" class="content"></section>
+
+</div>
+
 <script>
-const d={
-match:['🎮 Match','এখানে সব Match ও Tournament সামনে আসবে.','<div class="item"><span><b>Ludo Classic</b><br>Entry ৳10 · Prize ৳18 · 8:00 PM</span><button class="btn">Join</button></div><div class="item"><span><b>Ludo Pro</b><br>Entry ৳20 · Prize ৳36 · 9:00 PM</span><button class="btn">Join</button></div>'],
-deposit:['💳 Deposit','Deposit করার option এখানে আসবে.','<input placeholder="Amount"><br><br><input placeholder="Transaction ID"><br><br><button class="btn">Submit Deposit</button>'],
-statement:['🏷️ My Statement','আপনার transaction/activity history এখানে আসবে.','<div class="item">No statement yet</div>'],
-withdraw:['💰 Withdraw','Withdrawal request করার option এখানে আসবে.','<input placeholder="Amount"><br><br><input placeholder="Account Number"><br><br><button class="btn">Submit Withdraw</button>'],
-support:['✅ Support','Match, Payment বা Account সমস্যার জন্য Support.','<div class="item"><span>Customer Support</span><button class="btn">Open</button></div>'],
-mymatch:['🎮 My Match','আপনি যে Match join করেছেন সেগুলো এখানে আসবে.','<div class="item">No joined match yet</div>']};
-function show(k){document.querySelectorAll('.cat').forEach((x,i)=>x.classList.toggle('active',i===Object.keys(d).indexOf(k)));let x=d[k];panel.innerHTML='<h3>'+x[0]+'</h3><p>'+x[1]+'</p>'+x[2];panel.classList.add('show');panel.scrollIntoView({behavior:'smooth',block:'nearest'})}
-function submitWin(){if(!serial.value||!room.value||!shot.files.length)return alert('সব তথ্য দিন');alert('Backend যুক্ত হলে submission server-এ যাবে')}
-show('match');
-</script></body></html>
+/*
+  ভবিষ্যতে Admin থেকে system চালু করলে:
+  [
+    {id:"match", title:"Match", icon:"🎮"},
+    {id:"deposit", title:"Deposit", icon:"💳"},
+    ...
+  ]
+  এই list API থেকে load করা যাবে।
+*/
+const systems = [
+  {id:"match", title:"Match", icon:"🎮"},
+  {id:"deposit", title:"Deposit", icon:"💳"},
+  {id:"statement", title:"My Statement", icon:"🏷️"},
+  {id:"withdraw", title:"Withdraw", icon:"💰"},
+  {id:"support", title:"Support", icon:"✅"},
+  {id:"mymatch", title:"My Match", icon:"🎮"}
+];
+
+const content = {
+  match: {
+    title:"🎮 Match",
+    text:"সব available Match ও Tournament এখানে সামনে আসবে।",
+    html:`<div class="list">
+      <div class="item"><div><b>Ludo Classic</b><small>Entry ৳10 · Prize ৳18 · 8:00 PM</small></div><button class="btn">Join</button></div>
+      <div class="item"><div><b>Ludo Pro</b><small>Entry ৳20 · Prize ৳36 · 9:00 PM</small></div><button class="btn">Join</button></div>
+    </div>`
+  },
+  deposit:{
+    title:"💳 Deposit",
+    text:"Deposit করার option এখানে সামনে আসবে।",
+    html:`<div class="form"><input type="number" placeholder="Amount"><input placeholder="Transaction ID"><button class="btn">Submit Deposit</button></div>`
+  },
+  statement:{
+    title:"🏷️ My Statement",
+    text:"আপনার account-এর transaction ও activity history এখানে আসবে।",
+    html:`<div class="list"><div class="item">No statement yet</div></div>`
+  },
+  withdraw:{
+    title:"💰 Withdraw",
+    text:"Withdrawal request করার option এখানে সামনে আসবে।",
+    html:`<div class="form"><input type="number" placeholder="Amount"><input placeholder="Account Number"><button class="btn">Submit Withdraw</button></div>`
+  },
+  support:{
+    title:"✅ Support",
+    text:"Match, Payment, Account বা অন্য সমস্যার জন্য Support এখানে আসবে।",
+    html:`<div class="list"><div class="item"><div><b>Customer Support</b><small>Support system / live chat এখানে যুক্ত হবে।</small></div><button class="btn">Open</button></div></div>`
+  },
+  mymatch:{
+    title:"🎮 My Match",
+    text:"আপনি যে Match join করেছেন সেগুলো এখানে সামনে আসবে।",
+    html:`<div class="list"><div class="item">No joined match yet</div></div>`
+  }
+};
+
+function renderCategories(){
+  const box=document.getElementById("categories");
+  box.innerHTML="";
+  systems.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.className="cat"+(i===0?" active":"");
+    b.innerHTML='<div class="icon">'+s.icon+'</div>'+s.title;
+    b.onclick=()=>showSystem(s.id,b);
+    box.appendChild(b);
+  });
+}
+
+function showSystem(id,button){
+  document.querySelectorAll(".cat").forEach(x=>x.classList.remove("active"));
+  if(button) button.classList.add("active");
+
+  const d=content[id];
+  const box=document.getElementById("content");
+  box.innerHTML="<h3>"+d.title+"</h3><p>"+d.text+"</p>"+d.html;
+  box.classList.add("show");
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function openProfile(){
+  alert("Profile page এখানে থাকবে। Backend যুক্ত হলে real profile/login system আসবে।");
+}
+
+renderCategories();
+showSystem("match",document.querySelector(".cat"));
+</script>
+</body>
+</html>
