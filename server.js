@@ -56,9 +56,38 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/auth/me'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/user/dashboard'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status},dashboard})}
  if(req.method==='PUT'&&p==='/api/auth/profile'){const x=userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
+ if(req.method==='GET'&&p==='/api/deposit/info'){
+   return send(res,200,{ok:true,methods:[
+     {id:'bkash',name:'bKash',number:process.env.BKASH_NUMBER||'01301470686'},
+     {id:'nagad',name:'Nagad',number:process.env.NAGAD_NUMBER||'01806097369'}
+   ]});
+ }
+ if(req.method==='GET'&&p==='/api/user/deposits'){
+   const x=userAuth(req,res);if(!x)return;
+   return send(res,200,{ok:true,deposits:await db.listUserDeposits(x.id)});
+ }
+ if(req.method==='POST'&&p==='/api/user/deposits'){
+   const x=userAuth(req,res);if(!x)return;
+   const b=await body(req),method=String(b.method||'').toLowerCase(),amount=Number(b.amount),transactionId=String(b.transaction_id||'').trim(),screenshot=String(b.screenshot||'');
+   if(!['bkash','nagad'].includes(method))return send(res,400,{ok:false,error:'bKash অথবা Nagad নির্বাচন করুন'});
+   if(!Number.isFinite(amount)||amount<=0||amount>1000000)return send(res,400,{ok:false,error:'সঠিক Deposit amount দিন'});
+   if(!/^[A-Za-z0-9._-]{3,100}$/.test(transactionId))return send(res,400,{ok:false,error:'সঠিক Transaction ID দিন'});
+   if(!/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(screenshot))return send(res,400,{ok:false,error:'Payment screenshot upload করুন'});
+   const comma=screenshot.indexOf(','),bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
+   try{const d=await db.createDeposit(x.id,method,amount,transactionId,screenshot);return send(res,201,{ok:true,message:'Deposit request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',deposit:{id:d.id,method:d.method,amount:Number(d.amount),transaction_id:d.transaction_id,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Deposit failed'})}
+ }
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
+  if(req.method==='GET'&&p==='/api/admin/deposits'){
+    const status=['all','pending','approved','rejected'].includes(String(u.query.status||'all'))?String(u.query.status||'all'):'all';
+    return send(res,200,{ok:true,deposits:await db.listAdminDeposits(status)});
+  }
+  if(req.method==='POST'&&/^\/api\/admin\/deposits\/[^/]+\/review$/.test(p)){
+    const id=decodeURIComponent(p.split('/')[4]),b=await body(req),status=String(b.status||'').toLowerCase(),note=String(b.note||'').trim();
+    if(!['approved','rejected'].includes(status))return send(res,400,{ok:false,error:'Approve অথবা Reject নির্বাচন করুন'});
+    try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewDeposit(id,status,adminId,note);return send(res,200,{ok:true,message:status==='approved'?'Deposit approved':'Deposit rejected',deposit:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
+  }
   if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions};await write(nd);return send(res,200,{ok:true,data:nd})}
   if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});await write(d);return send(res,200,{ok:true,data:d})}
   if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);await write(d);return send(res,200,{ok:true,data:d})}

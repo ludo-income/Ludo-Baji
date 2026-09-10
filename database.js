@@ -3,6 +3,7 @@ const path = require('path');
 
 const DATA = path.join(__dirname, 'data.json');
 const USERS_DATA = path.join(__dirname, 'users.json');
+const DEPOSITS_DATA = path.join(__dirname, 'deposits.json');
 let pool = null;
 let ready = null;
 
@@ -22,6 +23,15 @@ function fallbackUsersWrite(users) {
   const tmp = USERS_DATA + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(users, null, 2), 'utf8');
   fs.renameSync(tmp, USERS_DATA);
+}
+function fallbackDepositsRead() {
+  if (!fs.existsSync(DEPOSITS_DATA)) return [];
+  try { return JSON.parse(fs.readFileSync(DEPOSITS_DATA, 'utf8')); } catch { return []; }
+}
+function fallbackDepositsWrite(items) {
+  const tmp = DEPOSITS_DATA + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(items, null, 2), 'utf8');
+  fs.renameSync(tmp, DEPOSITS_DATA);
 }
 function hasDatabase() { return Boolean(process.env.DATABASE_URL); }
 
@@ -49,6 +59,7 @@ async function init() {
       CREATE TABLE IF NOT EXISTS wallets (user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, gaming_balance NUMERIC(14,2) NOT NULL DEFAULT 0, winning_balance NUMERIC(14,2) NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS transactions (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, type TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, balance_type TEXT, reference TEXT, status TEXT NOT NULL DEFAULT 'pending', note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS deposits (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, transaction_id TEXT, screenshot TEXT, status TEXT NOT NULL DEFAULT 'pending', reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_deposits_transaction_id ON deposits(transaction_id) WHERE transaction_id IS NOT NULL AND transaction_id <> '';
       CREATE TABLE IF NOT EXISTS withdrawals (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, account_number TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, status TEXT NOT NULL DEFAULT 'pending', reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
       CREATE TABLE IF NOT EXISTS matches (id BIGSERIAL PRIMARY KEY, match_code TEXT UNIQUE, title TEXT NOT NULL, entry_fee NUMERIC(14,2) NOT NULL DEFAULT 0, winning_amount NUMERIC(14,2) NOT NULL DEFAULT 0, room_id TEXT, status TEXT NOT NULL DEFAULT 'open', scheduled_at TIMESTAMPTZ, winner_user_id BIGINT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, slot SMALLINT NOT NULL, status TEXT NOT NULL DEFAULT 'joined', joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (match_id, user_id), UNIQUE (match_id, slot));
@@ -172,4 +183,91 @@ async function ensureUserWallet(id) {
   return true;
 }
 
-module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet };
+
+async function createDeposit(userId, method, amount, transactionId, screenshot) {
+  if (!hasDatabase()) {
+    const users = fallbackUsersRead();
+    const user = users.find(u => String(u.id) === String(userId));
+    if (!user) throw new Error('User not found');
+    const deposits = fallbackDepositsRead();
+    if (transactionId && deposits.some(d => String(d.transaction_id||'').toLowerCase() === String(transactionId).toLowerCase())) throw new Error('এই Transaction ID আগে ব্যবহার করা হয়েছে');
+    const id = Date.now();
+    const item = {id, user_id:user.id, user_code:user.user_code, phone:user.phone, method, amount:Number(amount), transaction_id:transactionId, screenshot, status:'pending', reviewed_by:null, created_at:new Date().toISOString(), reviewed_at:null};
+    deposits.unshift(item); fallbackDepositsWrite(deposits);
+    return item;
+  }
+  await init();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const u = await client.query('SELECT id,user_code,phone,status FROM users WHERE id=$1 FOR UPDATE',[userId]);
+    if (!u.rows[0]) throw new Error('User not found');
+    if (u.rows[0].status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+    const d = await client.query('INSERT INTO deposits(user_id,method,amount,transaction_id,screenshot,status) VALUES($1,$2,$3,$4,$5,\'pending\') RETURNING *',[userId,method,amount,transactionId||null,screenshot||null]);
+    await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note) VALUES($1,\'deposit\',$2,\'gaming\',$3,\'pending\',$4)',[userId,amount,transactionId||('DEP-'+d.rows[0].id),'Deposit request via '+method]);
+    await client.query('COMMIT');
+    return {...d.rows[0],user_code:u.rows[0].user_code,phone:u.rows[0].phone};
+  } catch(e) { await client.query('ROLLBACK'); if(e && e.code==='23505') throw new Error('এই Transaction ID আগে ব্যবহার করা হয়েছে'); throw e; } finally { client.release(); }
+}
+
+async function listUserDeposits(userId, limit=50) {
+  if (!hasDatabase()) return fallbackDepositsRead().filter(d=>String(d.user_id)===String(userId)).slice(0,limit);
+  await init();
+  const r=await pool.query(`SELECT id,method,amount,transaction_id,screenshot,status,created_at,reviewed_at FROM deposits WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2`,[userId,limit]);
+  return r.rows;
+}
+
+async function listAdminDeposits(status='all', limit=100) {
+  if (!hasDatabase()) {
+    const users=fallbackUsersRead(); const map=new Map(users.map(u=>[String(u.id),u]));
+    let rows=fallbackDepositsRead().map(d=>({...d,user_code:d.user_code||map.get(String(d.user_id))?.user_code||'',phone:d.phone||map.get(String(d.user_id))?.phone||''}));
+    if(status!=='all') rows=rows.filter(d=>d.status===status);
+    return rows.slice(0,limit);
+  }
+  await init();
+  const where=status==='all'?'':' WHERE d.status=$1';
+  const params=status==='all'?[limit]:[status,limit];
+  const r=await pool.query(`SELECT d.id,d.user_id,u.user_code,u.phone,u.name,d.method,d.amount,d.transaction_id,d.screenshot,d.status,d.created_at,d.reviewed_at FROM deposits d JOIN users u ON u.id=d.user_id${where} ORDER BY d.created_at DESC LIMIT $${params.length}` ,params);
+  return r.rows;
+}
+
+async function reviewDeposit(depositId, status, adminId=null, note='') {
+  if (!['approved','rejected'].includes(status)) throw new Error('Invalid deposit status');
+  if (!hasDatabase()) {
+    const deposits=fallbackDepositsRead(); const d=deposits.find(x=>String(x.id)===String(depositId));
+    if(!d) throw new Error('Deposit পাওয়া যায়নি');
+    if(d.status!=='pending') throw new Error('এই Deposit ইতিমধ্যে review করা হয়েছে');
+    d.status=status; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString(); fallbackDepositsWrite(deposits);
+    const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id));
+    if(u){
+      u.gaming_balance=Number(u.gaming_balance||0); if(status==='approved') u.gaming_balance+=Number(d.amount); fallbackUsersWrite(users);
+    }
+    return d;
+  }
+  await init();
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const q=await client.query('SELECT d.*,u.user_code FROM deposits d JOIN users u ON u.id=d.user_id WHERE d.id=$1 FOR UPDATE',[depositId]);
+    if(!q.rows[0]) throw new Error('Deposit পাওয়া যায়নি');
+    const d=q.rows[0]; if(d.status!=='pending') throw new Error('এই Deposit ইতিমধ্যে review করা হয়েছে');
+    await client.query('UPDATE deposits SET status=$1, reviewed_by=$2, reviewed_at=NOW() WHERE id=$3',[status,adminId,depositId]);
+    if(status==='approved'){
+      await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[d.user_id]);
+      await client.query('UPDATE wallets SET gaming_balance=gaming_balance+$1,updated_at=NOW() WHERE user_id=$2',[d.amount,d.user_id]);
+      await client.query('UPDATE transactions SET status=\'completed\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit approved',d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Deposit Approved','আপনার ৳'+Number(d.amount).toFixed(2)+' Deposit Gaming Balance-এ যোগ হয়েছে।']);
+    } else {
+      await client.query('UPDATE transactions SET status=\'rejected\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit rejected',d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Deposit Rejected','আপনার Deposit requestটি বাতিল করা হয়েছে।']);
+    }
+    await client.query('COMMIT'); return {...d,status,reviewed_at:new Date().toISOString()};
+  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+}
+
+async function getAdminId(username) {
+  if (!hasDatabase()) return null;
+  await init(); const r=await pool.query('SELECT id FROM admins WHERE username=$1',[username]); return r.rows[0]?.id||null;
+}
+
+module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, getAdminId };
