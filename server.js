@@ -1,14 +1,16 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
-const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET||'ludo-baji-admin-secret-v9';
+const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET,ADMIN_USERNAME=process.env.ADMIN_USERNAME||'admin',ADMIN_PASSWORD=process.env.ADMIN_PASSWORD;
+if(!SECRET||!ADMIN_PASSWORD){console.error('Missing required environment variables: ADMIN_SECRET and ADMIN_PASSWORD');process.exit(1)}
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
-function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'))} function write(d){fs.writeFileSync(DATA,JSON.stringify(d,null,2),'utf8')}
+function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'))}
+function write(d){const tmp=DATA+'.tmp';fs.writeFileSync(tmp,JSON.stringify(d,null,2),'utf8');fs.renameSync(tmp,DATA)}
 function send(res,status,body,type='application/json; charset=utf-8'){res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});res.end(typeof body==='string'?body:JSON.stringify(body))}
 function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>45*1024*1024){req.destroy();reject(new Error('Payload too large'))}});req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}});req.on('error',reject)})}
 function token(){const p=Buffer.from(JSON.stringify({u:'admin',e:Date.now()+7*86400000})).toString('base64url');const s=crypto.createHmac('sha256',SECRET).update(p).digest('base64url');return p+'.'+s}
 function auth(req,res){try{const t=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');const [p,s]=t.split('.');if(!p||!s)throw 0;const es=crypto.createHmac('sha256',SECRET).update(p).digest('base64url');if(s.length!==es.length||!crypto.timingSafeEqual(Buffer.from(s),Buffer.from(es)))throw 0;const x=JSON.parse(Buffer.from(p,'base64url').toString());if(x.u!=='admin'||Date.now()>x.e)throw 0;return true}catch(e){send(res,401,{error:'Unauthorized'});return false}}
 const server=http.createServer(async(req,res)=>{try{const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
- if(req.method==='POST'&&p==='/api/login'){const x=await body(req);return x.username==='admin'&&x.password==='admin123'?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
+ if(req.method==='POST'&&p==='/api/login'){const x=await body(req);const username=String(x.username||'');const password=String(x.password||'');if(username.length>100||password.length>200)return send(res,400,{ok:false,error:'Invalid login data'});return username===ADMIN_USERNAME&&password===ADMIN_PASSWORD?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return; const d=read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
