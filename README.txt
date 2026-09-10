@@ -1,1 +1,1 @@
-Ludo Baji updated green design. No bottom navigation. Profile is top-right. All enabled systems are designed to appear in Category. The Category list is structured for future Admin/API-driven dynamic systems.
+Step 1: Green Main Page + Admin Category Management. Admin can add/edit/enable/disable/delete systems. Live shared changes require Backend + Database in the next step.
