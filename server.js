@@ -1,6 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
-const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET,ADMIN_USERNAME=process.env.ADMIN_USERNAME||'admin',ADMIN_PASSWORD=process.env.ADMIN_PASSWORD;
-if(!SECRET||!ADMIN_PASSWORD){console.error('Missing required environment variables: ADMIN_SECRET and ADMIN_PASSWORD');process.exit(1)}
+const ROOT=__dirname,DATA=path.join(ROOT,'data.json'),PORT=process.env.PORT||3000,SECRET=process.env.ADMIN_SECRET||'Ludo-Baji-Admin-Secret-Change-Me-2026',ADMIN_USERNAME=process.env.ADMIN_USERNAME||'admin',ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||'rakib999';
+// Environment variables can override the defaults above. Defaults keep the existing deployment working; set ADMIN_SECRET and ADMIN_PASSWORD in Render for production security.
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
 function read(){return JSON.parse(fs.readFileSync(DATA,'utf8'))}
 function write(d){const tmp=DATA+'.tmp';fs.writeFileSync(tmp,JSON.stringify(d,null,2),'utf8');fs.renameSync(tmp,DATA)}
