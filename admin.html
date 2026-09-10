@@ -1,23 +1,82 @@
 <!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Panel</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#eef3f1;color:#1f2522}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#08b7d2,#1685df)}.loginbox{width:min(410px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 20px 60px #0003}.loginbox h1{text-align:center;margin:0 0 20px}.field{margin:13px 0}.field label{display:block;font-weight:700;margin-bottom:7px}.input,textarea,select{width:100%;border:1px solid #d7dfdb;border-radius:10px;padding:12px;font:inherit;outline:0}.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:#19ad59;color:#fff}.danger{background:#ef5350;color:#fff}.msg{text-align:center;color:#c62828;min-height:22px}.app{display:none;min-height:100vh}.sidebar{position:fixed;left:0;top:0;bottom:0;width:275px;background:#243d70;color:#fff;overflow-y:auto;box-shadow:5px 0 18px #0002;z-index:10}.brand{padding:22px 18px 16px;text-align:center;background:#213762;position:sticky;top:0;z-index:2}.brand img{width:86px;height:86px;object-fit:contain;border-radius:18px;background:#fff}.brand h2{margin:10px 0 4px;font-size:20px}.brand p{margin:0;color:#b9c9e8;font-size:12px}.nav{padding:12px 9px 25px}.nav button{width:100%;display:flex;align-items:center;gap:12px;border:0;background:transparent;color:#eaf0ff;padding:12px 13px;margin:2px 0;border-radius:9px;text-align:left;font-size:14px;cursor:pointer}.nav button:hover,.nav button.active{background:#1a315d}.nav .ni{width:25px;text-align:center;font-size:18px}.main{margin-left:275px;min-height:100vh;padding:20px}.topbar{height:68px;background:#fff;border-radius:14px;padding:0 20px;display:flex;align-items:center;gap:15px;box-shadow:0 3px 14px #0000000a}.topbar h1{margin:0;font-size:24px;flex:1}.search{width:260px;border:1px solid #e0e5e2;border-radius:24px;padding:10px 14px}.content{margin-top:18px}.screen{background:#fff;border-radius:18px;min-height:calc(100vh - 126px);padding:25px;box-shadow:0 3px 14px #0000000a}.screen-head{display:flex;align-items:center;gap:14px;border-bottom:1px solid #edf0ef;padding-bottom:18px}.screen-icon{width:55px;height:55px;border-radius:14px;background:#19ad59;color:#fff;display:grid;place-items:center;font-size:27px}.screen h2{margin:0;font-size:26px}.screen p.sub{margin:5px 0 0;color:#76817c}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:20px}.mini{background:#f5f8f6;border:1px solid #e2e8e4;border-radius:14px;padding:18px}.mini b{display:block;font-size:13px;color:#6b7671;margin-bottom:8px}.mini strong{font-size:24px}.editor{margin-top:22px;padding:20px;border:1px dashed #cbd7d0;border-radius:14px;background:#fbfcfb}.editor h3{margin-top:0}.option-tools{display:flex;gap:10px;flex-wrap:wrap}.toast{position:fixed;right:20px;bottom:20px;background:#1f2a25;color:#fff;padding:12px 16px;border-radius:10px;display:none;z-index:30}@media(max-width:900px){.sidebar{width:230px}.main{margin-left:230px}.cards{grid-template-columns:1fr 1fr}.search{display:none}}@media(max-width:650px){.sidebar{width:190px}.main{margin-left:190px;padding:10px}.brand img{width:62px;height:62px}.brand h2{font-size:15px}.nav button{font-size:12px;padding:10px 7px;gap:7px}.nav .ni{font-size:15px;width:19px}.topbar{padding:0 12px;height:58px}.topbar h1{font-size:18px}.screen{padding:16px;min-height:calc(100vh - 88px)}.cards{grid-template-columns:1fr}.screen h2{font-size:21px}}
 </style></head><body>
-<div id="login" class="login"><div class="loginbox"><h1>⚙️ Admin Login</h1><div class="field"><label>Username</label><input id="u" class="input" value="admin"></div><div class="field"><label>Password</label><input id="p" class="input" type="password" placeholder="admin123"></div><button class="btn primary" style="width:100%" onclick="login()">Login</button><div id="msg" class="msg"></div><small>Demo: admin / admin123</small></div></div>
+<div id="login" class="login"><div class="loginbox"><h1>⚙️ Admin Login</h1><div class="field"><label>Username</label><input id="u" class="input" value="admin"></div><div class="field"><label>Password</label><input id="p" class="input" type="password" placeholder="admin123"></div><button class="btn primary" style="width:100%" onclick="loginAdmin()">Login</button><div id="msg" class="msg"></div><small>Demo: admin / admin123</small></div></div>
 <div id="app" class="app"><aside class="sidebar"><div class="brand"><img id="brandLogo" src="7543.jpg"><h2 id="brandName">Ludo Baji</h2><p>ADMIN PANEL</p></div><nav id="nav" class="nav"></nav></aside><main class="main"><div class="topbar"><h1 id="pageTitle">Dashboard</h1><input id="navSearch" class="search" placeholder="Search menu..."><button class="btn danger" onclick="logout()">Logout</button></div><div class="content"><section id="screen" class="screen"></section></div></main></div><div id="toast" class="toast"></div>
 <script>
 let state=null,current='dashboard';
+const $=id=>document.getElementById(id);
 const defaultState={settings:{name:'Ludo Baji',logo:'7543.jpg'},options:[]};
 async function apiState(){const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw Error('state');return r.json()}
-async function saveState(){const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});if(!r.ok)throw Error('save');}
+async function saveState(){const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});if(!r.ok)throw Error('save');return r.json()}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
-async function login(){if(u.value==='admin'&&p.value==='admin123'){sessionStorage.lbAdmin='1';await start()}else msg.textContent='Username অথবা Password ভুল'}
-async function start(){try{state=await apiState()}catch(e){state=defaultState}login.style.display='none';app.style.display='block';renderNav();applyBrand();show(current)}
+function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+async function loginAdmin(){
+  const username=$('u').value.trim();
+  const password=$('p').value;
+  const msg=$('msg'); msg.textContent='';
+  if(username==='admin' && password==='admin123'){
+    sessionStorage.setItem('lbAdmin','1');
+    await start();
+  }else msg.textContent='Username অথবা Password ভুল';
+}
+async function start(){
+  try{state=await apiState()}catch(e){state=defaultState;toast('Server data load হয়নি')}
+  $('login').style.display='none';$('app').style.display='block';
+  renderNav();applyBrand();show(current);
+}
 function logout(){sessionStorage.removeItem('lbAdmin');location.reload()}
-function applyBrand(){brandName.textContent=state.settings.name;brandLogo.src=state.settings.logo;pageTitle.textContent=(state.options.find(x=>x.id===current)||state.options[0]||{}).name||'Dashboard'}
-function renderNav(filter=''){nav.innerHTML='';state.options.filter(o=>o.name.toLowerCase().includes(filter.toLowerCase())).forEach(o=>{const b=document.createElement('button');b.className=o.id===current?'active':'';b.dataset.id=o.id;b.innerHTML='<span class="ni">'+esc(o.icon)+'</span><span>'+esc(o.name)+'</span>';b.onclick=()=>{current=o.id;renderNav(navSearch.value);show(o.id)};nav.appendChild(b)})}
-navSearch.oninput=()=>renderNav(navSearch.value);
-function show(id){const o=state.options.find(x=>x.id===id)||state.options[0];if(!o)return;current=o.id;pageTitle.textContent=o.name;renderNav(navSearch.value);let editable=!['dashboard'].includes(o.id);screen.innerHTML='<div class="screen-head"><div class="screen-icon">'+esc(o.icon)+'</div><div><h2>'+esc(o.name)+'</h2><p class="sub">এই জায়গাটাই তোমার দেওয়া লাল চিহ্নের বড় screen — যে menu চাপবে তার page এখানে Show হবে।</p></div></div><div class="cards"><div class="mini"><b>SECTION</b><strong>'+esc(o.name)+'</strong></div><div class="mini"><b>STATUS</b><strong>Active</strong></div><div class="mini"><b>CONTROL</b><strong>Admin</strong></div></div><div class="editor"><h3>'+esc(o.name)+'</h3><p style="white-space:pre-wrap">'+esc(o.content)+'</p>'+(editable?'<div class="option-tools"><button class="btn primary" onclick="editCurrent()">Edit Section</button><button class="btn" onclick="deleteCurrent()">Delete Section</button></div>':'')+'</div>'}
-function editCurrent(){const o=state.options.find(x=>x.id===current);if(!o)return;const n=prompt('System/Option Name:',o.name);if(n===null)return;const ic=prompt('Icon:',o.icon);if(ic===null)return;const c=prompt('Content:',o.content);if(c===null)return;o.name=n.trim()||o.name;o.icon=ic.trim()||o.icon;o.content=c;saveState().then(()=>{renderNav();applyBrand();show(o.id);toast('Saved — Main Page-এও আপডেট হয়েছে')}).catch(()=>toast('Save failed'))}
-function deleteCurrent(){const i=state.options.findIndex(x=>x.id===current);if(i<0||!confirm('এই section delete করবেন?'))return;state.options.splice(i,1);current=state.options[0]?.id||'';saveState().then(()=>{renderNav();applyBrand();show(current);toast('Deleted')})}
-if(sessionStorage.lbAdmin==='1')start();
+function applyBrand(){
+  $('brandName').textContent=state.settings?.name||'Ludo Baji';
+  $('brandLogo').src=state.settings?.logo||'7543.jpg';
+  $('pageTitle').textContent=(state.options.find(x=>x.id===current)||state.options[0]||{}).name||'Dashboard';
+}
+function renderNav(filter=''){
+  const nav=$('nav'); nav.innerHTML='';
+  state.options.filter(o=>o.name.toLowerCase().includes(filter.toLowerCase())).forEach(o=>{
+    const b=document.createElement('button');b.className=o.id===current?'active':'';b.dataset.id=o.id;
+    b.innerHTML='<span class="ni">'+esc(o.icon)+'</span><span>'+esc(o.name)+'</span>';
+    b.onclick=()=>{current=o.id;renderNav($('navSearch').value);show(o.id)};nav.appendChild(b);
+  });
+}
+$('navSearch').addEventListener('input',e=>renderNav(e.target.value));
+function show(id){
+  const o=state.options.find(x=>x.id===id)||state.options[0]; if(!o)return;
+  current=o.id;$('pageTitle').textContent=o.name;renderNav($('navSearch').value);
+  if(o.id==='settings'){showSettings();return;}
+  if(o.id==='dashboard'){
+    $('screen').innerHTML='<div class="screen-head"><div class="screen-icon">📊</div><div><h2>Dashboard</h2><p class="sub">Admin Panel Dashboard</p></div></div><div class="cards"><div class="mini"><b>MENU ITEMS</b><strong>'+state.options.length+'</strong></div><div class="mini"><b>SYSTEM</b><strong>'+esc(state.settings.name)+'</strong></div><div class="mini"><b>STATUS</b><strong>Active</strong></div></div>';
+    return;
+  }
+  $('screen').innerHTML='<div class="screen-head"><div class="screen-icon">'+esc(o.icon)+'</div><div><h2>'+esc(o.name)+'</h2><p class="sub">এই বড় screen-এ Sidebar-এর নির্বাচিত Option-এর content Show হবে।</p></div></div><div class="editor"><h3>'+esc(o.name)+'</h3><p style="white-space:pre-wrap">'+esc(o.content)+'</p><div class="option-tools"><button class="btn primary" onclick="editCurrent()">Edit</button><button class="btn danger" onclick="deleteCurrent()">Delete</button></div></div>';
+}
+function showSettings(){
+  $('screen').innerHTML='<div class="screen-head"><div class="screen-icon">⚙️</div><div><h2>Settings</h2><p class="sub">System Name ও Logo পরিবর্তন করুন</p></div></div><div class="editor"><h3>System Settings</h3><div class="field"><label>System Name</label><input id="setName" class="input" value="'+esc(state.settings.name)+'"></div><div class="field"><label>Logo URL / File path</label><input id="setLogo" class="input" value="'+esc(state.settings.logo)+'"></div><button class="btn primary" onclick="saveSettings()">Save Settings</button></div><div class="editor"><h3>Add New Option</h3><div class="field"><label>Option Name</label><input id="newName" class="input" placeholder="যেমন: Deposit"></div><div class="field"><label>Icon / Emoji</label><input id="newIcon" class="input" placeholder="💳"></div><div class="field"><label>Content</label><textarea id="newContent" rows="5" class="input" placeholder="এই Option-এর content..."></textarea></div><button class="btn primary" onclick="addOption()">+ Add Option</button></div>';
+}
+async function saveSettings(){
+  const name=$('setName').value.trim()||'Ludo Baji'; const logo=$('setLogo').value.trim()||'7543.jpg';
+  state.settings={name,logo};
+  try{await saveState();applyBrand();show('settings');toast('Settings Saved — Main Page-এ আপডেট হয়েছে')}catch(e){toast('Save failed')}
+}
+async function addOption(){
+  const name=$('newName').value.trim(),icon=$('newIcon').value.trim()||'📌',content=$('newContent').value.trim();
+  if(!name){toast('Option Name দিন');return}
+  const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+Date.now();
+  state.options.push({id,name,icon,content});
+  try{await saveState();current=id;renderNav();applyBrand();show(id);toast('Option Added — Main Page-এও দেখাবে')}catch(e){toast('Save failed')}
+}
+async function editCurrent(){
+  const o=state.options.find(x=>x.id===current);if(!o)return;
+  const n=prompt('System/Option Name:',o.name);if(n===null)return;
+  const ic=prompt('Icon:',o.icon);if(ic===null)return;
+  const c=prompt('Content:',o.content);if(c===null)return;
+  o.name=n.trim()||o.name;o.icon=ic.trim()||o.icon;o.content=c;
+  try{await saveState();renderNav();applyBrand();show(o.id);toast('Saved — Main Page-এও আপডেট হয়েছে')}catch(e){toast('Save failed')}
+}
+async function deleteCurrent(){
+  const i=state.options.findIndex(x=>x.id===current);if(i<0||!confirm('এই section delete করবেন?'))return;
+  state.options.splice(i,1);current=state.options[0]?.id||'';
+  try{await saveState();renderNav();applyBrand();show(current);toast('Deleted')}catch(e){toast('Delete failed')}
+}
+if(sessionStorage.getItem('lbAdmin')==='1')start();
 </script></body></html>
