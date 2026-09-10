@@ -221,67 +221,48 @@
       "name": "Match",
       "icon": "🎮",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 0
+      "content": "Match system-এর content এখানে Auto Show হবে।",
+      "visible": true
     },
     {
       "id": "deposit",
       "name": "Deposit",
       "icon": "💳",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 1
+      "content": "Deposit system-এর content এখানে Auto Show হবে।",
+      "visible": true
     },
     {
       "id": "statement",
       "name": "My Statement",
       "icon": "🏷️",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 2
+      "content": "My Statement system-এর content এখানে Auto Show হবে।",
+      "visible": true
     },
     {
       "id": "withdraw",
       "name": "Withdraw",
       "icon": "💰",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 3
+      "content": "Withdraw system-এর content এখানে Auto Show হবে।",
+      "visible": true
     },
     {
       "id": "support",
       "name": "Support",
       "icon": "✅",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 4
+      "content": "Support system-এর content এখানে Auto Show হবে।",
+      "visible": true
     },
     {
       "id": "mymatch",
       "name": "My Match",
       "icon": "🎮",
       "logo": "",
-      "content": "",
-      "visible": true,
-      "buttonText": "",
-      "buttonUrl": "",
-      "order": 5
+      "content": "My Match system-এর content এখানে Auto Show হবে।",
+      "visible": true
     }
-  ],
-  "pages": {}
+  ]
 }

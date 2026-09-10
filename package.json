@@ -1,7 +1,1 @@
-{
-  "name":"ludo-baji-admin-panel",
-  "version":"10.0.0",
-  "private":true,
-  "scripts":{"start":"node server.js"},
-  "dependencies":{"pg":"^8.16.3"}
-}
+{"name":"ludo-baji-admin","version":"8.0.0","private":true,"scripts":{"start":"node server.js"}}
