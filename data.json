@@ -271,7 +271,14 @@
       "icon": "🎮",
       "logo": "",
       "content": "Match system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 1,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     },
     {
       "id": "deposit",
@@ -279,7 +286,14 @@
       "icon": "💳",
       "logo": "",
       "content": "Deposit system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 2,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     },
     {
       "id": "statement",
@@ -287,7 +301,14 @@
       "icon": "🏷️",
       "logo": "",
       "content": "My Statement system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 3,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     },
     {
       "id": "withdraw",
@@ -295,7 +316,14 @@
       "icon": "💰",
       "logo": "",
       "content": "Withdraw system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 4,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     },
     {
       "id": "support",
@@ -303,7 +331,14 @@
       "icon": "✅",
       "logo": "",
       "content": "Support system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 5,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     },
     {
       "id": "mymatch",
@@ -311,7 +346,59 @@
       "icon": "🎮",
       "logo": "",
       "content": "My Match system-এর content এখানে Auto Show হবে।",
-      "visible": true
+      "visible": true,
+      "order": 6,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "icon": "🔔",
+      "logo": "",
+      "content": "Notifications system-এর content এখানে Auto Show হবে。",
+      "visible": true,
+      "order": 7,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
+    },
+    {
+      "id": "referral",
+      "name": "Referral",
+      "icon": "🔗",
+      "logo": "",
+      "content": "Referral system-এর content এখানে Auto Show হবে。",
+      "visible": true,
+      "order": 8,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
+    },
+    {
+      "id": "leaderboard",
+      "name": "Leaderboard",
+      "icon": "🏆",
+      "logo": "",
+      "content": "Leaderboard system-এর content এখানে Auto Show হবে。",
+      "visible": true,
+      "order": 9,
+      "short_name": "",
+      "button_text": "",
+      "action": "auto",
+      "background": "#092d21",
+      "text_color": "#ffffff",
+      "border_radius": 12
     }
   ],
   "paymentMethods": [

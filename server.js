@@ -29,6 +29,23 @@ async function sendOtpEmail(email,otp){
   throw new Error('Email provider is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM, or enable OTP_DEV_MODE for testing.');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
+const MAIN_PAGE_DEFAULTS=[
+  {id:'match',name:'Match',icon:'🎮',content:'Match system-এর content এখানে Auto Show হবে।'},
+  {id:'deposit',name:'Deposit',icon:'💳',content:'Deposit system-এর content এখানে Auto Show হবে।'},
+  {id:'statement',name:'My Statement',icon:'🏷️',content:'My Statement system-এর content এখানে Auto Show হবে।'},
+  {id:'withdraw',name:'Withdraw',icon:'💰',content:'Withdraw system-এর content এখানে Auto Show হবে।'},
+  {id:'support',name:'Support',icon:'✅',content:'Support system-এর content এখানে Auto Show হবে।'},
+  {id:'mymatch',name:'My Match',icon:'🎮',content:'My Match system-এর content এখানে Auto Show হবে।'},
+  {id:'notifications',name:'Notifications',icon:'🔔',content:'Notifications system-এর content এখানে Auto Show হবে।'},
+  {id:'referral',name:'Referral',icon:'🔗',content:'Referral system-এর content এখানে Auto Show হবে।'},
+  {id:'leaderboard',name:'Leaderboard',icon:'🏆',content:'Leaderboard system-এর content এখানে Auto Show হবে。'}
+];
+function normalizeMainOptions(d){
+  const list=Array.isArray(d.mainOptions)?d.mainOptions.slice():[]; const byId=new Map(list.map(x=>[String(x.id),x])); let changed=false;
+  MAIN_PAGE_DEFAULTS.forEach((def,i)=>{let x=byId.get(def.id); if(!x){x={...def,logo:'',visible:true};list.push(x);byId.set(def.id,x);changed=true} const before=JSON.stringify(x); x.visible=x.visible!==false; x.order=Number(x.order||i+1); x.short_name=x.short_name||''; x.button_text=x.button_text||''; x.action=x.action||'auto'; x.background=x.background||'#092d21'; x.text_color=x.text_color||'#ffffff'; x.border_radius=Number.isFinite(Number(x.border_radius))?Number(x.border_radius):12; if(JSON.stringify(x)!==before)changed=true});
+  d.mainOptions=list.sort((a,b)=>Number(a.order||999)-Number(b.order||999)); return {data:d,changed};
+}
+
 const server=http.createServer(async(req,res)=>{try{
  const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
@@ -133,9 +150,9 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='PUT'&&p==='/api/admin/system'){const b=await body(req),d=await read();d.system={...(d.system||{}),...b};await write(d);return send(res,200,{ok:true,system:d.system});}
  if(req.method==='POST'&&p==='/api/admin/notice'){const b=await body(req),d=await read();d.notifications_global=Array.isArray(d.notifications_global)?d.notifications_global:[];const n={id:'N-'+Date.now(),title:String(b.title||'Notice'),message:String(b.message||''),created_at:new Date().toISOString()};d.notifications_global.unshift(n);const users=await db.listUsers(10000);if(!db.hasDatabase()){const fs=require('fs'),fp=path.join(ROOT,'notifications.json');let a=[];try{a=JSON.parse(fs.readFileSync(fp,'utf8'))}catch{};users.forEach(x=>a.unshift({id:Date.now()+Math.random(),user_id:x.id,title:n.title,message:n.message,read_at:null,created_at:n.created_at}));fs.writeFileSync(fp,JSON.stringify(a,null,2));}await write(d);return send(res,201,{ok:true,notice:n});}
 
- if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
+ if(req.method==='GET'&&p==='/api/site'){const d=await read();return send(res,200,normalizeMainOptions(d).data)}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
-  if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
+  if(req.method==='GET'&&p==='/api/admin/data'){normalizeMainOptions(d);return send(res,200,{ok:true,data:d});}
   if(req.method==='GET'&&p==='/api/admin/transactions'){
     return send(res,200,{ok:true,transactions:await db.listAdminTransactions()});
   }
@@ -157,7 +174,7 @@ const server=http.createServer(async(req,res)=>{try{
     if(!['approved','rejected'].includes(status))return send(res,400,{ok:false,error:'Approve অথবা Reject নির্বাচন করুন'});
     try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewDeposit(id,status,adminId,note);return send(res,200,{ok:true,message:status==='approved'?'Deposit approved':'Deposit rejected',deposit:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
   }
-  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={...d,site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions,system:{...d.system,...(x.system||{})}};await write(nd);return send(res,200,{ok:true,data:nd})}
+  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={...d,site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions,system:{...d.system,...(x.system||{})}};normalizeMainOptions(nd);await write(nd);return send(res,200,{ok:true,data:nd})}
   if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});await write(d);return send(res,200,{ok:true,data:d})}
   if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);await write(d);return send(res,200,{ok:true,data:d})}
  }
