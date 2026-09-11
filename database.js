@@ -4,6 +4,9 @@ const path = require('path');
 const DATA = path.join(__dirname, 'data.json');
 const USERS_DATA = path.join(__dirname, 'users.json');
 const DEPOSITS_DATA = path.join(__dirname, 'deposits.json');
+const WITHDRAWALS_DATA = path.join(__dirname, 'withdrawals.json');
+const NOTIFICATIONS_DATA = path.join(__dirname, 'notifications.json');
+const TRANSACTIONS_DATA = path.join(__dirname, 'transactions.json');
 let pool = null;
 let ready = null;
 
@@ -33,6 +36,33 @@ function fallbackDepositsWrite(items) {
   fs.writeFileSync(tmp, JSON.stringify(items, null, 2), 'utf8');
   fs.renameSync(tmp, DEPOSITS_DATA);
 }
+function fallbackWithdrawalsRead() {
+  if (!fs.existsSync(WITHDRAWALS_DATA)) return [];
+  try { return JSON.parse(fs.readFileSync(WITHDRAWALS_DATA, 'utf8')); } catch { return []; }
+}
+function fallbackWithdrawalsWrite(items) {
+  const tmp = WITHDRAWALS_DATA + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(items, null, 2), 'utf8');
+  fs.renameSync(tmp, WITHDRAWALS_DATA);
+}
+function fallbackNotificationsRead() {
+  if (!fs.existsSync(NOTIFICATIONS_DATA)) return [];
+  try { return JSON.parse(fs.readFileSync(NOTIFICATIONS_DATA, 'utf8')); } catch { return []; }
+}
+function fallbackNotificationsWrite(items) {
+  const tmp = NOTIFICATIONS_DATA + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(items, null, 2), 'utf8');
+  fs.renameSync(tmp, NOTIFICATIONS_DATA);
+}
+function fallbackTransactionsRead() {
+  if (!fs.existsSync(TRANSACTIONS_DATA)) return [];
+  try { return JSON.parse(fs.readFileSync(TRANSACTIONS_DATA, 'utf8')); } catch { return []; }
+}
+function fallbackTransactionsWrite(items) {
+  const tmp = TRANSACTIONS_DATA + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(items, null, 2), 'utf8');
+  fs.renameSync(tmp, TRANSACTIONS_DATA);
+}
 function hasDatabase() { return Boolean(process.env.DATABASE_URL); }
 
 async function init() {
@@ -60,7 +90,9 @@ async function init() {
       CREATE TABLE IF NOT EXISTS transactions (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, type TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, balance_type TEXT, reference TEXT, status TEXT NOT NULL DEFAULT 'pending', note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS deposits (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, transaction_id TEXT, screenshot TEXT, status TEXT NOT NULL DEFAULT 'pending', reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
       CREATE UNIQUE INDEX IF NOT EXISTS uq_deposits_transaction_id ON deposits(transaction_id) WHERE transaction_id IS NOT NULL AND transaction_id <> '';
-      CREATE TABLE IF NOT EXISTS withdrawals (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, account_number TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, status TEXT NOT NULL DEFAULT 'pending', reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
+      CREATE TABLE IF NOT EXISTS withdrawals (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, account_number TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, balance_type TEXT NOT NULL DEFAULT 'winning', status TEXT NOT NULL DEFAULT 'pending', note TEXT, reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_type TEXT NOT NULL DEFAULT 'winning';
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS note TEXT;
       CREATE TABLE IF NOT EXISTS matches (id BIGSERIAL PRIMARY KEY, match_code TEXT UNIQUE, title TEXT NOT NULL, entry_fee NUMERIC(14,2) NOT NULL DEFAULT 0, winning_amount NUMERIC(14,2) NOT NULL DEFAULT 0, room_id TEXT, status TEXT NOT NULL DEFAULT 'open', scheduled_at TIMESTAMPTZ, winner_user_id BIGINT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, slot SMALLINT NOT NULL, status TEXT NOT NULL DEFAULT 'joined', joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (match_id, user_id), UNIQUE (match_id, slot));
       CREATE TABLE IF NOT EXISTS notifications (id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -265,9 +297,109 @@ async function reviewDeposit(depositId, status, adminId=null, note='') {
   }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }
 
+
+
+async function createWithdrawal(userId, method, accountNumber, amount, balanceType='winning') {
+  if (!['bkash','nagad'].includes(method)) throw new Error('bKash অথবা Nagad নির্বাচন করুন');
+  if (!['gaming','winning'].includes(balanceType)) throw new Error('সঠিক Balance নির্বাচন করুন');
+  if (!hasDatabase()) {
+    const users = fallbackUsersRead();
+    const u = users.find(x => String(x.id) === String(userId));
+    if (!u) throw new Error('User not found');
+    if (u.status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+    const key = balanceType === 'gaming' ? 'gaming_balance' : 'winning_balance';
+    const balance = Number(u[key] || 0);
+    if (balance < amount) throw new Error('পর্যাপ্ত Balance নেই');
+    u[key] = Number((balance - amount).toFixed(2));
+    const withdrawals = fallbackWithdrawalsRead();
+    const id = Date.now();
+    const item = {id,user_id:u.id,user_code:u.user_code,phone:u.phone,name:u.name||'',method,account_number:accountNumber,amount:Number(amount),balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:new Date().toISOString(),reviewed_at:null};
+    withdrawals.unshift(item); fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
+    const txs=fallbackTransactionsRead(); txs.unshift({id:'WDR-'+id,user_id:u.id,type:'withdrawal',amount:Number(amount),balance_type:balanceType,reference:'WDR-'+id,status:'pending',note:'Withdrawal request via '+method,created_at:item.created_at}); fallbackTransactionsWrite(txs);
+    const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:u.id,title:'Withdrawal Submitted',message:'আপনার ৳'+Number(amount).toFixed(2)+' Withdrawal request জমা হয়েছে।',read_at:null,created_at:item.created_at}); fallbackNotificationsWrite(notes);
+    return item;
+  }
+  await init();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const u = await client.query('SELECT id,user_code,phone,name,status FROM users WHERE id=$1 FOR UPDATE',[userId]);
+    if (!u.rows[0]) throw new Error('User not found');
+    if (u.rows[0].status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+    await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[userId]);
+    const col = balanceType === 'gaming' ? 'gaming_balance' : 'winning_balance';
+    const w = await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[userId]);
+    const balance = Number(w.rows[0]?.balance || 0);
+    if (balance < amount) throw new Error('পর্যাপ্ত Balance নেই');
+    const r = await client.query('INSERT INTO withdrawals(user_id,method,account_number,amount,balance_type,status,note) VALUES($1,$2,$3,$4,$5,\'pending\',\'\') RETURNING *',[userId,method,accountNumber,amount,balanceType]);
+    await client.query(`UPDATE wallets SET ${col}=${col}-$1,updated_at=NOW() WHERE user_id=$2`,[amount,userId]);
+    await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note) VALUES($1,\'withdrawal\',$2,$3,$4,\'pending\',$5)',[userId,amount,balanceType,'WDR-'+r.rows[0].id,'Withdrawal request via '+method]);
+    await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[userId,'Withdrawal Submitted','আপনার ৳'+Number(amount).toFixed(2)+' Withdrawal request জমা হয়েছে।']);
+    await client.query('COMMIT');
+    return {...r.rows[0],user_code:u.rows[0].user_code,phone:u.rows[0].phone,name:u.rows[0].name||''};
+  } catch(e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+}
+
+async function listUserWithdrawals(userId, limit=50) {
+  if (!hasDatabase()) return fallbackWithdrawalsRead().filter(d=>String(d.user_id)===String(userId)).slice(0,limit);
+  await init();
+  const r=await pool.query('SELECT id,method,account_number,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);
+  return r.rows;
+}
+
+async function listAdminWithdrawals(status='all', limit=100) {
+  if (!hasDatabase()) {
+    const users=fallbackUsersRead(); const map=new Map(users.map(u=>[String(u.id),u]));
+    let rows=fallbackWithdrawalsRead().map(d=>({...d,user_code:d.user_code||map.get(String(d.user_id))?.user_code||'',phone:d.phone||map.get(String(d.user_id))?.phone||'',name:d.name||map.get(String(d.user_id))?.name||''}));
+    if(status!=='all') rows=rows.filter(d=>d.status===status);
+    return rows.slice(0,limit);
+  }
+  await init();
+  const where=status==='all'?'':' WHERE w.status=$1';
+  const params=status==='all'?[limit]:[status,limit];
+  const r=await pool.query(`SELECT w.id,w.user_id,u.user_code,u.phone,u.name,w.method,w.account_number,w.amount,w.balance_type,w.status,w.note,w.created_at,w.reviewed_at FROM withdrawals w JOIN users u ON u.id=w.user_id${where} ORDER BY w.created_at DESC LIMIT $${params.length}`,params);
+  return r.rows;
+}
+
+async function reviewWithdrawal(withdrawalId, status, adminId=null, note='') {
+  if (!['approved','rejected'].includes(status)) throw new Error('Invalid withdrawal status');
+  if (!hasDatabase()) {
+    const withdrawals=fallbackWithdrawalsRead(); const d=withdrawals.find(x=>String(x.id)===String(withdrawalId));
+    if(!d) throw new Error('Withdrawal পাওয়া যায়নি');
+    if(d.status!=='pending') throw new Error('এই Withdrawal ইতিমধ্যে review করা হয়েছে');
+    const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id));
+    if(!u) throw new Error('User not found');
+    if(status==='rejected') { const key=d.balance_type==='gaming'?'gaming_balance':'winning_balance'; u[key]=Number((Number(u[key]||0)+Number(d.amount)).toFixed(2)); }
+    d.status=status; d.note=note; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString();
+    const txs=fallbackTransactionsRead(); const tx=txs.find(x=>String(x.reference)==='WDR-'+d.id&&x.status==='pending'); if(tx){tx.status=status==='approved'?'completed':'rejected';tx.note=note||(status==='approved'?'Withdrawal approved':'Withdrawal rejected');} fallbackTransactionsWrite(txs);
+    const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:d.user_id,title:status==='approved'?'Withdrawal Approved':'Withdrawal Rejected',message:status==='approved'?('আপনার ৳'+Number(d.amount).toFixed(2)+' Withdrawal request approved হয়েছে।'):('আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳'+Number(d.amount).toFixed(2)+' Balance-এ ফেরত দেওয়া হয়েছে।'+(note?' কারণ: '+note:'')),read_at:null,created_at:d.reviewed_at}); fallbackNotificationsWrite(notes);
+    fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
+    return d;
+  }
+  await init(); const client=await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const q=await client.query('SELECT w.*,u.user_code FROM withdrawals w JOIN users u ON u.id=w.user_id WHERE w.id=$1 FOR UPDATE',[withdrawalId]);
+    if(!q.rows[0]) throw new Error('Withdrawal পাওয়া যায়নি');
+    const d=q.rows[0]; if(d.status!=='pending') throw new Error('এই Withdrawal ইতিমধ্যে review করা হয়েছে');
+    await client.query('UPDATE withdrawals SET status=$1,reviewed_by=$2,reviewed_at=NOW(),note=$3 WHERE id=$4',[status,adminId,note,withdrawalId]);
+    if(status==='rejected') {
+      await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[d.user_id]);
+      const col=d.balance_type==='gaming'?'gaming_balance':'winning_balance';
+      await client.query(`UPDATE wallets SET ${col}=${col}+$1,updated_at=NOW() WHERE user_id=$2`,[d.amount,d.user_id]);
+      await client.query('UPDATE transactions SET status=\'rejected\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal rejected',d.user_id,'WDR-'+d.id]);
+      await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Withdrawal Rejected','আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳'+Number(d.amount).toFixed(2)+' Balance-এ ফেরত দেওয়া হয়েছে।'+(note?' কারণ: '+note:'')]);
+    } else {
+      await client.query('UPDATE transactions SET status=\'completed\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal approved',d.user_id,'WDR-'+d.id]);
+      await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Withdrawal Approved','আপনার ৳'+Number(d.amount).toFixed(2)+' Withdrawal request approved হয়েছে।']);
+    }
+    await client.query('COMMIT'); return {...d,status,note,reviewed_at:new Date().toISOString()};
+  } catch(e){await client.query('ROLLBACK');throw e;} finally{client.release();}
+}
+
 async function getAdminId(username) {
   if (!hasDatabase()) return null;
   await init(); const r=await pool.query('SELECT id FROM admins WHERE username=$1',[username]); return r.rows[0]?.id||null;
 }
 
-module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, getAdminId };
+module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, createWithdrawal, listUserWithdrawals, listAdminWithdrawals, reviewWithdrawal, getAdminId };

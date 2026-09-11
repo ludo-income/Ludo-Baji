@@ -76,9 +76,32 @@ const server=http.createServer(async(req,res)=>{try{
    const comma=screenshot.indexOf(','),bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
    try{const d=await db.createDeposit(x.id,method,amount,transactionId,screenshot);return send(res,201,{ok:true,message:'Deposit request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',deposit:{id:d.id,method:d.method,amount:Number(d.amount),transaction_id:d.transaction_id,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Deposit failed'})}
  }
+ if(req.method==='GET'&&p==='/api/user/withdrawals'){
+   const x=userAuth(req,res);if(!x)return;
+   return send(res,200,{ok:true,withdrawals:await db.listUserWithdrawals(x.id)});
+ }
+ if(req.method==='POST'&&p==='/api/user/withdrawals'){
+   const x=userAuth(req,res);if(!x)return;
+   const b=await body(req),method=String(b.method||'').toLowerCase(),accountNumber=String(b.account_number||'').trim(),amount=Number(b.amount),balanceType=String(b.balance_type||'winning').toLowerCase();
+   const minWithdrawal=Math.max(1,Number(process.env.MIN_WITHDRAWAL||100)),maxWithdrawal=Math.max(minWithdrawal,Number(process.env.MAX_WITHDRAWAL||1000000));
+   if(!['bkash','nagad'].includes(method))return send(res,400,{ok:false,error:'bKash অথবা Nagad নির্বাচন করুন'});
+   if(!['gaming','winning'].includes(balanceType))return send(res,400,{ok:false,error:'সঠিক Balance নির্বাচন করুন'});
+   if(!/^01\d{9}$/.test(accountNumber)&&!/^(?:\+880|880)1\d{9}$/.test(accountNumber))return send(res,400,{ok:false,error:'সঠিক bKash/Nagad account number দিন'});
+   if(!Number.isFinite(amount)||amount<minWithdrawal||amount>maxWithdrawal)return send(res,400,{ok:false,error:`Withdrawal amount ৳${minWithdrawal} থেকে ৳${maxWithdrawal} এর মধ্যে হতে হবে`});
+   try{const d=await db.createWithdrawal(x.id,method,accountNumber,amount,balanceType);return send(res,201,{ok:true,message:'Withdrawal request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',withdrawal:{id:d.id,method:d.method,account_number:d.account_number,amount:Number(d.amount),balance_type:d.balance_type,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Withdrawal failed'})}
+ }
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
+  if(req.method==='GET'&&p==='/api/admin/withdrawals'){
+    const status=['all','pending','approved','rejected'].includes(String(u.query.status||'all'))?String(u.query.status||'all'):'all';
+    return send(res,200,{ok:true,withdrawals:await db.listAdminWithdrawals(status)});
+  }
+  if(req.method==='POST'&&/^\/api\/admin\/withdrawals\/[^/]+\/review$/.test(p)){
+    const id=decodeURIComponent(p.split('/')[4]),b=await body(req),status=String(b.status||'').toLowerCase(),note=String(b.note||'').trim();
+    if(!['approved','rejected'].includes(status))return send(res,400,{ok:false,error:'Approve অথবা Reject নির্বাচন করুন'});
+    try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewWithdrawal(id,status,adminId,note);return send(res,200,{ok:true,message:status==='approved'?'Withdrawal approved':'Withdrawal rejected',withdrawal:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
+  }
   if(req.method==='GET'&&p==='/api/admin/deposits'){
     const status=['all','pending','approved','rejected'].includes(String(u.query.status||'all'))?String(u.query.status||'all'):'all';
     return send(res,200,{ok:true,deposits:await db.listAdminDeposits(status)});
