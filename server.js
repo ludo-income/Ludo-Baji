@@ -49,6 +49,7 @@ function normalizeMainOptions(d){
 const server=http.createServer(async(req,res)=>{try{
  const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
+ if(p.startsWith('/api/')&&p!=='/api/site'&&!p.startsWith('/api/admin')){const md=await read();if(md.system?.maintenance?.enabled===true)return send(res,503,{ok:false,error:'Ludo Baji Website & App Update চলছে। এখন প্রবেশ করা যাবে না।'});}
  if(req.method==='POST'&&p==='/api/login'){const x=await body(req);const username=String(x.username||''),password=String(x.password||'');if(username.length>100||password.length>200)return send(res,400,{ok:false,error:'Invalid login data'});return username===ADMIN_USERNAME&&password===ADMIN_PASSWORD?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
  if(req.method==='POST'&&p==='/api/auth/request-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
@@ -147,7 +148,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/admin/faqs'){const b=await body(req),d=await read();d.faqs=Array.isArray(d.faqs)?d.faqs:[];const x={id:'F-'+Date.now(),question:String(b.question||''),answer:String(b.answer||''),enabled:b.enabled!==false,order:Number(b.order||0)};if(!x.question||!x.answer)return send(res,400,{ok:false,error:'Question and answer required'});d.faqs.push(x);await write(d);return send(res,201,{ok:true,faq:x});}
  if(req.method==='PUT'&&p==='/api/admin/pages'){const b=await body(req),d=await read();d.pages={...(d.pages||{}),...b};await write(d);return send(res,200,{ok:true,pages:d.pages});}
  if(req.method==='GET'&&p==='/api/admin/system'){const d=await read();return send(res,200,{ok:true,system:d.system||{}});}
- if(req.method==='PUT'&&p==='/api/admin/system'){const b=await body(req),d=await read();d.system={...(d.system||{}),...b};await write(d);return send(res,200,{ok:true,system:d.system});}
+ if(req.method==='PUT'&&p==='/api/admin/system'){const b=await body(req),d=await read();d.system={...(d.system||{}),...b,maintenance:{...(d.system?.maintenance||{}),...(b.maintenance||{})}};await write(d);return send(res,200,{ok:true,system:d.system});}
  if(req.method==='POST'&&p==='/api/admin/notice'){const b=await body(req),d=await read();d.notifications_global=Array.isArray(d.notifications_global)?d.notifications_global:[];const n={id:'N-'+Date.now(),title:String(b.title||'Notice'),message:String(b.message||''),created_at:new Date().toISOString()};d.notifications_global.unshift(n);const users=await db.listUsers(10000);if(!db.hasDatabase()){const fs=require('fs'),fp=path.join(ROOT,'notifications.json');let a=[];try{a=JSON.parse(fs.readFileSync(fp,'utf8'))}catch{};users.forEach(x=>a.unshift({id:Date.now()+Math.random(),user_id:x.id,title:n.title,message:n.message,read_at:null,created_at:n.created_at}));fs.writeFileSync(fp,JSON.stringify(a,null,2));}await write(d);return send(res,201,{ok:true,notice:n});}
 
  if(req.method==='GET'&&p==='/api/site'){const d=await read();return send(res,200,normalizeMainOptions(d).data)}
