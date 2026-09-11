@@ -411,7 +411,8 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।"
+      "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।",
+      "account_type": "Personal"
     },
     {
       "id": "bkash_merchant",
@@ -422,7 +423,8 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।"
+      "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।",
+      "account_type": "Merchant"
     },
     {
       "id": "nagad",
@@ -433,7 +435,8 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।"
+      "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।",
+      "account_type": "Personal"
     }
   ],
   "matches": [

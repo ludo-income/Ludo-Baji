@@ -413,7 +413,8 @@
       "max_deposit": 1000000,
       "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।",
       "provider": "bkash",
-      "order": 1
+      "order": 1,
+      "account_type": "Personal"
     },
     {
       "id": "bkash_merchant",
@@ -426,7 +427,8 @@
       "max_deposit": 1000000,
       "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।",
       "provider": "bkash",
-      "order": 2
+      "order": 2,
+      "account_type": "Merchant"
     },
     {
       "id": "nagad",
@@ -439,7 +441,8 @@
       "max_deposit": 1000000,
       "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।",
       "provider": "nagad",
-      "order": 3
+      "order": 3,
+      "account_type": "Personal"
     }
   ],
   "matches": [
