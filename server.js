@@ -16,48 +16,45 @@ function token(){return signToken({u:'admin',e:Date.now()+7*86400000},SECRET)}
 function auth(req,res){const x=verifyToken((req.headers.authorization||'').replace(/^Bearer\s+/i,''),SECRET);if(!x||x.u!=='admin'){send(res,401,{error:'Unauthorized'});return false}return true}
 function userAuth(req,res){const x=verifyToken((req.headers.authorization||'').replace(/^Bearer\s+/i,''),USER_SECRET);if(!x||x.typ!=='user'){send(res,401,{ok:false,error:'Login required'});return null}return x}
 function normalizeBDPhone(input){let s=String(input||'').trim().replace(/[\s()-]/g,'');if(/^01\d{9}$/.test(s))return '+880'+s.slice(1);if(/^8801\d{9}$/.test(s))return '+'+s;if(/^\+8801\d{9}$/.test(s))return s;return null}
-function otpHash(phone,otp){return crypto.createHash('sha256').update(phone+'|'+otp+'|'+USER_SECRET).digest('hex')}
+function otpHash(email,otp){return crypto.createHash('sha256').update(email+'|'+otp+'|'+USER_SECRET).digest('hex')}
 function makeOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,'0')}
-function maskPhone(phone){return phone.slice(0,6)+'****'+phone.slice(-2)}
+function normalizeEmail(input){const e=String(input||'').trim().toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254?e:null}
+function maskEmail(email){const [local,domain]=String(email).split('@');if(!domain)return '****';return (local.length<=2?(local[0]||'*'):local.slice(0,2))+'***@'+domain}
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
 
-async function sendOtpSMS(phone,otp){
-  const sid=process.env.TWILIO_ACCOUNT_SID, token=process.env.TWILIO_AUTH_TOKEN, from=process.env.TWILIO_FROM;
-  if(sid&&token&&from){
-    const https=require('https'), qs=require('querystring');
-    const data=qs.stringify({To:phone,From:from,Body:`Your Ludo Baji OTP is ${otp}. It expires in 5 minutes.`});
-    await new Promise((resolve,reject)=>{const req=https.request({hostname:'api.twilio.com',path:`/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,method:'POST',auth:`${sid}:${token}`,headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':Buffer.byteLength(data)}},r=>{let out='';r.on('data',c=>out+=c);r.on('end',()=>r.statusCode>=200&&r.statusCode<300?resolve():reject(new Error('SMS provider rejected the request')))});req.on('error',reject);req.write(data);req.end()});
-    return {sent:true,provider:'twilio'};
-  }
-  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log(`[OTP DEV] ${phone}: ${otp}`);return {sent:false,dev:true,otp};}
-  throw new Error('SMS provider is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM, or enable OTP_DEV_MODE for testing.');
+async function sendOtpEmail(email,otp){
+  const host=process.env.SMTP_HOST,port=Number(process.env.SMTP_PORT||465),user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,from=process.env.SMTP_FROM||user;
+  if(host&&user&&pass){let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}const transporter=nodemailer.createTransport({host,port,secure:String(process.env.SMTP_SECURE||'true').toLowerCase()==='true',auth:{user,pass}});await transporter.sendMail({from,to:email,subject:'Ludo Baji Login OTP',text:`Your Ludo Baji OTP is ${otp}. It expires in 5 minutes. Do not share this OTP with anyone.`});return {sent:true,provider:'smtp'};}
+  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log(`[OTP DEV] ${email}: ${otp}`);return {sent:false,dev:true,otp};}
+  throw new Error('Email provider is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM, or enable OTP_DEV_MODE for testing.');
 }
+async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
 const server=http.createServer(async(req,res)=>{try{
  const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS'});return res.end()}
  if(req.method==='POST'&&p==='/api/login'){const x=await body(req);const username=String(x.username||''),password=String(x.password||'');if(username.length>100||password.length>200)return send(res,400,{ok:false,error:'Invalid login data'});return username===ADMIN_USERNAME&&password===ADMIN_PASSWORD?send(res,200,{ok:true,token:token()}):send(res,401,{ok:false,error:'Username অথবা Password ভুল'})}
  if(req.method==='POST'&&p==='/api/auth/request-otp'){
-   const x=await body(req), phone=normalizeBDPhone(x.phone); if(!phone)return send(res,400,{ok:false,error:'সঠিক ১১ সংখ্যার বাংলাদেশি মোবাইল নম্বর দিন'});
-   let user=await db.findUser(phone); if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
-   const now=Date.now(); if(user?.otp_sent_at && now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:`আবার OTP চাইতে একটু অপেক্ষা করুন`,retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
-   if(!user)user=await db.createUser(phone);
+   if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
+   const x=await body(req),email=normalizeEmail(x.email);if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});
+   let user=await db.findUserByEmail(email);if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
+   if(!user)user=await db.createUserByEmail(email);
    const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
-   try{const result=await sendOtpSMS(phone,otp);await db.setUserOtp(phone,otpHash(phone,otp),expires,sent);return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',phone:maskPhone(phone),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}: {})})}catch(e){return send(res,503,{ok:false,error:e.message})}
+   try{const result=await sendOtpEmail(email,otp);await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}: {})})}catch(e){return send(res,503,{ok:false,error:e.message})}
  }
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
-   const x=await body(req),phone=normalizeBDPhone(x.phone),otp=String(x.otp||'').trim();if(!phone||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'মোবাইল নম্বর ও ৬ সংখ্যার OTP দিন'});
-   const user=await db.findUser(phone);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
+   const x=await body(req),email=normalizeEmail(x.email),otp=String(x.otp||'').trim();if(!email||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'Email এবং ৬ সংখ্যার OTP দিন'});
+   const user=await db.findUserByEmail(email);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
    if(!user.otp_hash||!user.otp_expires_at)return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});
-   if(Date.now()>new Date(user.otp_expires_at).getTime()){await db.clearUserOtp(phone);return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});
-   }
-   if(Number(user.otp_attempts||0)>=OTP_MAX_ATTEMPTS){await db.clearUserOtp(phone);return send(res,429,{ok:false,error:'অনেকবার ভুল OTP দেওয়া হয়েছে। নতুন OTP নিন'});
-   }
-   if(otpHash(phone,otp)!==user.otp_hash){await db.updateOtpAttempts(phone,Number(user.otp_attempts||0)+1);return send(res,401,{ok:false,error:'OTP সঠিক নয়'});}
-   await db.clearUserOtp(phone);const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const token=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token,user:{id:fresh.id,user_code:fresh.user_code,phone:fresh.phone,name:fresh.name||'',status:fresh.status}});
+   if(Date.now()>new Date(user.otp_expires_at).getTime()){await db.clearUserOtpByEmail(email);return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});}
+   if(Number(user.otp_attempts||0)>=OTP_MAX_ATTEMPTS){await db.clearUserOtpByEmail(email);return send(res,429,{ok:false,error:'অনেকবার ভুল OTP দেওয়া হয়েছে। নতুন OTP নিন'});}
+   if(otpHash(email,otp)!==user.otp_hash){await db.updateOtpAttemptsByEmail(email,Number(user.otp_attempts||0)+1);return send(res,401,{ok:false,error:'OTP সঠিক নয়'});}
+   await db.clearUserOtpByEmail(email);const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
  }
- if(req.method==='GET'&&p==='/api/auth/me'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
- if(req.method==='GET'&&p==='/api/user/dashboard'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status},dashboard})}
- if(req.method==='PUT'&&p==='/api/auth/profile'){const x=userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
+ if(req.method==='GET'&&p==='/api/auth/me'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
+ if(req.method==='GET'&&p==='/api/user/dashboard'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status},dashboard})}
+ if(req.method==='PUT'&&p==='/api/auth/profile'){const x=userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/deposit/info'){
    const d=await read(); const methods=(d.paymentMethods||[]).map(m=>{const env={bkash:process.env.BKASH_PERSONAL_NUMBER||process.env.BKASH_NUMBER,bkash_merchant:process.env.BKASH_MERCHANT_NUMBER,nagad:process.env.NAGAD_PERSONAL_NUMBER||process.env.NAGAD_NUMBER}[m.id];return {...m,number:env||m.number}}); return send(res,200,{ok:true,methods});
  }
@@ -160,9 +157,8 @@ const server=http.createServer(async(req,res)=>{try{
     if(!['approved','rejected'].includes(status))return send(res,400,{ok:false,error:'Approve অথবা Reject নির্বাচন করুন'});
     try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewDeposit(id,status,adminId,note);return send(res,200,{ok:true,message:status==='approved'?'Deposit approved':'Deposit rejected',deposit:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
   }
-  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions};await write(nd);return send(res,200,{ok:true,data:nd})}
-  if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions=Array.isArray(d.mainOptions)?d.mainOptions:[];d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),description:String(x.description||x.content||''),button_text:String(x.button_text||'Open'),background:String(x.background||''),text_color:String(x.text_color||''),icon_color:String(x.icon_color||''),order:Number(x.order||d.mainOptions.length+1),visible:x.visible!==false});await write(d);return send(res,200,{ok:true,data:d})}
-  if(req.method==='PUT'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop()),x=await body(req),item=(d.mainOptions||[]).find(a=>String(a.id)===id);if(!item)return send(res,404,{ok:false,error:'Option not found'});for(const k of ['name','icon','logo','content','description','button_text','background','text_color','icon_color'])if(x[k]!==undefined)item[k]=String(x[k]??'');if(x.visible!==undefined)item.visible=!!x.visible;if(x.order!==undefined)item.order=Number(x.order)||0;d.mainOptions.sort((a,b)=>Number(a.order||0)-Number(b.order||0));await write(d);return send(res,200,{ok:true,data:d})}
+  if(req.method==='PUT'&&p==='/api/admin/data'){const x=await body(req);const nd={...d,site:{...d.site,...(x.site||{})},adminMenus:Array.isArray(x.adminMenus)?x.adminMenus:d.adminMenus,mainOptions:Array.isArray(x.mainOptions)?x.mainOptions:d.mainOptions,system:{...d.system,...(x.system||{})}};await write(nd);return send(res,200,{ok:true,data:nd})}
+  if(req.method==='POST'&&p==='/api/admin/main-options'){const x=await body(req);if(!String(x.name||'').trim())return send(res,400,{error:'Option Name দিন'});d.mainOptions.push({id:'main-'+Date.now()+Math.random().toString(36).slice(2,6),name:String(x.name).trim(),icon:String(x.icon||'📌'),logo:String(x.logo||''),content:String(x.content||''),visible:true});await write(d);return send(res,200,{ok:true,data:d})}
   if(req.method==='DELETE'&&p.startsWith('/api/admin/main-options/')){const id=decodeURIComponent(p.split('/').pop());d.mainOptions=d.mainOptions.filter(x=>x.id!==id);await write(d);return send(res,200,{ok:true,data:d})}
  }
  if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}

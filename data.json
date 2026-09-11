@@ -271,13 +271,7 @@
       "icon": "🎮",
       "logo": "",
       "content": "Match system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "Match system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 1,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     },
     {
       "id": "deposit",
@@ -285,13 +279,7 @@
       "icon": "💳",
       "logo": "",
       "content": "Deposit system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "Deposit system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 2,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     },
     {
       "id": "statement",
@@ -299,13 +287,7 @@
       "icon": "🏷️",
       "logo": "",
       "content": "My Statement system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "My Statement system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 3,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     },
     {
       "id": "withdraw",
@@ -313,13 +295,7 @@
       "icon": "💰",
       "logo": "",
       "content": "Withdraw system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "Withdraw system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 4,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     },
     {
       "id": "support",
@@ -327,13 +303,7 @@
       "icon": "✅",
       "logo": "",
       "content": "Support system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "Support system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 5,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     },
     {
       "id": "mymatch",
@@ -341,13 +311,7 @@
       "icon": "🎮",
       "logo": "",
       "content": "My Match system-এর content এখানে Auto Show হবে।",
-      "visible": true,
-      "description": "My Match system-এর content এখানে Auto Show হবে।",
-      "button_text": "Open",
-      "order": 6,
-      "background": "",
-      "text_color": "",
-      "icon_color": ""
+      "visible": true
     }
   ],
   "paymentMethods": [
@@ -463,6 +427,7 @@
     "deposit": true,
     "withdraw": true,
     "game_play": true,
-    "maintenance": false
+    "maintenance": false,
+    "user_login_otp": true
   }
 }

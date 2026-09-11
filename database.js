@@ -81,10 +81,12 @@ async function init() {
       CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS admins (id BIGSERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT, role TEXT NOT NULL DEFAULT 'super_admin', active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS users (
-        id BIGSERIAL PRIMARY KEY, user_code TEXT UNIQUE, phone TEXT UNIQUE NOT NULL, name TEXT, status TEXT NOT NULL DEFAULT 'active',
+        id BIGSERIAL PRIMARY KEY, user_code TEXT UNIQUE, email TEXT UNIQUE, phone TEXT UNIQUE, name TEXT, status TEXT NOT NULL DEFAULT 'active',
         otp_hash TEXT, otp_expires_at TIMESTAMPTZ, otp_sent_at TIMESTAMPTZ, otp_attempts INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+      ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_sent_at TIMESTAMPTZ;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_attempts INTEGER NOT NULL DEFAULT 0;
       CREATE TABLE IF NOT EXISTS wallets (user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, gaming_balance NUMERIC(14,2) NOT NULL DEFAULT 0, winning_balance NUMERIC(14,2) NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -138,48 +140,42 @@ async function saveData(data) {
 
 async function findUser(phone) {
   if (!hasDatabase()) return fallbackUsersRead().find(u => u.phone === phone) || null;
-  await init();
-  const r = await pool.query('SELECT id, user_code, phone, name, status, otp_hash, otp_expires_at, otp_sent_at, otp_attempts, created_at FROM users WHERE phone=$1', [phone]);
-  return r.rows[0] || null;
+  await init(); const r = await pool.query('SELECT id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at FROM users WHERE phone=$1',[phone]); return r.rows[0]||null;
+}
+async function findUserByEmail(email) {
+  email=String(email||'').trim().toLowerCase();
+  if (!hasDatabase()) return fallbackUsersRead().find(u=>String(u.email||'').toLowerCase()===email)||null;
+  await init(); const r=await pool.query('SELECT id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at FROM users WHERE LOWER(email)=LOWER($1)',[email]); return r.rows[0]||null;
 }
 async function createUser(phone) {
-  if (!hasDatabase()) {
-    const users = fallbackUsersRead();
-    const existing = users.find(u => u.phone === phone);
-    if (existing) return existing;
-    const id = Date.now();
-    const user = { id, user_code: 'U' + String(id).slice(-8), phone, name: '', status: 'active', otp_hash: null, otp_expires_at: null, otp_sent_at: null, otp_attempts: 0, created_at: new Date().toISOString() };
-    users.push(user); fallbackUsersWrite(users); return user;
-  }
-  await init();
-  const r = await pool.query('INSERT INTO users(user_code, phone) VALUES($1,$2) ON CONFLICT(phone) DO UPDATE SET phone=EXCLUDED.phone, updated_at=NOW() RETURNING id,user_code,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at', ['U' + cryptoRandom(8), phone]);
-  return r.rows[0];
+  if (!hasDatabase()) { const users=fallbackUsersRead(); const existing=users.find(u=>u.phone===phone); if(existing)return existing; const id=Date.now(); const user={id,user_code:'U'+String(id).slice(-8),phone,email:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()}; users.push(user); fallbackUsersWrite(users); return user; }
+  await init(); const r=await pool.query('INSERT INTO users(user_code,phone) VALUES($1,$2) ON CONFLICT(phone) DO UPDATE SET phone=EXCLUDED.phone,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',['U'+cryptoRandom(8),phone]); return r.rows[0];
 }
-function cryptoRandom(n) { return require('crypto').randomBytes(Math.ceil(n/2)).toString('hex').slice(0,n).toUpperCase(); }
+async function createUserByEmail(email) {
+  email=String(email||'').trim().toLowerCase();
+  if(!hasDatabase()){const users=fallbackUsersRead();const existing=users.find(u=>String(u.email||'').toLowerCase()===email);if(existing)return existing;const id=Date.now();const user={id,user_code:'U'+String(id).slice(-8),email,phone:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()};users.push(user);fallbackUsersWrite(users);return user;}
+  await init(); const r=await pool.query('INSERT INTO users(user_code,email) VALUES($1,$2) ON CONFLICT(email) DO UPDATE SET email=EXCLUDED.email,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',['U'+cryptoRandom(8),email]); return r.rows[0];
+}
 async function setUserOtp(phone, otpHash, expiresAt, sentAt) {
-  if (!hasDatabase()) {
-    const users = fallbackUsersRead(); const u = users.find(x => x.phone === phone); if (!u) throw new Error('User not found');
-    u.otp_hash = otpHash; u.otp_expires_at = expiresAt; u.otp_sent_at = sentAt; u.otp_attempts = 0; fallbackUsersWrite(users); return u;
-  }
-  await init();
-  const r = await pool.query('UPDATE users SET otp_hash=$1, otp_expires_at=$2, otp_sent_at=$3, otp_attempts=0, updated_at=NOW() WHERE phone=$4 RETURNING id,user_code,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at', [otpHash, expiresAt, sentAt, phone]);
-  return r.rows[0];
+  if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>x.phone===phone);if(!u)throw new Error('User not found');u.otp_hash=otpHash;u.otp_expires_at=expiresAt;u.otp_sent_at=sentAt;u.otp_attempts=0;fallbackUsersWrite(users);return u;}
+  await init(); const r=await pool.query('UPDATE users SET otp_hash=$1,otp_expires_at=$2,otp_sent_at=$3,otp_attempts=0,updated_at=NOW() WHERE phone=$4 RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',[otpHash,expiresAt,sentAt,phone]); return r.rows[0];
 }
-async function updateOtpAttempts(phone, attempts) {
-  if (!hasDatabase()) { const users=fallbackUsersRead(); const u=users.find(x=>x.phone===phone); if(u){u.otp_attempts=attempts;fallbackUsersWrite(users);} return; }
-  await init(); await pool.query('UPDATE users SET otp_attempts=$1, updated_at=NOW() WHERE phone=$2', [attempts, phone]);
+async function setUserOtpByEmail(email, otpHash, expiresAt, sentAt) {
+  email=String(email||'').trim().toLowerCase();
+  if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>String(x.email||'').toLowerCase()===email);if(!u)throw new Error('User not found');u.otp_hash=otpHash;u.otp_expires_at=expiresAt;u.otp_sent_at=sentAt;u.otp_attempts=0;fallbackUsersWrite(users);return u;}
+  await init(); const r=await pool.query('UPDATE users SET otp_hash=$1,otp_expires_at=$2,otp_sent_at=$3,otp_attempts=0,updated_at=NOW() WHERE LOWER(email)=LOWER($4) RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',[otpHash,expiresAt,sentAt,email]); return r.rows[0];
 }
-async function clearUserOtp(phone) {
-  if (!hasDatabase()) { const users=fallbackUsersRead(); const u=users.find(x=>x.phone===phone); if(u){u.otp_hash=null;u.otp_expires_at=null;u.otp_sent_at=null;u.otp_attempts=0;fallbackUsersWrite(users);} return; }
-  await init(); await pool.query('UPDATE users SET otp_hash=NULL, otp_expires_at=NULL, otp_sent_at=NULL, otp_attempts=0, updated_at=NOW() WHERE phone=$1', [phone]);
-}
+async function updateOtpAttempts(phone, attempts) { if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>x.phone===phone);if(u){u.otp_attempts=attempts;fallbackUsersWrite(users);}return;} await init();await pool.query('UPDATE users SET otp_attempts=$1,updated_at=NOW() WHERE phone=$2',[attempts,phone]); }
+async function updateOtpAttemptsByEmail(email, attempts) { email=String(email||'').trim().toLowerCase();if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>String(x.email||'').toLowerCase()===email);if(u){u.otp_attempts=attempts;fallbackUsersWrite(users);}return;}await init();await pool.query('UPDATE users SET otp_attempts=$1,updated_at=NOW() WHERE LOWER(email)=LOWER($2)',[attempts,email]); }
+async function clearUserOtp(phone) { if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>x.phone===phone);if(u){u.otp_hash=null;u.otp_expires_at=null;u.otp_sent_at=null;u.otp_attempts=0;fallbackUsersWrite(users);}return;}await init();await pool.query('UPDATE users SET otp_hash=NULL,otp_expires_at=NULL,otp_sent_at=NULL,otp_attempts=0,updated_at=NOW() WHERE phone=$1',[phone]); }
+async function clearUserOtpByEmail(email) { email=String(email||'').trim().toLowerCase();if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>String(x.email||'').toLowerCase()===email);if(u){u.otp_hash=null;u.otp_expires_at=null;u.otp_sent_at=null;u.otp_attempts=0;fallbackUsersWrite(users);}return;}await init();await pool.query('UPDATE users SET otp_hash=NULL,otp_expires_at=NULL,otp_sent_at=NULL,otp_attempts=0,updated_at=NOW() WHERE LOWER(email)=LOWER($1)',[email]); }
 async function updateUserName(id, name) {
   if (!hasDatabase()) { const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(id)); if(!u) return null; u.name=name; fallbackUsersWrite(users); return u; }
-  await init(); const r=await pool.query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2 RETURNING id,user_code,phone,name,status,created_at', [name,id]); return r.rows[0]||null;
+  await init(); const r=await pool.query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2 RETURNING id,user_code,email,phone,name,status,created_at', [name,id]); return r.rows[0]||null;
 }
 async function getUserById(id) {
   if (!hasDatabase()) return fallbackUsersRead().find(u=>String(u.id)===String(id))||null;
-  await init(); const r=await pool.query('SELECT id,user_code,phone,name,status,created_at FROM users WHERE id=$1',[id]); return r.rows[0]||null;
+  await init(); const r=await pool.query('SELECT id,user_code,email,phone,name,status,created_at FROM users WHERE id=$1',[id]); return r.rows[0]||null;
 }
 
 async function getUserDashboard(id) {
@@ -325,7 +321,7 @@ async function createWithdrawal(userId, method, accountNumber, amount, balanceTy
     u[key] = Number((balance - amount).toFixed(2));
     const withdrawals = fallbackWithdrawalsRead();
     const id = Date.now();
-    const item = {id,user_id:u.id,user_code:u.user_code,phone:u.phone,name:u.name||'',method,account_number:accountNumber,amount:Number(amount),balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:new Date().toISOString(),reviewed_at:null};
+    const item = {id,user_id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',method,account_number:accountNumber,amount:Number(amount),balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:new Date().toISOString(),reviewed_at:null};
     withdrawals.unshift(item); fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
     const txs=fallbackTransactionsRead(); txs.unshift({id:'WDR-'+id,user_id:u.id,type:'withdrawal',amount:Number(amount),balance_type:balanceType,reference:'WDR-'+id,status:'pending',note:'Withdrawal request via '+method,balance_before:balance,balance_after:u[key],balance_change:-Number(amount),created_at:item.created_at}); fallbackTransactionsWrite(txs);
     const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:u.id,title:'Withdrawal Submitted',message:'আপনার ৳'+Number(amount).toFixed(2)+' Withdrawal request জমা হয়েছে।',read_at:null,created_at:item.created_at}); fallbackNotificationsWrite(notes);
@@ -435,15 +431,15 @@ async function listAdminTransactions(limit=200) {
   return r.rows;
 }
 
-module.exports = { init, getData, saveData, hasDatabase, findUser, createUser, setUserOtp, updateOtpAttempts, clearUserOtp, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, createWithdrawal, listUserWithdrawals, listAdminWithdrawals, reviewWithdrawal, listUserTransactions, listAdminTransactions, getAdminId };
+module.exports = { init, getData, saveData, hasDatabase, findUser, findUserByEmail, createUser, createUserByEmail, setUserOtp, setUserOtpByEmail, updateOtpAttempts, updateOtpAttemptsByEmail, clearUserOtp, clearUserOtpByEmail, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, createWithdrawal, listUserWithdrawals, listAdminWithdrawals, reviewWithdrawal, listUserTransactions, listAdminTransactions, getAdminId };
 
 // ===== Ludo Baji feature-complete extensions (Steps 3-35) =====
 async function listUsers(limit=500, q='') {
-  if (!hasDatabase()) { let a=fallbackUsersRead(); q=String(q||'').toLowerCase(); if(q)a=a.filter(u=>[u.user_code,u.phone,u.name].some(v=>String(v||'').toLowerCase().includes(q))); return a.slice(-limit).reverse().map(u=>({id:u.id,user_code:u.user_code,phone:u.phone,name:u.name||'',status:u.status||'active',gaming_balance:Number(u.gaming_balance||0),winning_balance:Number(u.winning_balance||0),created_at:u.created_at})); }
-  await init(); const r=await pool.query(`SELECT u.id,u.user_code,u.phone,u.name,u.status,u.created_at,COALESCE(w.gaming_balance,0) gaming_balance,COALESCE(w.winning_balance,0) winning_balance FROM users u LEFT JOIN wallets w ON w.user_id=u.id WHERE ($1='' OR u.user_code ILIKE '%'||$1||'%' OR u.phone ILIKE '%'||$1||'%' OR COALESCE(u.name,'') ILIKE '%'||$1||'%') ORDER BY u.created_at DESC LIMIT $2`,[String(q||''),limit]); return r.rows;
+  if (!hasDatabase()) { let a=fallbackUsersRead(); q=String(q||'').toLowerCase(); if(q)a=a.filter(u=>[u.user_code,u.email,u.phone,u.name].some(v=>String(v||'').toLowerCase().includes(q))); return a.slice(-limit).reverse().map(u=>({id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',status:u.status||'active',gaming_balance:Number(u.gaming_balance||0),winning_balance:Number(u.winning_balance||0),created_at:u.created_at})); }
+  await init(); const r=await pool.query(`SELECT u.id,u.user_code,u.email,u.phone,u.name,u.status,u.created_at,COALESCE(w.gaming_balance,0) gaming_balance,COALESCE(w.winning_balance,0) winning_balance FROM users u LEFT JOIN wallets w ON w.user_id=u.id WHERE ($1='' OR u.user_code ILIKE '%'||$1||'%' OR COALESCE(u.email,'') ILIKE '%'||$1||'%' OR COALESCE(u.phone,'') ILIKE '%'||$1||'%' OR COALESCE(u.name,'') ILIKE '%'||$1||'%') ORDER BY u.created_at DESC LIMIT $2`,[String(q||''),limit]); return r.rows;
 }
 async function setUserStatus(id,status){
-  status=status==='blocked'?'blocked':'active'; if(!hasDatabase()){const a=fallbackUsersRead(),u=a.find(x=>String(x.id)===String(id));if(!u)throw new Error('User not found');u.status=status;fallbackUsersWrite(a);return u;} await init();const r=await pool.query('UPDATE users SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,user_code,phone,name,status,created_at',[status,id]);if(!r.rows[0])throw new Error('User not found');return r.rows[0];
+  status=status==='blocked'?'blocked':'active'; if(!hasDatabase()){const a=fallbackUsersRead(),u=a.find(x=>String(x.id)===String(id));if(!u)throw new Error('User not found');u.status=status;fallbackUsersWrite(a);return u;} await init();const r=await pool.query('UPDATE users SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,user_code,email,phone,name,status,created_at',[status,id]);if(!r.rows[0])throw new Error('User not found');return r.rows[0];
 }
 async function adjustBalance(id,balanceType,amount,note='Admin balance adjustment'){
   balanceType=balanceType==='gaming'?'gaming':'winning'; amount=Number(amount);if(!Number.isFinite(amount)||amount===0)throw new Error('Invalid amount');
@@ -466,7 +462,7 @@ async function listNotifications(userId,limit=100){if(!hasDatabase()){return fal
 async function markNotificationsRead(userId,id){if(!hasDatabase()){const a=fallbackNotificationsRead();a.forEach(n=>{if(String(n.user_id)===String(userId)&&(id==='all'||String(n.id)===String(id)))n.read_at=new Date().toISOString()});fallbackNotificationsWrite(a);return true;}await init();if(id==='all')await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND read_at IS NULL',[userId]);else await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND id=$2',[userId,id]);return true;}
 async function supportList(userId){if(!hasDatabase())return fallbackSupportRead().filter(x=>String(x.user_id)===String(userId));await init();const r=await pool.query('SELECT id,user_id,sender,message,created_at FROM support_messages WHERE user_id=$1 ORDER BY created_at ASC',[userId]);return r.rows;}
 async function supportSend(userId,sender,message){message=String(message||'').trim();if(!message||message.length>2000)throw new Error('Message required');if(!hasDatabase()){const a=fallbackSupportRead();a.push({id:Date.now(),user_id:userId,sender,message,created_at:new Date().toISOString()});fallbackSupportWrite(a);return a[a.length-1];}await init();const r=await pool.query('INSERT INTO support_messages(user_id,sender,message) VALUES($1,$2,$3) RETURNING *',[userId,sender,message]);return r.rows[0];}
-async function adminSupport(limit=300){if(!hasDatabase())return fallbackSupportRead().slice(-limit).reverse();await init();const r=await pool.query('SELECT s.*,u.user_code,u.phone,u.name FROM support_messages s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC LIMIT $1',[limit]);return r.rows;}
+async function adminSupport(limit=300){if(!hasDatabase())return fallbackSupportRead().slice(-limit).reverse();await init();const r=await pool.query('SELECT s.*,u.user_code,u.email,u.phone,u.name FROM support_messages s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC LIMIT $1',[limit]);return r.rows;}
 function fallbackSupportRead(){try{return JSON.parse(fs.readFileSync(SUPPORT_DATA,'utf8'))}catch{return []}}
 function fallbackSupportWrite(items){const tmp=SUPPORT_DATA+'.tmp';fs.writeFileSync(tmp,JSON.stringify(items,null,2),'utf8');fs.renameSync(tmp,SUPPORT_DATA)}
 module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport};
