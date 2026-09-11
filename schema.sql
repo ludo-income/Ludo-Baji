@@ -24,3 +24,11 @@ CREATE TABLE IF NOT EXISTS support_messages (id BIGSERIAL PRIMARY KEY, user_id B
 -- paymentMethods, matches, banners, faqs, pages, referral, adminRoles, auditLogs, system.
 CREATE TABLE IF NOT EXISTS admin_audit_logs (id BIGSERIAL PRIMARY KEY, admin_id BIGINT REFERENCES admins(id), action TEXT NOT NULL, target TEXT, detail JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE INDEX IF NOT EXISTS idx_audit_created ON admin_audit_logs(created_at DESC);
+
+-- Phase 2 financial integrity constraints. Safe to run repeatedly.
+DO $$ BEGIN ALTER TABLE wallets ADD CONSTRAINT wallets_gaming_nonnegative CHECK (gaming_balance >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE wallets ADD CONSTRAINT wallets_winning_nonnegative CHECK (winning_balance >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE transactions ADD CONSTRAINT transactions_amount_nonnegative CHECK (amount >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_before NUMERIC(14,2);
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_after NUMERIC(14,2);
+CREATE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(reference) WHERE reference IS NOT NULL AND reference <> '';

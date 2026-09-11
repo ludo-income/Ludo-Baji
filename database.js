@@ -10,6 +10,26 @@ const TRANSACTIONS_DATA = path.join(__dirname, 'transactions.json');
 const SUPPORT_DATA = path.join(__dirname, 'support_messages.json');
 let pool = null;
 let ready = null;
+let fallbackFinancialQueue = Promise.resolve();
+
+function assertMoneyAmount(value, field='amount') {
+  const n=Number(value);
+  if(!Number.isFinite(n) || n<=0 || n>999999999999.99) throw new Error(`Invalid ${field}`);
+  if(Math.round(n*100)!==Math.round(n)*100 && !Number.isInteger(Math.round(n*100))) throw new Error(`Invalid ${field}`);
+  return Number(n.toFixed(2));
+}
+function withFallbackFinancialLock(task){
+  const run=fallbackFinancialQueue.then(task,task);
+  fallbackFinancialQueue=run.catch(()=>{});
+  return run;
+}
+function snapshotFallbackFinancialFiles(){
+  const files=[DATA,USERS_DATA,DEPOSITS_DATA,WITHDRAWALS_DATA,TRANSACTIONS_DATA,NOTIFICATIONS_DATA];
+  const out={}; for(const f of files) out[f]=fs.existsSync(f)?fs.readFileSync(f,'utf8'):null; return out;
+}
+function restoreFallbackFinancialFiles(snapshot){
+  for(const [f,data] of Object.entries(snapshot)){ if(data===null){try{fs.unlinkSync(f)}catch{}} else {const tmp=f+'.restore.tmp';fs.writeFileSync(tmp,data,'utf8');fs.renameSync(tmp,f)} }
+}
 
 function fallbackRead() {
   return JSON.parse(fs.readFileSync(DATA, 'utf8'));
@@ -108,6 +128,9 @@ async function init() {
       CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
       CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_support_user_created ON support_messages(user_id, created_at DESC);
+      DO $$ BEGIN ALTER TABLE wallets ADD CONSTRAINT wallets_gaming_nonnegative CHECK (gaming_balance >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      DO $$ BEGIN ALTER TABLE wallets ADD CONSTRAINT wallets_winning_nonnegative CHECK (winning_balance >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      DO $$ BEGIN ALTER TABLE transactions ADD CONSTRAINT transactions_amount_nonnegative CHECK (amount >= 0); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `);
     const existing = await pool.query('SELECT COUNT(*)::int AS count FROM app_config');
     if (existing.rows[0].count === 0) {
@@ -217,20 +240,28 @@ async function ensureUserWallet(id) {
 
 
 async function createDeposit(userId, method, amount, transactionId, screenshot) {
-  if (!hasDatabase()) {
-    const users = fallbackUsersRead();
-    const user = users.find(u => String(u.id) === String(userId));
-    if (!user) throw new Error('User not found');
-    const deposits = fallbackDepositsRead();
-    if (transactionId && deposits.some(d => String(d.transaction_id||'').toLowerCase() === String(transactionId).toLowerCase())) throw new Error('এই Transaction ID আগে ব্যবহার করা হয়েছে');
-    const id = Date.now();
-    const item = {id, user_id:user.id, user_code:user.user_code, phone:user.phone, method, amount:Number(amount), transaction_id:transactionId, screenshot, status:'pending', reviewed_by:null, created_at:new Date().toISOString(), reviewed_at:null};
-    deposits.unshift(item); fallbackDepositsWrite(deposits);
-    const txs=fallbackTransactionsRead();
-    txs.unshift({id:'DEP-'+id,user_id:user.id,user_code:user.user_code,type:'deposit',amount:Number(amount),balance_type:'gaming',reference:transactionId||('DEP-'+id),status:'pending',note:'Deposit request via '+method,balance_before:Number(user.gaming_balance||0),balance_after:Number(user.gaming_balance||0),balance_change:0,created_at:item.created_at});
-    fallbackTransactionsWrite(txs);
-    return item;
-  }
+  amount=assertMoneyAmount(amount);
+  if (!hasDatabase()) return withFallbackFinancialLock(async()=>{
+    const snapshot=snapshotFallbackFinancialFiles();
+    try {
+      const users = fallbackUsersRead();
+      const user = users.find(u => String(u.id) === String(userId));
+      if (!user) throw new Error('User not found');
+      if (user.status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+      const deposits = fallbackDepositsRead();
+      if (transactionId && deposits.some(d => String(d.transaction_id||'').toLowerCase() === String(transactionId).toLowerCase())) throw new Error('এই Transaction ID আগে ব্যবহার করা হয়েছে');
+      const id = Date.now()+'-'+Math.random().toString(36).slice(2,8);
+      const now=new Date().toISOString();
+      const item = {id, user_id:user.id, user_code:user.user_code, phone:user.phone, method, amount, transaction_id:transactionId, screenshot, status:'pending', reviewed_by:null, created_at:now, reviewed_at:null};
+      deposits.unshift(item); fallbackDepositsWrite(deposits);
+      const txs=fallbackTransactionsRead();
+      const ref=transactionId||('DEP-'+id);
+      if(txs.some(t=>String(t.user_id)===String(user.id)&&t.type==='deposit'&&String(t.reference)===String(ref))) throw new Error('Duplicate deposit transaction');
+      txs.unshift({id:'DEP-'+id,user_id:user.id,user_code:user.user_code,type:'deposit',amount,balance_type:'gaming',reference:ref,status:'pending',note:'Deposit request via '+method,balance_before:Number(user.gaming_balance||0),balance_after:Number(user.gaming_balance||0),balance_change:0,created_at:now});
+      fallbackTransactionsWrite(txs);
+      return item;
+    } catch(e){ restoreFallbackFinancialFiles(snapshot); throw e; }
+  });
   await init();
   const client = await pool.connect();
   try {
@@ -268,22 +299,25 @@ async function listAdminDeposits(status='all', limit=100) {
 
 async function reviewDeposit(depositId, status, adminId=null, note='') {
   if (!['approved','rejected'].includes(status)) throw new Error('Invalid deposit status');
-  if (!hasDatabase()) {
-    const deposits=fallbackDepositsRead(); const d=deposits.find(x=>String(x.id)===String(depositId));
-    if(!d) throw new Error('Deposit পাওয়া যায়নি');
-    if(d.status!=='pending') throw new Error('এই Deposit ইতিমধ্যে review করা হয়েছে');
-    d.status=status; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString(); fallbackDepositsWrite(deposits);
-    const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id));
-    if(u){
+  if (!hasDatabase()) return withFallbackFinancialLock(async()=>{
+    const snapshot=snapshotFallbackFinancialFiles();
+    try {
+      const deposits=fallbackDepositsRead(); const d=deposits.find(x=>String(x.id)===String(depositId));
+      if(!d) throw new Error('Deposit পাওয়া যায়নি');
+      if(d.status!=='pending') throw new Error('এই Deposit ইতিমধ্যে review করা হয়েছে');
+      const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id)); if(!u) throw new Error('User not found');
       const before=Number(u.gaming_balance||0), after=status==='approved'?Number((before+Number(d.amount)).toFixed(2)):before;
-      u.gaming_balance=after; fallbackUsersWrite(users);
-      const txs=fallbackTransactionsRead(); const tx=txs.find(x=>String(x.reference)===(d.transaction_id||('DEP-'+d.id)) && x.type==='deposit' && x.status==='pending');
-      if(tx){tx.status=status==='approved'?'completed':'rejected';tx.note=note||(status==='approved'?'Deposit approved':'Deposit rejected');tx.balance_before=before;tx.balance_after=after;tx.balance_change=status==='approved'?Number(d.amount):0;}
+      d.status=status; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString(); d.note=note||'';
+      if(status==='approved') u.gaming_balance=after;
+      fallbackDepositsWrite(deposits); fallbackUsersWrite(users);
+      const txs=fallbackTransactionsRead(); const ref=d.transaction_id||('DEP-'+d.id); const tx=txs.find(x=>String(x.reference)===String(ref)&&x.type==='deposit'&&String(x.user_id)===String(d.user_id)&&x.status==='pending');
+      if(!tx) throw new Error('Deposit transaction record not found');
+      tx.status=status==='approved'?'completed':'rejected'; tx.note=note||(status==='approved'?'Deposit approved':'Deposit rejected'); tx.balance_before=before; tx.balance_after=after; tx.balance_change=status==='approved'?Number(d.amount):0;
       fallbackTransactionsWrite(txs);
-      const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:d.user_id,title:status==='approved'?'Deposit Approved':'Deposit Rejected',message:status==='approved'?('আপনার ৳'+Number(d.amount).toFixed(2)+' Deposit Gaming Balance-এ যোগ হয়েছে।'):('আপনার Deposit requestটি বাতিল করা হয়েছে।'+(note?' কারণ: '+note:'')),read_at:null,created_at:d.reviewed_at}); fallbackNotificationsWrite(notes);
-    }
-    return d;
-  }
+      const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+Math.random(),user_id:d.user_id,title:status==='approved'?'Deposit Approved':'Deposit Rejected',message:status==='approved'?('আপনার ৳'+Number(d.amount).toFixed(2)+' Deposit Gaming Balance-এ যোগ হয়েছে।'):('আপনার Deposit requestটি বাতিল করা হয়েছে।'+(note?' কারণ: '+note:'')),read_at:null,created_at:d.reviewed_at}); fallbackNotificationsWrite(notes);
+      return d;
+    } catch(e){ restoreFallbackFinancialFiles(snapshot); throw e; }
+  });
   await init();
   const client=await pool.connect();
   try{
@@ -294,11 +328,15 @@ async function reviewDeposit(depositId, status, adminId=null, note='') {
     await client.query('UPDATE deposits SET status=$1, reviewed_by=$2, reviewed_at=NOW() WHERE id=$3',[status,adminId,depositId]);
     if(status==='approved'){
       await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[d.user_id]);
-      await client.query('UPDATE wallets SET gaming_balance=gaming_balance+$1,updated_at=NOW() WHERE user_id=$2',[d.amount,d.user_id]);
-      await client.query('UPDATE transactions SET status=\'completed\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit approved',d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      const wb=await client.query('SELECT gaming_balance FROM wallets WHERE user_id=$1 FOR UPDATE',[d.user_id]);
+      const before=Number(wb.rows[0]?.gaming_balance||0), after=Number((before+Number(d.amount)).toFixed(2));
+      await client.query('UPDATE wallets SET gaming_balance=$1,updated_at=NOW() WHERE user_id=$2',[after,d.user_id]);
+      const txr=await client.query('UPDATE transactions SET status=\'completed\',note=$1,balance_before=$2,balance_after=$3,balance_change=$4 WHERE user_id=$5 AND reference=$6 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit approved',before,after,Number(d.amount),d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      if(txr.rowCount!==1) throw new Error('Deposit transaction record not found');
       await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Deposit Approved','আপনার ৳'+Number(d.amount).toFixed(2)+' Deposit Gaming Balance-এ যোগ হয়েছে।']);
     } else {
-      await client.query('UPDATE transactions SET status=\'rejected\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit rejected',d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      const txr=await client.query('UPDATE transactions SET status=\'rejected\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'deposit\' AND status=\'pending\'',[note||'Deposit rejected',d.user_id,d.transaction_id||('DEP-'+d.id)]);
+      if(txr.rowCount!==1) throw new Error('Deposit transaction record not found');
       await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Deposit Rejected','আপনার Deposit requestটি বাতিল করা হয়েছে।']);
     }
     await client.query('COMMIT'); return {...d,status,reviewed_at:new Date().toISOString()};
@@ -310,44 +348,40 @@ async function reviewDeposit(depositId, status, adminId=null, note='') {
 async function createWithdrawal(userId, method, accountNumber, amount, balanceType='winning') {
   if (!['bkash','nagad'].includes(method)) throw new Error('bKash অথবা Nagad নির্বাচন করুন');
   if (!['gaming','winning'].includes(balanceType)) throw new Error('সঠিক Balance নির্বাচন করুন');
-  if (!hasDatabase()) {
-    const users = fallbackUsersRead();
-    const u = users.find(x => String(x.id) === String(userId));
-    if (!u) throw new Error('User not found');
-    if (u.status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
-    const key = balanceType === 'gaming' ? 'gaming_balance' : 'winning_balance';
-    const balance = Number(u[key] || 0);
-    if (balance < amount) throw new Error('পর্যাপ্ত Balance নেই');
-    u[key] = Number((balance - amount).toFixed(2));
-    const withdrawals = fallbackWithdrawalsRead();
-    const id = Date.now();
-    const item = {id,user_id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',method,account_number:accountNumber,amount:Number(amount),balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:new Date().toISOString(),reviewed_at:null};
-    withdrawals.unshift(item); fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
-    const txs=fallbackTransactionsRead(); txs.unshift({id:'WDR-'+id,user_id:u.id,type:'withdrawal',amount:Number(amount),balance_type:balanceType,reference:'WDR-'+id,status:'pending',note:'Withdrawal request via '+method,balance_before:balance,balance_after:u[key],balance_change:-Number(amount),created_at:item.created_at}); fallbackTransactionsWrite(txs);
-    const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:u.id,title:'Withdrawal Submitted',message:'আপনার ৳'+Number(amount).toFixed(2)+' Withdrawal request জমা হয়েছে।',read_at:null,created_at:item.created_at}); fallbackNotificationsWrite(notes);
-    return item;
-  }
-  await init();
-  const client = await pool.connect();
+  amount=assertMoneyAmount(amount);
+  accountNumber=String(accountNumber||'').trim();
+  if(!/^(?:\+?8801|01)\d{9}$/.test(accountNumber.replace(/[\s-]/g,''))) throw new Error('সঠিক bKash/Nagad account number দিন');
+  if (!hasDatabase()) return withFallbackFinancialLock(async()=>{
+    const snapshot=snapshotFallbackFinancialFiles();
+    try {
+      const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(userId));
+      if(!u) throw new Error('User not found'); if(u.status!=='active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+      const key=balanceType+'_balance',before=Number(u[key]||0); if(before<amount) throw new Error('পর্যাপ্ত Balance নেই');
+      const id=Date.now()+'-'+Math.random().toString(36).slice(2,8),now=new Date().toISOString(),ref='WDR-'+id;
+      const after=Number((before-amount).toFixed(2)); u[key]=after;
+      const item={id,user_id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',method,account_number:accountNumber,amount,balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:now,reviewed_at:null,balance_before:before,balance_after:after};
+      const withdrawals=fallbackWithdrawalsRead(); withdrawals.unshift(item); fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
+      const txs=fallbackTransactionsRead(); txs.unshift({id:ref,user_id:u.id,type:'withdrawal',amount,balance_type:balanceType,reference:ref,status:'pending',note:'Withdrawal request via '+method,balance_before:before,balance_after:after,balance_change:-amount,created_at:now}); fallbackTransactionsWrite(txs);
+      const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+Math.random(),user_id:u.id,title:'Withdrawal Submitted',message:'আপনার ৳'+amount.toFixed(2)+' Withdrawal request জমা হয়েছে।',read_at:null,created_at:now}); fallbackNotificationsWrite(notes);
+      return item;
+    }catch(e){restoreFallbackFinancialFiles(snapshot);throw e;}
+  });
+  await init(); const client=await pool.connect();
   try {
     await client.query('BEGIN');
-    const u = await client.query('SELECT id,user_code,phone,name,status FROM users WHERE id=$1 FOR UPDATE',[userId]);
-    if (!u.rows[0]) throw new Error('User not found');
-    if (u.rows[0].status !== 'active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
+    const u=await client.query('SELECT id,user_code,phone,name,status FROM users WHERE id=$1 FOR UPDATE',[userId]);
+    if(!u.rows[0]) throw new Error('User not found'); if(u.rows[0].status!=='active') throw new Error('এই অ্যাকাউন্টটি বন্ধ আছে');
     await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[userId]);
-    const col = balanceType === 'gaming' ? 'gaming_balance' : 'winning_balance';
-    const w = await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[userId]);
-    const balance = Number(w.rows[0]?.balance || 0);
-    if (balance < amount) throw new Error('পর্যাপ্ত Balance নেই');
-    const r = await client.query('INSERT INTO withdrawals(user_id,method,account_number,amount,balance_type,status,note) VALUES($1,$2,$3,$4,$5,\'pending\',\'\') RETURNING *',[userId,method,accountNumber,amount,balanceType]);
-    await client.query(`UPDATE wallets SET ${col}=${col}-$1,updated_at=NOW() WHERE user_id=$2`,[amount,userId]);
-    await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note) VALUES($1,\'withdrawal\',$2,$3,$4,\'pending\',$5)',[userId,amount,balanceType,'WDR-'+r.rows[0].id,'Withdrawal request via '+method]);
-    await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[userId,'Withdrawal Submitted','আপনার ৳'+Number(amount).toFixed(2)+' Withdrawal request জমা হয়েছে।']);
-    await client.query('COMMIT');
-    return {...r.rows[0],user_code:u.rows[0].user_code,phone:u.rows[0].phone,name:u.rows[0].name||''};
-  } catch(e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+    const col=balanceType==='gaming'?'gaming_balance':'winning_balance';
+    const w=await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[userId]);
+    const before=Number(w.rows[0]?.balance||0); if(before<amount) throw new Error('পর্যাপ্ত Balance নেই'); const after=Number((before-amount).toFixed(2));
+    const r=await client.query('INSERT INTO withdrawals(user_id,method,account_number,amount,balance_type,status,note) VALUES($1,$2,$3,$4,$5,\'pending\',\'\') RETURNING *',[userId,method,accountNumber,amount,balanceType]);
+    await client.query(`UPDATE wallets SET ${col}=$1,updated_at=NOW() WHERE user_id=$2`,[after,userId]);
+    await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note,balance_before,balance_after,balance_change) VALUES($1,\'withdrawal\',$2,$3,$4,\'pending\',$5,$6,$7,$8)',[userId,amount,balanceType,'WDR-'+r.rows[0].id,'Withdrawal request via '+method,before,after,-amount]);
+    await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[userId,'Withdrawal Submitted','আপনার ৳'+amount.toFixed(2)+' Withdrawal request জমা হয়েছে।']);
+    await client.query('COMMIT'); return {...r.rows[0],user_code:u.rows[0].user_code,phone:u.rows[0].phone,name:u.rows[0].name||'',balance_before:before,balance_after:after};
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-
 async function listUserWithdrawals(userId, limit=50) {
   if (!hasDatabase()) return fallbackWithdrawalsRead().filter(d=>String(d.user_id)===String(userId)).slice(0,limit);
   await init();
@@ -371,42 +405,46 @@ async function listAdminWithdrawals(status='all', limit=100) {
 
 async function reviewWithdrawal(withdrawalId, status, adminId=null, note='') {
   if (!['approved','rejected'].includes(status)) throw new Error('Invalid withdrawal status');
-  if (!hasDatabase()) {
-    const withdrawals=fallbackWithdrawalsRead(); const d=withdrawals.find(x=>String(x.id)===String(withdrawalId));
-    if(!d) throw new Error('Withdrawal পাওয়া যায়নি');
-    if(d.status!=='pending') throw new Error('এই Withdrawal ইতিমধ্যে review করা হয়েছে');
-    const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id));
-    if(!u) throw new Error('User not found');
-    if(status==='rejected') { const key=d.balance_type==='gaming'?'gaming_balance':'winning_balance'; u[key]=Number((Number(u[key]||0)+Number(d.amount)).toFixed(2)); }
-    d.status=status; d.note=note; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString();
-    const txs=fallbackTransactionsRead(); const tx=txs.find(x=>String(x.reference)==='WDR-'+d.id&&x.status==='pending'); if(tx){tx.status=status==='approved'?'completed':'rejected';tx.note=note||(status==='approved'?'Withdrawal approved':'Withdrawal rejected');tx.balance_change=status==='approved'?-Number(d.amount):0;tx.balance_after=Number(u[d.balance_type==='gaming'?'gaming_balance':'winning_balance']||0);} fallbackTransactionsWrite(txs);
-    const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+1,user_id:d.user_id,title:status==='approved'?'Withdrawal Approved':'Withdrawal Rejected',message:status==='approved'?('আপনার ৳'+Number(d.amount).toFixed(2)+' Withdrawal request approved হয়েছে।'):('আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳'+Number(d.amount).toFixed(2)+' Balance-এ ফেরত দেওয়া হয়েছে।'+(note?' কারণ: '+note:'')),read_at:null,created_at:d.reviewed_at}); fallbackNotificationsWrite(notes);
-    fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
-    return d;
-  }
+  if (!hasDatabase()) return withFallbackFinancialLock(async()=>{
+    const snapshot=snapshotFallbackFinancialFiles();
+    try {
+      const withdrawals=fallbackWithdrawalsRead(); const d=withdrawals.find(x=>String(x.id)===String(withdrawalId)); if(!d) throw new Error('Withdrawal পাওয়া যায়নি');
+      if(d.status!=='pending') throw new Error('এই Withdrawal ইতিমধ্যে review করা হয়েছে');
+      const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(d.user_id)); if(!u) throw new Error('User not found');
+      const key=d.balance_type==='gaming'?'gaming_balance':'winning_balance'; const current=Number(u[key]||0);
+      let before=current,after=current,change=0;
+      if(status==='rejected'){before=current;after=Number((current+Number(d.amount)).toFixed(2));u[key]=after;change=Number(d.amount);}
+      d.status=status; d.note=note; d.reviewed_by=adminId; d.reviewed_at=new Date().toISOString(); d.balance_after=after;
+      fallbackUsersWrite(users); fallbackWithdrawalsWrite(withdrawals);
+      const txs=fallbackTransactionsRead(); const tx=txs.find(x=>String(x.reference)==='WDR-'+d.id&&String(x.status)==='pending'); if(!tx) throw new Error('Withdrawal transaction record not found');
+      tx.status=status==='approved'?'completed':'rejected'; tx.note=note||(status==='approved'?'Withdrawal approved':'Withdrawal rejected'); tx.balance_before=before; tx.balance_after=after; tx.balance_change=change; fallbackTransactionsWrite(txs);
+      const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+Math.random(),user_id:d.user_id,title:status==='approved'?'Withdrawal Approved':'Withdrawal Rejected',message:status==='approved'?('আপনার ৳'+Number(d.amount).toFixed(2)+' Withdrawal request approved হয়েছে।'):('আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳'+Number(d.amount).toFixed(2)+' Balance-এ ফেরত দেওয়া হয়েছে।'+(note?' কারণ: '+note:'')),read_at:null,created_at:d.reviewed_at}); fallbackNotificationsWrite(notes);
+      return d;
+    }catch(e){restoreFallbackFinancialFiles(snapshot);throw e;}
+  });
   await init(); const client=await pool.connect();
   try {
     await client.query('BEGIN');
-    const q=await client.query('SELECT w.*,u.user_code FROM withdrawals w JOIN users u ON u.id=w.user_id WHERE w.id=$1 FOR UPDATE',[withdrawalId]);
-    if(!q.rows[0]) throw new Error('Withdrawal পাওয়া যায়নি');
+    const q=await client.query('SELECT w.*,u.user_code FROM withdrawals w JOIN users u ON u.id=w.user_id WHERE w.id=$1 FOR UPDATE',[withdrawalId]); if(!q.rows[0]) throw new Error('Withdrawal পাওয়া যায়নি');
     const d=q.rows[0]; if(d.status!=='pending') throw new Error('এই Withdrawal ইতিমধ্যে review করা হয়েছে');
     await client.query('UPDATE withdrawals SET status=$1,reviewed_by=$2,reviewed_at=NOW(),note=$3 WHERE id=$4',[status,adminId,note,withdrawalId]);
-    if(status==='rejected') {
-      await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[d.user_id]);
-      const col=d.balance_type==='gaming'?'gaming_balance':'winning_balance';
-      const wb=await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[d.user_id]);
-      const before=Number(wb.rows[0]?.balance||0), after=Number((before+Number(d.amount)).toFixed(2));
+    const col=d.balance_type==='gaming'?'gaming_balance':'winning_balance';
+    const wb=await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[d.user_id]);
+    const current=Number(wb.rows[0]?.balance||0);
+    if(status==='rejected'){
+      const after=Number((current+Number(d.amount)).toFixed(2));
       await client.query(`UPDATE wallets SET ${col}=$1,updated_at=NOW() WHERE user_id=$2`,[after,d.user_id]);
-      await client.query('UPDATE transactions SET status=\'rejected\',note=$1,balance_before=$2,balance_after=$3,balance_change=0 WHERE user_id=$4 AND reference=$5 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal rejected',before,after,d.user_id,'WDR-'+d.id]);
+      const txr=await client.query('UPDATE transactions SET status=\'rejected\',note=$1,balance_before=$2,balance_after=$3,balance_change=$4 WHERE user_id=$5 AND reference=$6 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal rejected',current,after,Number(d.amount),d.user_id,'WDR-'+d.id]);
+      if(txr.rowCount!==1) throw new Error('Withdrawal transaction record not found');
       await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Withdrawal Rejected','আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳'+Number(d.amount).toFixed(2)+' Balance-এ ফেরত দেওয়া হয়েছে।'+(note?' কারণ: '+note:'')]);
     } else {
-      await client.query('UPDATE transactions SET status=\'completed\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal approved',d.user_id,'WDR-'+d.id]);
+      const txr=await client.query('UPDATE transactions SET status=\'completed\',note=$1 WHERE user_id=$2 AND reference=$3 AND type=\'withdrawal\' AND status=\'pending\'',[note||'Withdrawal approved',d.user_id,'WDR-'+d.id]);
+      if(txr.rowCount!==1) throw new Error('Withdrawal transaction record not found');
       await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[d.user_id,'Withdrawal Approved','আপনার ৳'+Number(d.amount).toFixed(2)+' Withdrawal request approved হয়েছে।']);
     }
     await client.query('COMMIT'); return {...d,status,note,reviewed_at:new Date().toISOString()};
-  } catch(e){await client.query('ROLLBACK');throw e;} finally{client.release();}
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-
 async function getAdminId(username) {
   if (!hasDatabase()) return null;
   await init(); const r=await pool.query('SELECT id FROM admins WHERE username=$1',[username]); return r.rows[0]?.id||null;
@@ -442,13 +480,13 @@ async function setUserStatus(id,status){
   status=status==='blocked'?'blocked':'active'; if(!hasDatabase()){const a=fallbackUsersRead(),u=a.find(x=>String(x.id)===String(id));if(!u)throw new Error('User not found');u.status=status;fallbackUsersWrite(a);return u;} await init();const r=await pool.query('UPDATE users SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,user_code,email,phone,name,status,created_at',[status,id]);if(!r.rows[0])throw new Error('User not found');return r.rows[0];
 }
 async function adjustBalance(id,balanceType,amount,note='Admin balance adjustment'){
-  balanceType=balanceType==='gaming'?'gaming':'winning'; amount=Number(amount);if(!Number.isFinite(amount)||amount===0)throw new Error('Invalid amount');
-  if(!hasDatabase()){const a=fallbackUsersRead(),u=a.find(x=>String(x.id)===String(id));if(!u)throw new Error('User not found');const key=balanceType+'_balance',before=Number(u[key]||0),after=Number((before+amount).toFixed(2));if(after<0)throw new Error('Balance cannot be negative');u[key]=after;fallbackUsersWrite(a);const tx=fallbackTransactionsRead();tx.unshift({id:'ADJ-'+Date.now(),user_id:u.id,type:'balance_adjustment',amount:Math.abs(amount),balance_type:balanceType,reference:'ADJ-'+Date.now(),status:'completed',note,balance_before:before,balance_after:after,balance_change:amount,created_at:new Date().toISOString()});fallbackTransactionsWrite(tx);return {before,after,change:amount};}
-  await init();const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[id]);await c.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT DO NOTHING',[id]);const col=balanceType+'_balance';const w=await c.query(`SELECT ${col} balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[id]);const before=Number(w.rows[0]?.balance||0),after=Number((before+amount).toFixed(2));if(after<0)throw new Error('Balance cannot be negative');await c.query(`UPDATE wallets SET ${col}=$1,updated_at=NOW() WHERE user_id=$2`,[after,id]);await c.query(`INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note,balance_before,balance_after,balance_change) VALUES($1,'balance_adjustment',$2,$3,$4,'completed',$5,$6,$7,$8)`,[id,Math.abs(amount),balanceType,'ADJ-'+Date.now(),note,before,after,amount]);await c.query('COMMIT');return {before,after,change:amount};}catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
+  balanceType=balanceType==='gaming'?'gaming':'winning'; amount=Number(amount); if(!Number.isFinite(amount)||amount===0||Math.abs(amount)>999999999999.99)throw new Error('Invalid amount'); amount=Number(amount.toFixed(2));
+  if(!hasDatabase()) return withFallbackFinancialLock(async()=>{const snapshot=snapshotFallbackFinancialFiles();try{const a=fallbackUsersRead(),u=a.find(x=>String(x.id)===String(id));if(!u)throw new Error('User not found');const key=balanceType+'_balance',before=Number(u[key]||0),after=Number((before+amount).toFixed(2));if(after<0)throw new Error('Balance cannot be negative');u[key]=after;fallbackUsersWrite(a);const txs=fallbackTransactionsRead(),ref='ADJ-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);txs.unshift({id:ref,user_id:u.id,type:'balance_adjustment',amount:Math.abs(amount),balance_type:balanceType,reference:ref,status:'completed',note,balance_before:before,balance_after:after,balance_change:amount,created_at:new Date().toISOString()});fallbackTransactionsWrite(txs);return {before,after,change:amount};}catch(e){restoreFallbackFinancialFiles(snapshot);throw e;}});
+  await init();const c=await pool.connect();try{await c.query('BEGIN');const ur=await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[id]);if(!ur.rows[0])throw new Error('User not found');await c.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT DO NOTHING',[id]);const col=balanceType+'_balance';const w=await c.query(`SELECT ${col} balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[id]);const before=Number(w.rows[0]?.balance||0),after=Number((before+amount).toFixed(2));if(after<0)throw new Error('Balance cannot be negative');await c.query(`UPDATE wallets SET ${col}=$1,updated_at=NOW() WHERE user_id=$2`,[after,id]);const ref='ADJ-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);await c.query(`INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note,balance_before,balance_after,balance_change) VALUES($1,'balance_adjustment',$2,$3,$4,'completed',$5,$6,$7,$8)`,[id,Math.abs(amount),balanceType,ref,note,before,after,amount]);await c.query('COMMIT');return {before,after,change:amount};}catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }
 async function notifyUser(userId,title,message){const item={id:Date.now()+Math.random(),user_id:userId,title,message,read_at:null,created_at:new Date().toISOString()};if(!hasDatabase()){const a=fallbackNotificationsRead();a.unshift(item);fallbackNotificationsWrite(a);return item;}await init();const r=await pool.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3) RETURNING *',[userId,title,message]);return r.rows[0];}
 async function createFeatureMatch(x){
-  const item={id:'M-'+Date.now()+Math.random().toString(36).slice(2,5),match_code:String(x.match_code||('LB'+Date.now())).toUpperCase(),title:String(x.title||'Ludo Match').trim(),entry_fee:Number(x.entry_fee||0),winning_amount:Number(x.winning_amount||0),max_players:Math.max(2,Math.min(100,Number(x.max_players||4))),scheduled_at:x.scheduled_at||new Date().toISOString(),status:x.status||'open',room_id:'',room_password:'',rules:String(x.rules||''),players:[],winner_user_id:null,prize_status:'pending',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(!item.title||item.entry_fee<0||item.winning_amount<0)throw new Error('Invalid match data');const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];d.matches.unshift(item);await saveData(d);return item;
+  const item={id:'M-'+Date.now()+Math.random().toString(36).slice(2,5),match_code:String(x.match_code||('LB'+Date.now())).toUpperCase(),title:String(x.title||'Ludo Match').trim(),entry_fee:Number(x.entry_fee||0),winning_amount:Number(x.winning_amount||0),max_players:Math.max(2,Math.min(100,Number(x.max_players||4))),scheduled_at:x.scheduled_at||new Date().toISOString(),status:x.status||'open',room_id:'',room_password:'',rules:String(x.rules||''),players:[],winner_user_id:null,prize_status:'pending',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(!item.title||item.entry_fee<0||item.winning_amount<0||!Number.isFinite(item.entry_fee)||!Number.isFinite(item.winning_amount))throw new Error('Invalid match data'); item.entry_fee=Number(item.entry_fee.toFixed(2)); item.winning_amount=Number(item.winning_amount.toFixed(2));const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];d.matches.unshift(item);await saveData(d);return item;
 }
 async function listFeatureMatches(status='all'){const d=await getData();let a=Array.isArray(d.matches)?d.matches:[];if(status!=='all')a=a.filter(x=>x.status===status);return a.map(x=>({...x,players:Array.isArray(x.players)?x.players:[]}));}
 async function getFeatureMatch(id){const a=await listFeatureMatches('all');return a.find(x=>String(x.id)===String(id)||String(x.match_code)===String(id))||null;}
@@ -456,7 +494,7 @@ async function updateFeatureMatch(id,x){const d=await getData();d.matches=Array.
 async function joinFeatureMatch(matchId,userId){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(matchId));if(!m)throw new Error('Match not found');m.players=Array.isArray(m.players)?m.players:[];if(m.status!=='open')throw new Error('Match is not open');if(m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Already joined');if(m.players.length>=Number(m.max_players))throw new Error('Match is full');const bal=await getUserDashboard(userId);if(Number(bal.gaming_balance||0)<Number(m.entry_fee))throw new Error('Gaming Balance insufficient');if(Number(m.entry_fee)>0) await adjustBalance(userId,'gaming',-Number(m.entry_fee),'Match entry fee '+m.match_code);const slot=m.players.length+1;m.players.push({user_id:userId,slot,status:'joined',joined_at:new Date().toISOString()});if(m.players.length>=Number(m.max_players))m.status='full';await saveData(d);await notifyUser(userId,'Match Joined','আপনি '+m.title+' match-এ Slot '+slot+' এ join করেছেন।');const tx=fallbackTransactionsRead();tx.unshift({id:'ENTRY-'+Date.now(),user_id:userId,type:'match_entry',amount:Number(m.entry_fee),balance_type:'gaming',reference:'ENTRY-'+m.match_code,status:'completed',note:'Joined '+m.title,balance_before:null,balance_after:null,balance_change:-Number(m.entry_fee),created_at:new Date().toISOString()});if(!hasDatabase())fallbackTransactionsWrite(tx);return {match:m,slot};}
 async function setFeatureRoom(id,roomId,password){return updateFeatureMatch(id,{room_id:roomId,room_password:password});}
 async function setFeatureWinner(id,userId){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(!m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Winner must be a joined player');m.winner_user_id=String(userId);m.status='completed';m.prize_status='pending';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(userId,'Match Result','আপনার '+m.title+' match-এর result প্রকাশিত হয়েছে।');return m;}
-async function approveFeaturePrize(id){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return m;}
+async function approveFeaturePrize(id){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return m;}
 async function listUserFeatureMatches(userId){const a=await listFeatureMatches('all');return a.filter(m=>m.players.some(p=>String(p.user_id)===String(userId))).map(m=>({...m,my_slot:m.players.find(p=>String(p.user_id)===String(userId))?.slot}));}
 async function listNotifications(userId,limit=100){if(!hasDatabase()){return fallbackNotificationsRead().filter(n=>String(n.user_id)===String(userId)).slice(0,limit)}await init();const r=await pool.query('SELECT id,title,message,read_at,created_at FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows;}
 async function markNotificationsRead(userId,id){if(!hasDatabase()){const a=fallbackNotificationsRead();a.forEach(n=>{if(String(n.user_id)===String(userId)&&(id==='all'||String(n.id)===String(id)))n.read_at=new Date().toISOString()});fallbackNotificationsWrite(a);return true;}await init();if(id==='all')await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND read_at IS NULL',[userId]);else await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND id=$2',[userId,id]);return true;}
