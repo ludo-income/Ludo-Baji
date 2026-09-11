@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": 1789100342433,
+    "user_id": 1789100329733,
+    "user_code": "U00329733",
+    "phone": "+8801700000001",
+    "name": "",
+    "method": "bkash",
+    "account_number": "01712345678",
+    "amount": 100,
+    "balance_type": "gaming",
+    "status": "rejected",
+    "note": "test reject",
+    "reviewed_by": null,
+    "created_at": "2026-09-11T04:19:02.433Z",
+    "reviewed_at": "2026-09-11T04:19:06.807Z"
+  }
+]

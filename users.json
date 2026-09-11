@@ -1,14 +1,30 @@
 [
   {
-    "id": 1789057786529,
-    "user_code": "U57786529",
-    "phone": "+8801712345678",
+    "id": 1789100274519,
+    "user_code": "U00274519",
+    "phone": "+8801700000000",
     "name": "",
     "status": "active",
-    "otp_hash": "4273f3cc0738f532555e629a32bd65838cfec2e9e3ecf9a89965cbe18c503c99",
-    "otp_expires_at": "2026-09-10T16:34:46.529Z",
-    "otp_sent_at": "2026-09-10T16:29:46.529Z",
+    "otp_hash": null,
+    "otp_expires_at": null,
+    "otp_sent_at": null,
     "otp_attempts": 0,
-    "created_at": "2026-09-10T16:29:46.529Z"
+    "created_at": "2026-09-11T04:17:54.519Z",
+    "gaming_balance": 0,
+    "winning_balance": 0
+  },
+  {
+    "id": 1789100329733,
+    "user_code": "U00329733",
+    "phone": "+8801700000001",
+    "name": "",
+    "status": "active",
+    "otp_hash": null,
+    "otp_expires_at": null,
+    "otp_sent_at": null,
+    "otp_attempts": 0,
+    "created_at": "2026-09-11T04:18:49.734Z",
+    "gaming_balance": 500,
+    "winning_balance": 0
   }
 ]

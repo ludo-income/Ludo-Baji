@@ -76,6 +76,10 @@ const server=http.createServer(async(req,res)=>{try{
    const comma=screenshot.indexOf(','),bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
    try{const d=await db.createDeposit(x.id,method,amount,transactionId,screenshot);return send(res,201,{ok:true,message:'Deposit request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',deposit:{id:d.id,method:d.method,amount:Number(d.amount),transaction_id:d.transaction_id,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Deposit failed'})}
  }
+ if(req.method==='GET'&&p==='/api/user/transactions'){
+   const x=userAuth(req,res);if(!x)return;
+   return send(res,200,{ok:true,transactions:await db.listUserTransactions(x.id)});
+ }
  if(req.method==='GET'&&p==='/api/user/withdrawals'){
    const x=userAuth(req,res);if(!x)return;
    return send(res,200,{ok:true,withdrawals:await db.listUserWithdrawals(x.id)});
@@ -93,6 +97,9 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});
+  if(req.method==='GET'&&p==='/api/admin/transactions'){
+    return send(res,200,{ok:true,transactions:await db.listAdminTransactions()});
+  }
   if(req.method==='GET'&&p==='/api/admin/withdrawals'){
     const status=['all','pending','approved','rejected'].includes(String(u.query.status||'all'))?String(u.query.status||'all'):'all';
     return send(res,200,{ok:true,withdrawals:await db.listAdminWithdrawals(status)});

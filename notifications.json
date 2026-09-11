@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": 1789100346808,
+    "user_id": 1789100329733,
+    "title": "Withdrawal Rejected",
+    "message": "আপনার Withdrawal requestটি বাতিল করা হয়েছে এবং ৳100.00 Balance-এ ফেরত দেওয়া হয়েছে। কারণ: test reject",
+    "read_at": null,
+    "created_at": "2026-09-11T04:19:06.807Z"
+  },
+  {
+    "id": 1789100342434,
+    "user_id": 1789100329733,
+    "title": "Withdrawal Submitted",
+    "message": "আপনার ৳100.00 Withdrawal request জমা হয়েছে।",
+    "read_at": null,
+    "created_at": "2026-09-11T04:19:02.433Z"
+  },
+  {
+    "id": 1789100336608,
+    "user_id": 1789100329733,
+    "title": "Deposit Approved",
+    "message": "আপনার ৳500.00 Deposit Gaming Balance-এ যোগ হয়েছে।",
+    "read_at": null,
+    "created_at": "2026-09-11T04:18:56.607Z"
+  }
+]
