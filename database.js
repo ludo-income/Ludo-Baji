@@ -503,4 +503,17 @@ async function supportSend(userId,sender,message){message=String(message||'').tr
 async function adminSupport(limit=300){if(!hasDatabase())return fallbackSupportRead().slice(-limit).reverse();await init();const r=await pool.query('SELECT s.*,u.user_code,u.email,u.phone,u.name FROM support_messages s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC LIMIT $1',[limit]);return r.rows;}
 function fallbackSupportRead(){try{return JSON.parse(fs.readFileSync(SUPPORT_DATA,'utf8'))}catch{return []}}
 function fallbackSupportWrite(items){const tmp=SUPPORT_DATA+'.tmp';fs.writeFileSync(tmp,JSON.stringify(items,null,2),'utf8');fs.renameSync(tmp,SUPPORT_DATA)}
-module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport};
+async function getUserAdminDetail(userId, limit=200){
+  const user=await getUserById(userId); if(!user) return null;
+  const dashboard=await getUserDashboard(userId) || {gaming_balance:0,winning_balance:0,joined_matches:0,notifications:0};
+  const [transactions,deposits,withdrawals,matches,notifications,support]=await Promise.all([
+    listUserTransactions(userId,limit),
+    hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,amount,transaction_id,screenshot,status,created_at,reviewed_at FROM deposits WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackDepositsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
+    hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,account_number,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackWithdrawalsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
+    listUserFeatureMatches(userId),
+    listNotifications(userId,limit),
+    supportList(userId)
+  ]);
+  return {user,dashboard,transactions,deposits,withdrawals,matches,notifications,support};
+}
+module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail};

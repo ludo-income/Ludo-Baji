@@ -153,6 +153,27 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/winner')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureWinner(id,b.user_id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/prize')){const id=decodeURIComponent(p.split('/')[4]);try{return send(res,200,{ok:true,match:await db.approveFeaturePrize(id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/admin/match-players'){const id=String(u.query.match_id||'');const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});const users=await db.listUsers(500);const map=new Map(users.map(a=>[String(a.id),a]));return send(res,200,{ok:true,players:(m.players||[]).map(p=>({...p,user:map.get(String(p.user_id))||null}))});}
+ if(req.method==='GET'&&p==='/api/admin/users'){
+   const q=String(u.query.q||'').trim(),status=String(u.query.status||'all');
+   let users=await db.listUsers(1000,q); if(['active','blocked'].includes(status))users=users.filter(x=>x.status===status);
+   return send(res,200,{ok:true,users});
+  }
+  if(req.method==='GET'&&/^\/api\/admin\/users\/[^/]+$/.test(p)){
+   const id=decodeURIComponent(p.split('/').pop());const detail=await db.getUserAdminDetail(id,300);if(!detail)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,...detail});
+  }
+  if(req.method==='POST'&&/^\/api\/admin\/users\/[^/]+\/status$/.test(p)){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req),status=String(b.status||'').toLowerCase();if(!['active','blocked'].includes(status))return send(res,400,{ok:false,error:'Invalid user status'});
+   try{const user=await db.setUserStatus(id,status);await addAudit(status==='blocked'?'user_block':'user_unblock',id,{user_code:user.user_code,admin:ADMIN_USERNAME});return send(res,200,{ok:true,user})}catch(e){return send(res,400,{ok:false,error:e.message})}
+  }
+  if(req.method==='POST'&&/^\/api\/admin\/users\/[^/]+\/balance$/.test(p)){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req),balanceType=String(b.balance_type||''),amount=Number(b.amount),note=String(b.note||'Admin balance adjustment').trim().slice(0,300);
+   if(!['gaming','winning'].includes(balanceType)||!Number.isFinite(amount)||amount===0)return send(res,400,{ok:false,error:'Valid balance type and non-zero amount required'});
+   try{const result=await db.adjustBalance(id,balanceType,amount,note);await addAudit('user_balance_adjust',id,{balance_type:balanceType,change:Number(amount.toFixed(2)),before:result.before,after:result.after,note,admin:ADMIN_USERNAME});return send(res,200,{ok:true,result})}catch(e){return send(res,400,{ok:false,error:e.message})}
+  }
+  if(req.method==='POST'&&/^\/api\/admin\/users\/[^/]+\/notify$/.test(p)){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req),title=String(b.title||'Admin Notification').trim(),message=String(b.message||'').trim();if(!title||!message||title.length>120||message.length>2000)return send(res,400,{ok:false,error:'Title and message required'});
+   try{const user=await db.getUserById(id);if(!user)return send(res,404,{ok:false,error:'User not found'});const notification=await db.notifyUser(id,title,message);await addAudit('user_notification',id,{user_code:user.user_code,title,admin:ADMIN_USERNAME});return send(res,201,{ok:true,notification})}catch(e){return send(res,400,{ok:false,error:e.message})}
+  }
  if(req.method==='GET'&&p==='/api/admin/support'){return send(res,200,{ok:true,messages:await db.adminSupport()});}
  if(req.method==='POST'&&p==='/api/admin/support'){const b=await body(req);try{return send(res,200,{ok:true,message:await db.supportSend(b.user_id,'admin',b.message)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/admin/reports'){const d=await read(),tx=await db.listAdminTransactions(10000),users=await db.listUsers(10000);return send(res,200,{ok:true,summary:{users:users.length,active_users:users.filter(x=>x.status==='active').length,blocked_users:users.filter(x=>x.status==='blocked').length,deposit:Number(tx.filter(x=>x.type==='deposit'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),withdrawal:Number(tx.filter(x=>x.type==='withdrawal'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),matches:(d.matches||[]).length},transactions:tx});}
