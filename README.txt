@@ -45,3 +45,11 @@ Production environment recommendations:
 - Configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM for real OTP SMS.
 - Keep OTP_DEV_MODE disabled in production.
 - Configure BKASH_NUMBER and NAGAD_NUMBER or update Payment Methods from Admin.
+
+
+Payment Deposit UI:
+- Deposit methods: bKash Personal, bKash Merchant, Nagad Personal.
+- Current defaults: bKash Personal 01301470686, bKash Merchant 01301470686, Nagad Personal 01806097369.
+- User can tap a method and copy its number; successful copy shows ✓ Copied.
+- Admin > Payment Methods can customize method name, number, account name, logo, min/max deposit and instructions.
+- Optional environment overrides: BKASH_PERSONAL_NUMBER, BKASH_MERCHANT_NUMBER, NAGAD_PERSONAL_NUMBER.

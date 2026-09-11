@@ -317,23 +317,36 @@
   "paymentMethods": [
     {
       "id": "bkash",
-      "name": "bKash",
+      "name": "bKash Personal",
       "number": "01301470686",
       "account_name": "Ludo Baji",
+      "logo": "bkash.jpg",
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "Send Money করে Transaction ID দিন।"
+      "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।"
+    },
+    {
+      "id": "bkash_merchant",
+      "name": "bKash Merchant",
+      "number": "01301470686",
+      "account_name": "Ludo Baji",
+      "logo": "bkash-merchant.jpg",
+      "enabled": true,
+      "min_deposit": 50,
+      "max_deposit": 1000000,
+      "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।"
     },
     {
       "id": "nagad",
-      "name": "Nagad",
+      "name": "Nagad Personal",
       "number": "01806097369",
       "account_name": "Ludo Baji",
+      "logo": "nagad.jpg",
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "Send Money করে Transaction ID দিন।"
+      "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।"
     }
   ],
   "matches": [
