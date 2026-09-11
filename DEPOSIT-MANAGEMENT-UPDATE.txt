@@ -1,0 +1,10 @@
+Deposit Management Update
+
+Admin Panel -> Deposit Management now supports multiple deposit methods.
+- Add unlimited bKash/Nagad deposit methods from Admin Panel.
+- Each method has ON/OFF, name, logo, number, account name, order, min/max and instructions.
+- ON methods appear on the user Deposit page; OFF methods are hidden.
+- Main Deposit page groups methods under bKash and Nagad.
+- Each visible method has a Copy button; after copying it changes to ✓ Copied briefly.
+- Save changes are persisted through the admin API and are live on the Main Page.
+- Existing deposit history/approval flow remains intact.

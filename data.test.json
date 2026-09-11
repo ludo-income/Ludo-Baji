@@ -411,9 +411,7 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।",
-      "provider": "bkash",
-      "order": 1
+      "instructions": "bKash Personal-এ Send Money করে Transaction ID দিন।"
     },
     {
       "id": "bkash_merchant",
@@ -424,9 +422,7 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।",
-      "provider": "bkash",
-      "order": 2
+      "instructions": "bKash Merchant-এ Payment করে Transaction ID দিন।"
     },
     {
       "id": "nagad",
@@ -437,9 +433,7 @@
       "enabled": true,
       "min_deposit": 50,
       "max_deposit": 1000000,
-      "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।",
-      "provider": "nagad",
-      "order": 3
+      "instructions": "Nagad Personal-এ Send Money করে Transaction ID দিন।"
     }
   ],
   "matches": [
@@ -507,32 +501,6 @@
     }
   ],
   "auditLogs": [
-    {
-      "id": "A-17891241661299te",
-      "action": "payment_method_delete",
-      "target": "PAY-test",
-      "detail": {},
-      "created_at": "2026-09-11T10:56:06.129Z"
-    },
-    {
-      "id": "A-1789124166121e2e",
-      "action": "payment_method_create",
-      "target": "PAY-test",
-      "detail": {
-        "id": "PAY-test",
-        "provider": "nagad",
-        "name": "Nagad Test",
-        "number": "01999999999",
-        "account_name": "",
-        "logo": "nagad.jpg",
-        "enabled": false,
-        "order": 99,
-        "min_deposit": 0,
-        "max_deposit": 1000000,
-        "instructions": ""
-      },
-      "created_at": "2026-09-11T10:56:06.121Z"
-    },
     {
       "id": "A-17891006263095g9",
       "action": "match_create",
