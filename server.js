@@ -204,7 +204,7 @@ const server=http.createServer(async(req,res)=>{try{
   if(req.method==='POST'&&/^\/api\/admin\/withdrawals\/[^/]+\/review$/.test(p)){
     const id=decodeURIComponent(p.split('/')[4]),b=await body(req),status=String(b.status||'').toLowerCase(),note=String(b.note||'').trim();
     if(!['approved','rejected'].includes(status))return send(res,400,{ok:false,error:'Approve অথবা Reject নির্বাচন করুন'});
-    try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewWithdrawal(id,status,adminId,note);return send(res,200,{ok:true,message:status==='approved'?'Withdrawal approved':'Withdrawal rejected',withdrawal:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
+    try{const adminId=await db.getAdminId(ADMIN_USERNAME);const d=await db.reviewWithdrawal(id,status,adminId,note);await addAudit('withdrawal_review',id,{status,note,amount:d.amount,user_id:d.user_id});return send(res,200,{ok:true,message:status==='approved'?'Withdrawal approved':'Withdrawal rejected',withdrawal:d})}catch(e){return send(res,400,{ok:false,error:e.message||'Review failed'})}
   }
   if(req.method==='GET'&&p==='/api/admin/deposits'){
     const status=['all','pending','approved','rejected'].includes(String(u.query.status||'all'))?String(u.query.status||'all'):'all';
