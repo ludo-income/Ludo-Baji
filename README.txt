@@ -4,9 +4,11 @@ Admin: /admin
 
 SECURE ADMIN CONFIGURATION
 Set these environment variables before starting the server:
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<your secure admin password>
-ADMIN_SECRET=<long random secret>
+ADMIN_USERNAME=<your admin username>
+ADMIN_PASSWORD=<your secure unique admin password>
+ADMIN_SECRET=<long random secret, 32+ characters>
+USER_SECRET=<different long random secret, 32+ characters>
+ADMIN_ROLE=super_admin
 
 The admin password and token secret are NOT stored in the source code.
 Admin sidebar stays separate from homepage options. Main page only reads mainOptions from /api/site.
@@ -41,7 +43,9 @@ STEPS 3-35 COMPLETE
 
 Production environment recommendations:
 - Set DATABASE_URL for PostgreSQL.
-- Set ADMIN_USERNAME and a strong ADMIN_PASSWORD/ADMIN_SECRET.
+- Set ADMIN_USERNAME, strong ADMIN_PASSWORD, ADMIN_SECRET, and a DIFFERENT USER_SECRET before starting. The server refuses to start when required secrets are missing/unsafe.
+- Admin login is rate-limited, tokens expire, and logout revokes the active token.
+- All /api/admin/* endpoints require authenticated admin access and role permissions.
 - Configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM for real OTP SMS.
 - Keep OTP_DEV_MODE disabled in production.
 - Configure BKASH_NUMBER and NAGAD_NUMBER or update Payment Methods from Admin.
