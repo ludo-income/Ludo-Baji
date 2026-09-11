@@ -19,6 +19,8 @@ function normalizeBDPhone(input){let s=String(input||'').trim().replace(/[\s()-]
 function otpHash(phone,otp){return crypto.createHash('sha256').update(phone+'|'+otp+'|'+USER_SECRET).digest('hex')}
 function makeOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,'0')}
 function maskPhone(phone){return phone.slice(0,6)+'****'+phone.slice(-2)}
+async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
+
 async function sendOtpSMS(phone,otp){
   const sid=process.env.TWILIO_ACCOUNT_SID, token=process.env.TWILIO_AUTH_TOKEN, from=process.env.TWILIO_FROM;
   if(sid&&token&&from){
@@ -57,10 +59,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/user/dashboard'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status},dashboard})}
  if(req.method==='PUT'&&p==='/api/auth/profile'){const x=userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,phone:user.phone,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/deposit/info'){
-   return send(res,200,{ok:true,methods:[
-     {id:'bkash',name:'bKash',number:process.env.BKASH_NUMBER||'01301470686'},
-     {id:'nagad',name:'Nagad',number:process.env.NAGAD_NUMBER||'01806097369'}
-   ]});
+   const d=await read(); const methods=(d.paymentMethods||[]).map(m=>({...m,number:(m.id==='bkash'&&process.env.BKASH_NUMBER)|| (m.id==='nagad'&&process.env.NAGAD_NUMBER)||m.number})); return send(res,200,{ok:true,methods});
  }
  if(req.method==='GET'&&p==='/api/user/deposits'){
    const x=userAuth(req,res);if(!x)return;
@@ -70,7 +69,7 @@ const server=http.createServer(async(req,res)=>{try{
    const x=userAuth(req,res);if(!x)return;
    const b=await body(req),method=String(b.method||'').toLowerCase(),amount=Number(b.amount),transactionId=String(b.transaction_id||'').trim(),screenshot=String(b.screenshot||'');
    if(!['bkash','nagad'].includes(method))return send(res,400,{ok:false,error:'bKash অথবা Nagad নির্বাচন করুন'});
-   if(!Number.isFinite(amount)||amount<=0||amount>1000000)return send(res,400,{ok:false,error:'সঠিক Deposit amount দিন'});
+   const pd=(await read()).paymentMethods||[], pm=pd.find(m=>m.id===method&&m.enabled!==false); if(!pm)return send(res,400,{ok:false,error:'এই Payment Method বর্তমানে বন্ধ'}); if(!Number.isFinite(amount)||amount<Number(pm.min_deposit||0)||amount>Number(pm.max_deposit||1000000))return send(res,400,{ok:false,error:`Deposit amount ৳${pm.min_deposit||0} থেকে ৳${pm.max_deposit||1000000} এর মধ্যে দিন`});
    if(!/^[A-Za-z0-9._-]{3,100}$/.test(transactionId))return send(res,400,{ok:false,error:'সঠিক Transaction ID দিন'});
    if(!/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(screenshot))return send(res,400,{ok:false,error:'Payment screenshot upload করুন'});
    const comma=screenshot.indexOf(','),bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
@@ -94,6 +93,49 @@ const server=http.createServer(async(req,res)=>{try{
    if(!Number.isFinite(amount)||amount<minWithdrawal||amount>maxWithdrawal)return send(res,400,{ok:false,error:`Withdrawal amount ৳${minWithdrawal} থেকে ৳${maxWithdrawal} এর মধ্যে হতে হবে`});
    try{const d=await db.createWithdrawal(x.id,method,accountNumber,amount,balanceType);return send(res,201,{ok:true,message:'Withdrawal request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',withdrawal:{id:d.id,method:d.method,account_number:d.account_number,amount:Number(d.amount),balance_type:d.balance_type,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Withdrawal failed'})}
  }
+ 
+ // ===== Steps 3-35 APIs =====
+ if(req.method==='GET'&&p==='/api/payment-methods'){const d=await read();return send(res,200,{ok:true,methods:(d.paymentMethods||[]).filter(x=>x.enabled)});}
+ if(req.method==='GET'&&p==='/api/user/matches'){const x=userAuth(req,res);if(!x)return;return send(res,200,{ok:true,matches:await db.listFeatureMatches(String(u.query.status||'all'))});}
+ if(req.method==='GET'&&p==='/api/user/matches/mine'){const x=userAuth(req,res);if(!x)return;return send(res,200,{ok:true,matches:await db.listUserFeatureMatches(x.id)});}
+ if(req.method==='GET'&&p.startsWith('/api/user/matches/')&&p.split('/').length===5){const x=userAuth(req,res);if(!x)return;const m=await db.getFeatureMatch(decodeURIComponent(p.split('/')[4]));if(!m)return send(res,404,{ok:false,error:'Match not found'});return send(res,200,{ok:true,match:m});}
+ if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/user/notifications'){const x=userAuth(req,res);if(!x)return;return send(res,200,{ok:true,notifications:await db.listNotifications(x.id)});}
+ if(req.method==='POST'&&p==='/api/user/notifications/read'){const x=userAuth(req,res);if(!x)return;const b=await body(req);await db.markNotificationsRead(x.id,String(b.id||'all'));return send(res,200,{ok:true});}
+ if(req.method==='GET'&&p==='/api/user/support'){const x=userAuth(req,res);if(!x)return;return send(res,200,{ok:true,messages:await db.supportList(x.id)});}
+ if(req.method==='POST'&&p==='/api/user/support'){const x=userAuth(req,res);if(!x)return;const b=await body(req);try{return send(res,200,{ok:true,message:await db.supportSend(x.id,'user',b.message)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/user/referral'){const x=userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id),d=await read(),cfg=d.referral||{};return send(res,200,{ok:true,code:(cfg.code_prefix||'LB')+String(user.user_code||user.id).replace(/\W/g,''),bonus:Number(cfg.bonus||0),enabled:cfg.enabled!==false});}
+ if(req.method==='GET'&&p==='/api/admin/users'){const q=String(u.query.q||'');return send(res,200,{ok:true,users:await db.listUsers(500,q)});}
+ if(req.method==='POST'&&p.startsWith('/api/admin/users/')&&p.endsWith('/status')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{const user=await db.setUserStatus(id,b.status);await addAudit('user_status',id,b.status);return send(res,200,{ok:true,user});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/admin/users/')&&p.endsWith('/balance')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{const r=await db.adjustBalance(id,b.balance_type,b.amount,b.note);await addAudit('balance_adjustment',id,b);return send(res,200,{ok:true,result:r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/admin/payment-methods'){const d=await read();return send(res,200,{ok:true,methods:d.paymentMethods||[]});}
+ if(req.method==='PUT'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];let m=d.paymentMethods.find(x=>x.id===id);if(!m){m={id,name:id};d.paymentMethods.push(m)}Object.assign(m,{name:String(b.name??m.name),number:String(b.number??m.number),account_name:String((b.account_name??m.account_name)??''),enabled:b.enabled!==undefined?!!b.enabled:m.enabled!==false,min_deposit:Number((b.min_deposit??m.min_deposit)??0),max_deposit:Number((b.max_deposit??m.max_deposit)??1000000),instructions:String((b.instructions??m.instructions)??'')});await write(d);await addAudit('payment_method_update',id,m);return send(res,200,{ok:true,method:m});}
+ if(req.method==='POST'&&p==='/api/admin/matches'){const b=await body(req);try{const m=await db.createFeatureMatch(b);await addAudit('match_create',m.id,m.title);return send(res,201,{ok:true,match:m});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/admin/matches'){return send(res,200,{ok:true,matches:await db.listFeatureMatches(String(u.query.status||'all'))});}
+ if(req.method==='PUT'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req);try{return send(res,200,{ok:true,match:await db.updateFeatureMatch(id,b)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='DELETE'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.matches=(d.matches||[]).filter(m=>String(m.id)!==String(id));await write(d);return send(res,200,{ok:true});}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/cancel')){const id=decodeURIComponent(p.split('/')[4]);const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});if(m.status==='cancelled')return send(res,400,{ok:false,error:'Already cancelled'});for(const pl of (m.players||[])){try{await db.adjustBalance(pl.user_id,'gaming',Number(m.entry_fee),'Match cancelled refund '+m.match_code)}catch{}}const d=await read();const mm=(d.matches||[]).find(a=>String(a.id)===String(id));if(mm){mm.status='cancelled';mm.updated_at=new Date().toISOString();}await write(d);await addAudit('match_cancel',id,m.match_code);return send(res,200,{ok:true,match:mm});}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/room')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureRoom(id,b.room_id,b.room_password)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/winner')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureWinner(id,b.user_id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/prize')){const id=decodeURIComponent(p.split('/')[4]);try{return send(res,200,{ok:true,match:await db.approveFeaturePrize(id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/admin/match-players'){const id=String(u.query.match_id||'');const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});const users=await db.listUsers(500);const map=new Map(users.map(a=>[String(a.id),a]));return send(res,200,{ok:true,players:(m.players||[]).map(p=>({...p,user:map.get(String(p.user_id))||null}))});}
+ if(req.method==='GET'&&p==='/api/admin/support'){return send(res,200,{ok:true,messages:await db.adminSupport()});}
+ if(req.method==='POST'&&p==='/api/admin/support'){const b=await body(req);try{return send(res,200,{ok:true,message:await db.supportSend(b.user_id,'admin',b.message)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='GET'&&p==='/api/admin/reports'){const d=await read(),tx=await db.listAdminTransactions(10000),users=await db.listUsers(10000);return send(res,200,{ok:true,summary:{users:users.length,active_users:users.filter(x=>x.status==='active').length,blocked_users:users.filter(x=>x.status==='blocked').length,deposit:Number(tx.filter(x=>x.type==='deposit'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),withdrawal:Number(tx.filter(x=>x.type==='withdrawal'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),matches:(d.matches||[]).length},transactions:tx});}
+ if(req.method==='GET'&&p==='/api/admin/audit-log'){const d=await read();return send(res,200,{ok:true,logs:d.auditLogs||[]});}
+ if(req.method==='GET'&&p==='/api/admin/roles'){const d=await read();return send(res,200,{ok:true,roles:d.adminRoles||[]});}
+ if(req.method==='PUT'&&p==='/api/admin/roles'){const b=await body(req),d=await read();d.adminRoles=Array.isArray(b.roles)?b.roles:[];await write(d);return send(res,200,{ok:true,roles:d.adminRoles});}
+ if(req.method==='GET'&&p==='/api/admin/banners'){const d=await read();return send(res,200,{ok:true,banners:d.banners||[]});}
+ if(req.method==='POST'&&p==='/api/admin/banners'){const b=await body(req),d=await read();d.banners=Array.isArray(d.banners)?d.banners:[];const x={id:'B-'+Date.now(),title:String(b.title||''),image:String(b.image||''),link:String(b.link||''),enabled:b.enabled!==false,order:Number(b.order||0)};d.banners.push(x);await write(d);return send(res,201,{ok:true,banner:x});}
+ if(req.method==='PUT'&&p.startsWith('/api/admin/banners/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req),d=await read();const x=(d.banners||[]).find(a=>String(a.id)===id);if(!x)return send(res,404,{ok:false,error:'Banner not found'});Object.assign(x,b);await write(d);return send(res,200,{ok:true,banner:x});}
+ if(req.method==='DELETE'&&p.startsWith('/api/admin/banners/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.banners=(d.banners||[]).filter(x=>String(x.id)!==id);await write(d);return send(res,200,{ok:true});}
+ if(req.method==='GET'&&p==='/api/admin/faqs'){const d=await read();return send(res,200,{ok:true,faqs:d.faqs||[]});}
+ if(req.method==='POST'&&p==='/api/admin/faqs'){const b=await body(req),d=await read();d.faqs=Array.isArray(d.faqs)?d.faqs:[];const x={id:'F-'+Date.now(),question:String(b.question||''),answer:String(b.answer||''),enabled:b.enabled!==false,order:Number(b.order||0)};if(!x.question||!x.answer)return send(res,400,{ok:false,error:'Question and answer required'});d.faqs.push(x);await write(d);return send(res,201,{ok:true,faq:x});}
+ if(req.method==='PUT'&&p==='/api/admin/pages'){const b=await body(req),d=await read();d.pages={...(d.pages||{}),...b};await write(d);return send(res,200,{ok:true,pages:d.pages});}
+ if(req.method==='GET'&&p==='/api/admin/system'){const d=await read();return send(res,200,{ok:true,system:d.system||{}});}
+ if(req.method==='PUT'&&p==='/api/admin/system'){const b=await body(req),d=await read();d.system={...(d.system||{}),...b};await write(d);return send(res,200,{ok:true,system:d.system});}
+ if(req.method==='POST'&&p==='/api/admin/notice'){const b=await body(req),d=await read();d.notifications_global=Array.isArray(d.notifications_global)?d.notifications_global:[];const n={id:'N-'+Date.now(),title:String(b.title||'Notice'),message:String(b.message||''),created_at:new Date().toISOString()};d.notifications_global.unshift(n);const users=await db.listUsers(10000);if(!db.hasDatabase()){const fs=require('fs'),fp=path.join(ROOT,'notifications.json');let a=[];try{a=JSON.parse(fs.readFileSync(fp,'utf8'))}catch{};users.forEach(x=>a.unshift({id:Date.now()+Math.random(),user_id:x.id,title:n.title,message:n.message,read_at:null,created_at:n.created_at}));fs.writeFileSync(fp,JSON.stringify(a,null,2));}await write(d);return send(res,201,{ok:true,notice:n});}
+
  if(req.method==='GET'&&p==='/api/site'){return send(res,200,await read())}
  if(p.startsWith('/api/admin')){if(!auth(req,res))return;const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data')return send(res,200,{ok:true,data:d});

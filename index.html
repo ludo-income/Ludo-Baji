@@ -80,4 +80,4 @@ document.getElementById('backPhone').onclick=()=>{document.getElementById('otpSt
 document.getElementById('resendOtp').onclick=()=>document.getElementById('sendOtp').click();document.getElementById('saveProfile').onclick=async()=>{try{const j=await api('/api/auth/profile',{method:'PUT',body:JSON.stringify({name:document.getElementById('profileName').value.trim()})});currentUser=j.user;document.getElementById('profileErr').className='err success';document.getElementById('profileErr').textContent='Profile saved';}catch(e){document.getElementById('profileErr').className='err';document.getElementById('profileErr').textContent=e.message}};
 document.getElementById('logoutUser').onclick=()=>{localStorage.removeItem('ludo_user_token');currentUser=null;close(profileModal);openAuth()};
 load();setInterval(load,4000);
-</script></body></html>
+</script><script src="features-ui.js"></script></body></html>

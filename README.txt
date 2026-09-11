@@ -29,3 +29,19 @@ Step 1 - Withdrawal System:
 - Rejected withdrawals automatically return the amount to the selected balance.
 - Withdrawal history is available to the user and admin.
 - Withdrawal transactions and notifications are recorded.
+
+STEPS 3-35 COMPLETE
+- Payment Method Management: bKash/Nagad settings, enable/disable, limits, instructions.
+- Match lifecycle: create, list, schedule, join, My Matches, room ID/password, cancel/refund, result and prize approval.
+- Wallet: entry fee, refund, prize credit and transaction records.
+- User: management, block/unblock, gaming/winning balance adjustment.
+- Notifications, referral display and customer support messaging.
+- Admin: reports, audit log, roles/permissions configuration, banners, FAQ, rules/terms/pages, notices and system configuration.
+- Existing Step 1 Withdrawal and Step 2 Wallet Statement features are preserved.
+
+Production environment recommendations:
+- Set DATABASE_URL for PostgreSQL.
+- Set ADMIN_USERNAME and a strong ADMIN_PASSWORD/ADMIN_SECRET.
+- Configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM for real OTP SMS.
+- Keep OTP_DEV_MODE disabled in production.
+- Configure BKASH_NUMBER and NAGAD_NUMBER or update Payment Methods from Admin.

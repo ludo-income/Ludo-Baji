@@ -70,4 +70,4 @@ async function deleteMain(id){if(!confirm('Delete করবেন?'))return;cons
 async function saveAll(){const j=await api('/api/admin/data',{method:'PUT',body:JSON.stringify(data)});data=j.data}
 function logout(){token=null;localStorage.removeItem('lb9token');login()}
 if(token)load();else login();
-</script></body></html>
+</script><script src="features-ui.js"></script></body></html>

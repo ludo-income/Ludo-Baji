@@ -213,6 +213,55 @@
       "icon": "⚙️",
       "logo": "",
       "visible": true
+    },
+    {
+      "id": "payment-methods",
+      "name": "Payment Methods",
+      "icon": "💳",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "user-management",
+      "name": "User Management",
+      "icon": "👥",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "match-list",
+      "name": "Match List",
+      "icon": "📋",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "admin-roles",
+      "name": "Admin Roles",
+      "icon": "🛡️",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "audit-log",
+      "name": "Audit Log",
+      "icon": "🧾",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "rules-management",
+      "name": "Rules & Terms",
+      "icon": "📜",
+      "logo": "",
+      "visible": true
+    },
+    {
+      "id": "support-management",
+      "name": "Support",
+      "icon": "💬",
+      "logo": "",
+      "visible": true
     }
   ],
   "mainOptions": [
@@ -264,5 +313,107 @@
       "content": "My Match system-এর content এখানে Auto Show হবে।",
       "visible": true
     }
-  ]
+  ],
+  "paymentMethods": [
+    {
+      "id": "bkash",
+      "name": "bKash",
+      "number": "01301470686",
+      "account_name": "Ludo Baji",
+      "enabled": true,
+      "min_deposit": 50,
+      "max_deposit": 1000000,
+      "instructions": "Send Money করে Transaction ID দিন।"
+    },
+    {
+      "id": "nagad",
+      "name": "Nagad",
+      "number": "01806097369",
+      "account_name": "Ludo Baji",
+      "enabled": true,
+      "min_deposit": 50,
+      "max_deposit": 1000000,
+      "instructions": "Send Money করে Transaction ID দিন।"
+    }
+  ],
+  "matches": [
+    {
+      "id": "M-1789100626304wm4",
+      "match_code": "LB1789100626304",
+      "title": "Test Match",
+      "entry_fee": 0,
+      "winning_amount": 100,
+      "max_players": 2,
+      "scheduled_at": "2026-09-11T12:00:00Z",
+      "status": "open",
+      "room_id": "123456",
+      "room_password": "pass",
+      "rules": "Play fair",
+      "players": [],
+      "winner_user_id": null,
+      "prize_status": "pending",
+      "created_at": "2026-09-11T04:23:46.304Z",
+      "updated_at": "2026-09-11T04:23:46.912Z"
+    }
+  ],
+  "banners": [],
+  "faqs": [],
+  "pages": {
+    "rules": "",
+    "terms": "",
+    "privacy": "",
+    "deposit_rules": "",
+    "withdrawal_rules": "",
+    "refund_rules": ""
+  },
+  "referral": {
+    "enabled": true,
+    "bonus": 0,
+    "code_prefix": "LB"
+  },
+  "notifications_global": [],
+  "adminRoles": [
+    {
+      "id": "super_admin",
+      "name": "Super Admin",
+      "permissions": [
+        "*"
+      ]
+    },
+    {
+      "id": "admin",
+      "name": "Admin",
+      "permissions": [
+        "users",
+        "deposits",
+        "withdrawals",
+        "matches",
+        "transactions"
+      ]
+    },
+    {
+      "id": "support",
+      "name": "Support",
+      "permissions": [
+        "support",
+        "users"
+      ]
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "A-17891006263095g9",
+      "action": "match_create",
+      "target": "M-1789100626304wm4",
+      "detail": "Test Match",
+      "created_at": "2026-09-11T04:23:46.309Z"
+    }
+  ],
+  "system": {
+    "registration": true,
+    "deposit": true,
+    "withdraw": true,
+    "game_play": true,
+    "maintenance": false
+  }
 }
