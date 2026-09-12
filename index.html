@@ -46,7 +46,7 @@ body.logged-out .profile{display:grid}
 body.screen-open{background:#f5f8f6;color:#202522}
 body.screen-open .app{max-width:430px;min-height:100vh;background:#f5f8f6;padding:0;box-shadow:0 0 35px #00000010}
 body.screen-open header,body.screen-open .wallet,body.screen-open .quick{display:none!important}
-body.screen-open .viewer{display:block!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:#f5f8f6!important;color:#202522!important;box-shadow:none!important;min-height:100vh}
+body.screen-open .viewer,body.screen-open .viewer.show{display:block!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:#f5f8f6!important;color:#202522!important;box-shadow:none!important;min-height:100vh}
 .screenTop{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border-bottom:1px solid #e2e8e4;box-shadow:0 2px 10px #00000008}
 .screenBack{width:40px;height:40px;border:1px solid #d9e1dc;background:#fff;border-radius:12px;font-size:22px;cursor:pointer;color:#202522}
 .screenTitle{font-size:20px;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -206,4 +206,4 @@ document.getElementById('logoutUser').onclick=()=>{localStorage.removeItem('ludo
 load();
 // Keep Admin changes live without reopening/resetting the current page.
 setInterval(async()=>{try{const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const d=await r.json();const next=(d.mainOptions||[]).filter(x=>x.visible);const oldSig=JSON.stringify(all.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));const newSig=JSON.stringify(next.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));if(oldSig!==newSig){all=next;renderQuick();}loginOtpEnabled=d.system?.user_login_otp!==false;document.body.classList.toggle('preview-mode',!authToken()&&!loginOtpEnabled);}catch{}} ,8000);
-</script><script src="features-ui.js?v=20260912-9"></script></body></html>
+</script><script src="features-ui.js?v=20260912-10"></script></body></html>
