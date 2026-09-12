@@ -267,10 +267,10 @@
   "mainOptions": [
     {
       "id": "match",
-      "name": "Match",
+      "name": "Ludo Matches",
       "icon": "🎮",
       "logo": "",
-      "content": "Match system-এর content এখানে Auto Show হবে।",
+      "content": "Ludo Matches system-এর content এখানে Auto Show হবে।",
       "visible": true,
       "order": 1,
       "short_name": "",

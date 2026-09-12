@@ -143,6 +143,20 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/user/matches/mine'){const x=await userAuth(req,res);if(!x)return;const matches=await db.listUserFeatureMatches(x.id);const safe=matches.map(m=>{const ready=Array.isArray(m.players)&&m.players.length>=2;return ready?m:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,matches:safe});}
  if(req.method==='GET'&&p.startsWith('/api/user/matches/')&&p.split('/').length===5){const x=await userAuth(req,res);if(!x)return;const m=await db.getFeatureMatch(decodeURIComponent(p.split('/')[4]));if(!m)return send(res,404,{ok:false,error:'Match not found'});const joined=Array.isArray(m.players)&&m.players.some(a=>String(a.user_id)===String(x.id));if(!joined)return send(res,403,{ok:false,error:'You have not joined this match'});if(m.players.length<2)return send(res,200,{ok:true,match:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,match:m});}
  if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=await userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+
+ if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/result')){
+   const x=await userAuth(req,res);if(!x)return;
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
+   try{
+     const screenshot=String(b.screenshot||'');
+     const comma=screenshot.indexOf(',');
+     const bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;
+     if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
+     const r=await db.submitFeatureResult(id,x.id,screenshot);
+     return send(res,201,{ok:true,message:'Winner screenshot জমা হয়েছে। Admin verification-এর অপেক্ষায় আছে।',submission:{id:r.id,status:r.status,submitted_at:r.submitted_at}});
+   }catch(e){return send(res,400,{ok:false,error:e.message})}
+ }
+
  if(req.method==='GET'&&p==='/api/user/notifications'){const x=await userAuth(req,res);if(!x)return;return send(res,200,{ok:true,notifications:await db.listNotifications(x.id)});}
  if(req.method==='POST'&&p==='/api/user/notifications/read'){const x=await userAuth(req,res);if(!x)return;const b=await body(req);await db.markNotificationsRead(x.id,String(b.id||'all'));return send(res,200,{ok:true});}
  if(req.method==='GET'&&p==='/api/user/support'){const x=await userAuth(req,res);if(!x)return;return send(res,200,{ok:true,messages:await db.supportList(x.id)});}
@@ -163,6 +177,18 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/cancel')){const id=decodeURIComponent(p.split('/')[4]);const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});if(m.status==='cancelled')return send(res,400,{ok:false,error:'Already cancelled'});for(const pl of (m.players||[])){try{await db.adjustBalance(pl.user_id,'gaming',Number(m.entry_fee),'Match cancelled refund '+m.match_code)}catch{}}const d=await read();const mm=(d.matches||[]).find(a=>String(a.id)===String(id));if(mm){mm.status='cancelled';mm.updated_at=new Date().toISOString();}await write(d);await addAudit('match_cancel',id,m.match_code);return send(res,200,{ok:true,match:mm});}
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/room')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureRoom(id,b.room_id,b.room_password)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/winner')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureWinner(id,b.user_id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/result/approve')){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
+   try{const m=await db.approveFeatureResult(id,String(b.user_id||''));await addAudit('match_result_approve',id,b.user_id);return send(res,200,{ok:true,match:m})}
+   catch(e){return send(res,400,{ok:false,error:e.message})}
+ }
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/result/reject')){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
+   try{const m=await db.rejectFeatureResult(id,String(b.user_id||''),String(b.note||''));await addAudit('match_result_reject',id,b.user_id);return send(res,200,{ok:true,match:m})}
+   catch(e){return send(res,400,{ok:false,error:e.message})}
+ }
+
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/prize')){const id=decodeURIComponent(p.split('/')[4]);try{return send(res,200,{ok:true,match:await db.approveFeaturePrize(id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/admin/match-players'){const id=String(u.query.match_id||'');const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});const users=await db.listUsers(500);const map=new Map(users.map(a=>[String(a.id),a]));return send(res,200,{ok:true,players:(m.players||[]).map(p=>({...p,user:map.get(String(p.user_id))||null}))});}
  if(req.method==='GET'&&p==='/api/admin/users'){

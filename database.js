@@ -492,11 +492,70 @@ async function createFeatureMatch(x){
 }
 async function listFeatureMatches(status='all'){const d=await getData();let a=Array.isArray(d.matches)?d.matches:[];if(status!=='all')a=a.filter(x=>x.status===status);return a.map(x=>({...x,players:Array.isArray(x.players)?x.players:[]}));}
 async function getFeatureMatch(id){const a=await listFeatureMatches('all');return a.find(x=>String(x.id)===String(id)||String(x.match_code)===String(id))||null;}
-async function updateFeatureMatch(id,x){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');Object.assign(m,{title:String(x.title??m.title),entry_fee:Number(x.entry_fee??m.entry_fee),winning_amount:Number(x.winning_amount??m.winning_amount),max_players:2,scheduled_at:x.scheduled_at??m.scheduled_at,rules:String((x.rules??m.rules)??''),status:String(x.status??m.status),room_id:String((x.room_id??m.room_id)??''),room_password:String((x.room_password??m.room_password)??''),updated_at:new Date().toISOString()});await saveData(d);return m;}
+async function updateFeatureMatch(id,x){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(String(x.status||'')==='started' && (!Array.isArray(m.players)||m.players.length<2))throw new Error('2 জন player join না হলে Match START করা যাবে না');Object.assign(m,{title:String(x.title??m.title),entry_fee:Number(x.entry_fee??m.entry_fee),winning_amount:Number(x.winning_amount??m.winning_amount),max_players:2,scheduled_at:x.scheduled_at??m.scheduled_at,rules:String((x.rules??m.rules)??''),status:String(x.status??m.status),room_id:String((x.room_id??m.room_id)??''),room_password:String((x.room_password??m.room_password)??''),updated_at:new Date().toISOString()});await saveData(d);return m;}
 async function joinFeatureMatch(matchId,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(matchId));if(!m)throw new Error('Match not found');m.players=Array.isArray(m.players)?m.players:[];if(m.status!=='open')throw new Error('Match is not open');if(m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Already joined');if(m.players.length>=Number(m.max_players))throw new Error('Match is full');const bal=await getUserDashboard(userId);if(Number(bal.gaming_balance||0)<Number(m.entry_fee))throw new Error('Gaming Balance insufficient');if(Number(m.entry_fee)>0) await adjustBalance(userId,'gaming',-Number(m.entry_fee),'Match entry fee '+m.match_code);const slot=m.players.length+1;m.players.push({user_id:userId,slot,status:'joined',joined_at:new Date().toISOString()});if(m.players.length>=Number(m.max_players))m.status='full';await saveData(d);await notifyUser(userId,'Match Joined','আপনি '+m.title+' match-এ Slot '+slot+' এ join করেছেন।');const tx=fallbackTransactionsRead();tx.unshift({id:'ENTRY-'+Date.now(),user_id:userId,type:'match_entry',amount:Number(m.entry_fee),balance_type:'gaming',reference:'ENTRY-'+m.match_code,status:'completed',note:'Joined '+m.title,balance_before:null,balance_after:null,balance_change:-Number(m.entry_fee),created_at:new Date().toISOString()});if(!hasDatabase())fallbackTransactionsWrite(tx);return {match:m,slot};});}
 async function setFeatureRoom(id,roomId,password){return updateFeatureMatch(id,{room_id:roomId,room_password:password});}
 async function setFeatureWinner(id,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(!m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Winner must be a joined player');m.winner_user_id=String(userId);m.status='completed';m.prize_status='pending';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(userId,'Match Result','আপনার '+m.title+' match-এর result প্রকাশিত হয়েছে।');return m;});}
 async function approveFeaturePrize(id){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return m;});}
+
+async function submitFeatureResult(id,userId,screenshot){
+  return withFeatureMatchLock(async()=>{
+    const d=await getData(); d.matches=Array.isArray(d.matches)?d.matches:[];
+    const m=d.matches.find(a=>String(a.id)===String(id));
+    if(!m) throw new Error('Match not found');
+    if(!Array.isArray(m.players)||!m.players.some(p=>String(p.user_id)===String(userId))) throw new Error('You have not joined this match');
+    if(m.players.length<2) throw new Error('Match is not full yet');
+    if(m.status!=='started' && m.status!=='full') throw new Error('Match result submission is not available yet');
+    if(m.winner_user_id) throw new Error('Winner already selected');
+    const s=String(screenshot||'');
+    if(!/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(s)) throw new Error('Valid screenshot upload করুন');
+    const comma=s.indexOf(',');
+    const bytes=comma>0?Buffer.byteLength(s.slice(comma+1),'base64'):0;
+    if(bytes>8*1024*1024) throw new Error('Screenshot সর্বোচ্চ 8MB হতে পারবে');
+    m.result_submissions=Array.isArray(m.result_submissions)?m.result_submissions:[];
+    const existing=m.result_submissions.find(x=>String(x.user_id)===String(userId));
+    const item={id:existing?.id||('RS-'+Date.now()+Math.random().toString(36).slice(2,6)),user_id:String(userId),screenshot:s,status:'pending',submitted_at:new Date().toISOString(),review_note:''};
+    if(existing) Object.assign(existing,item); else m.result_submissions.push(item);
+    m.updated_at=new Date().toISOString();
+    await saveData(d);
+    await notifyUser(userId,'Result Screenshot Submitted','আপনার match result screenshot Admin-এর verification-এর জন্য জমা হয়েছে।');
+    return item;
+  });
+}
+async function approveFeatureResult(id,userId){
+  return withFeatureMatchLock(async()=>{
+    const d=await getData(); d.matches=Array.isArray(d.matches)?d.matches:[];
+    const m=d.matches.find(a=>String(a.id)===String(id));
+    if(!m) throw new Error('Match not found');
+    const sub=(m.result_submissions||[]).find(x=>String(x.user_id)===String(userId));
+    if(!sub) throw new Error('Result screenshot not found');
+    if(sub.status==='approved' || m.winner_user_id) throw new Error('Winner already approved');
+    if(!m.players.some(p=>String(p.user_id)===String(userId))) throw new Error('Winner must be a joined player');
+    m.winner_user_id=String(userId); m.status='completed'; m.prize_status='approved';
+    sub.status='approved'; sub.reviewed_at=new Date().toISOString(); sub.review_note='';
+    await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);
+    m.updated_at=new Date().toISOString();
+    await saveData(d);
+    await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');
+    return m;
+  });
+}
+async function rejectFeatureResult(id,userId,note){
+  return withFeatureMatchLock(async()=>{
+    const d=await getData(); d.matches=Array.isArray(d.matches)?d.matches:[];
+    const m=d.matches.find(a=>String(a.id)===String(id));
+    if(!m) throw new Error('Match not found');
+    const sub=(m.result_submissions||[]).find(x=>String(x.user_id)===String(userId));
+    if(!sub) throw new Error('Result screenshot not found');
+    if(m.winner_user_id) throw new Error('Winner already approved');
+    sub.status='rejected'; sub.reviewed_at=new Date().toISOString(); sub.review_note=String(note||'Screenshot rejected');
+    m.updated_at=new Date().toISOString();
+    await saveData(d);
+    await notifyUser(userId,'Result Screenshot Rejected',sub.review_note+' — আবার screenshot জমা দিন।');
+    return m;
+  });
+}
+
 async function listUserFeatureMatches(userId){const a=await listFeatureMatches('all');return a.filter(m=>m.players.some(p=>String(p.user_id)===String(userId))).map(m=>({...m,my_slot:m.players.find(p=>String(p.user_id)===String(userId))?.slot}));}
 async function listNotifications(userId,limit=100){if(!hasDatabase()){return fallbackNotificationsRead().filter(n=>String(n.user_id)===String(userId)).slice(0,limit)}await init();const r=await pool.query('SELECT id,title,message,read_at,created_at FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows;}
 async function markNotificationsRead(userId,id){if(!hasDatabase()){const a=fallbackNotificationsRead();a.forEach(n=>{if(String(n.user_id)===String(userId)&&(id==='all'||String(n.id)===String(id)))n.read_at=new Date().toISOString()});fallbackNotificationsWrite(a);return true;}await init();if(id==='all')await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND read_at IS NULL',[userId]);else await pool.query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND id=$2',[userId,id]);return true;}
@@ -518,4 +577,4 @@ async function getUserAdminDetail(userId, limit=200){
   ]);
   return {user,dashboard,transactions,deposits,withdrawals,matches,notifications,support};
 }
-module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail};
+module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail};
