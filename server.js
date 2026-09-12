@@ -1,6 +1,7 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
 const db=require('./database');
 let webPush=null; try{webPush=require('web-push')}catch{webPush=null}
+/* Native WebSocket (no external ws package required) */
 const ROOT=__dirname,PORT=process.env.PORT||3000;
 // Backward-compatible environment names: existing Render deployments may use
 // ADMIN_MOBILE + JWT_SECRET. Prefer the newer ADMIN_USERNAME/ADMIN_SECRET/USER_SECRET
@@ -98,6 +99,89 @@ function normalizeMainOptions(d){
   d.mainOptions=list.sort((a,b)=>Number(a.order||999)-Number(b.order||999)); return {data:d,changed};
 }
 
+// ===== Real-time WebSocket for Ludo Matches =====
+const matchWsClients=new Set();
+function broadcastMatchesChanged(extra){
+  const payload=JSON.stringify(Object.assign({type:'matches_changed',ts:Date.now()},extra||{}));
+  for(const c of matchWsClients){
+    try{if(c.readyState===1)c.send(payload)}catch{}
+  }
+}
+function attachMatchWebSocket(server){
+  // Minimal RFC6455 WebSocket server for /ws/matches (no external dependency)
+  function wsAcceptKey(key){
+    return crypto.createHash('sha1').update(String(key)+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  }
+  function wsSend(socket, data){
+    try{
+      const payload=Buffer.from(String(data),'utf8');
+      const len=payload.length;
+      let header;
+      if(len<126){header=Buffer.alloc(2);header[0]=0x81;header[1]=len}
+      else if(len<65536){header=Buffer.alloc(4);header[0]=0x81;header[1]=126;header.writeUInt16BE(len,2)}
+      else{header=Buffer.alloc(10);header[0]=0x81;header[1]=127;header.writeUInt32BE(0,2);header.writeUInt32BE(len,6)}
+      socket.write(Buffer.concat([header,payload]));
+    }catch{}
+  }
+  function wsClose(socket){
+    try{socket.write(Buffer.from([0x88,0x00]));}catch{}
+    try{socket.destroy()}catch{}
+  }
+  server.on('upgrade',(req,socket,head)=>{
+    try{
+      const u=url.parse(req.url||'',true);
+      if(u.pathname!=='/ws/matches'){socket.destroy();return}
+      const key=req.headers['sec-websocket-key'];
+      if(!key){socket.destroy();return}
+      const headers=[
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        'Sec-WebSocket-Accept: '+wsAcceptKey(key),
+        '',''
+      ].join('\r\n');
+      socket.write(headers);
+      const client={socket,readyState:1,send(data){wsSend(socket,data)},close(){wsClose(socket)}};
+      matchWsClients.add(client);
+      wsSend(socket,JSON.stringify({type:'connected',ts:Date.now()}));
+      let buf=Buffer.alloc(0);
+      socket.on('data',(chunk)=>{
+        try{
+          buf=Buffer.concat([buf,chunk]);
+          while(buf.length>=2){
+            const b0=buf[0],b1=buf[1];
+            const opcode=b0&0x0f;
+            const masked=(b1&0x80)!==0;
+            let payloadLen=b1&0x7f, offset=2;
+            if(payloadLen===126){if(buf.length<4)return;payloadLen=buf.readUInt16BE(2);offset=4}
+            else if(payloadLen===127){if(buf.length<10)return;payloadLen=Number(buf.readBigUInt64BE(2));offset=10}
+            const maskLen=masked?4:0;
+            if(buf.length<offset+maskLen+payloadLen)return;
+            let payload=buf.slice(offset+maskLen,offset+maskLen+payloadLen);
+            if(masked){
+              const mask=buf.slice(offset,offset+4);
+              payload=Buffer.from(payload.map((b,i)=>b^mask[i%4]));
+            }
+            buf=buf.slice(offset+maskLen+payloadLen);
+            if(opcode===0x8){matchWsClients.delete(client);client.readyState=3;wsClose(socket);return}
+            if(opcode===0x9){ // ping -> pong
+              const pong=Buffer.alloc(2+payload.length);pong[0]=0x8a;pong[1]=payload.length;payload.copy(pong,2);socket.write(pong);continue}
+            if(opcode===0x1){
+              try{
+                const msg=JSON.parse(payload.toString('utf8')||'{}');
+                if(msg&&msg.type==='ping')wsSend(socket,JSON.stringify({type:'pong',ts:Date.now()}));
+              }catch{}
+            }
+          }
+        }catch{matchWsClients.delete(client)}
+      });
+      socket.on('close',()=>{matchWsClients.delete(client);client.readyState=3});
+      socket.on('error',()=>{matchWsClients.delete(client);client.readyState=3});
+    }catch(e){try{socket.destroy()}catch{}}
+  });
+  console.log('Native WebSocket /ws/matches ready for real-time match updates');
+}
+
 const server=http.createServer(async(req,res)=>{try{
  const u=url.parse(req.url,true),p=u.pathname;
  if(req.method==='OPTIONS'){const h={};if(CORS_ORIGIN){h['Access-Control-Allow-Origin']=CORS_ORIGIN;h['Access-Control-Allow-Headers']='Content-Type, Authorization';h['Access-Control-Allow-Methods']='GET,POST,PUT,DELETE,OPTIONS';h['Vary']='Origin'}res.writeHead(204,h);return res.end()}
@@ -170,7 +254,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/user/matches'){const x=await userAuth(req,res);if(!x)return;const all=await db.listFeatureMatches(String(u.query.status||'all'));const matches=all.map(m=>{const joined=Array.isArray(m.players)&&m.players.some(a=>String(a.user_id)===String(x.id));const ready=Array.isArray(m.players)&&m.players.length>=2;return (joined&&ready)?m:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,matches});}
  if(req.method==='GET'&&p==='/api/user/matches/mine'){const x=await userAuth(req,res);if(!x)return;const matches=await db.listUserFeatureMatches(x.id);const safe=matches.map(m=>{const ready=Array.isArray(m.players)&&m.players.length>=2;return ready?m:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,matches:safe});}
  if(req.method==='GET'&&p.startsWith('/api/user/matches/')&&p.split('/').length===5){const x=await userAuth(req,res);if(!x)return;const m=await db.getFeatureMatch(decodeURIComponent(p.split('/')[4]));if(!m)return send(res,404,{ok:false,error:'Match not found'});const joined=Array.isArray(m.players)&&m.players.some(a=>String(a.user_id)===String(x.id));if(!joined)return send(res,403,{ok:false,error:'You have not joined this match'});if(m.players.length<2)return send(res,200,{ok:true,match:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,match:m});}
- if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=await userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);const m=r.match||{};if(Array.isArray(m.players)&&m.players.length>=2&&m.room_id){const ids=m.players.map(a=>String(a.user_id));for(const uid of ids){await db.notifyUser(uid,'Ludo Match Room Code',''+m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।')}await sendPushToUsers(ids,'Ludo Match Room Code',m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।',{match_id:m.id,room_code:m.room_id});}return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=await userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);const m=r.match||{};if(Array.isArray(m.players)&&m.players.length>=2&&m.room_id){const ids=m.players.map(a=>String(a.user_id));for(const uid of ids){await db.notifyUser(uid,'Ludo Match Room Code',''+m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।')}await sendPushToUsers(ids,'Ludo Match Room Code',m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।',{match_id:m.id,room_code:m.room_id});}broadcastMatchesChanged({action:'join',match_id:id,players:Array.isArray(m.players)?m.players.length:0});return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
 
  if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/result')){
    const x=await userAuth(req,res);if(!x)return;
@@ -181,6 +265,7 @@ const server=http.createServer(async(req,res)=>{try{
      const bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;
      if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
      const r=await db.submitFeatureResult(id,x.id,screenshot);
+     broadcastMatchesChanged({action:'result_submit',match_id:id});
      return send(res,201,{ok:true,message:'Winner screenshot জমা হয়েছে। Admin verification-এর অপেক্ষায় আছে।',submission:{id:r.id,status:r.status,submitted_at:r.submitted_at}});
    }catch(e){return send(res,400,{ok:false,error:e.message})}
  }
@@ -198,22 +283,22 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/admin/payment-methods'){const b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];const id=String(b.id||('PAY-'+Date.now().toString(36)));if(d.paymentMethods.some(x=>String(x.id)===id))return send(res,409,{ok:false,error:'Payment Method ID already exists'});const m={id,provider:String(b.provider||'Payment'),account_type:String(b.account_type||'Personal'),name:String(b.name||'Deposit Method'),number:String(b.number||''),account_name:String(b.account_name||''),logo:String(b.logo||''),enabled:b.enabled!==false,order:Number(b.order||d.paymentMethods.length+1),min_deposit:Number(b.min_deposit||0),max_deposit:Number(b.max_deposit||1000000),instructions:String(b.instructions||'')};if(!m.name||!m.number)return send(res,400,{ok:false,error:'Method Name ও Number required'});d.paymentMethods.push(m);await write(d);await addAudit('payment_method_create',id,m);return send(res,201,{ok:true,method:m});}
  if(req.method==='PUT'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];let m=d.paymentMethods.find(x=>x.id===id);if(!m){m={id,name:id};d.paymentMethods.push(m)}Object.assign(m,{provider:String(b.provider??m.provider??(String(id).toLowerCase().includes('nagad')?'Nagad':'Payment')),account_type:String(b.account_type??m.account_type??(String(m.name||'').match(/merchant/i)?'Merchant':String(m.name||'').match(/agent/i)?'Agent':String(m.name||'').match(/debit/i)?'Debit':'Personal')),name:String(b.name??m.name),number:String(b.number??m.number),account_name:String((b.account_name??m.account_name)??''),logo:String((b.logo??m.logo)??''),enabled:b.enabled!==undefined?!!b.enabled:m.enabled!==false,min_deposit:Number((b.min_deposit??m.min_deposit)??0),max_deposit:Number((b.max_deposit??m.max_deposit)??1000000),instructions:String((b.instructions??m.instructions)??'')});await write(d);await addAudit('payment_method_update',id,m);return send(res,200,{ok:true,method:m});}
  if(req.method==='DELETE'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];const before=d.paymentMethods.length;d.paymentMethods=d.paymentMethods.filter(x=>String(x.id)!==id);if(d.paymentMethods.length===before)return send(res,404,{ok:false,error:'Payment Method not found'});await write(d);await addAudit('payment_method_delete',id,{});return send(res,200,{ok:true});}
- if(req.method==='POST'&&p==='/api/admin/matches'){const b=await body(req);try{const m=await db.createFeatureMatch(b);await addAudit('match_create',m.id,m.title);return send(res,201,{ok:true,match:m});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p==='/api/admin/matches'){const b=await body(req);try{const m=await db.createFeatureMatch(b);await addAudit('match_create',m.id,m.title);broadcastMatchesChanged({action:'create',match_id:m.id});return send(res,201,{ok:true,match:m});}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/admin/matches'){const matches=await db.listFeatureMatches(String(u.query.status||'all'));matches.forEach(m=>m.status=publicMatchStatus(m));return send(res,200,{ok:true,matches});}
- if(req.method==='PUT'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req);try{return send(res,200,{ok:true,match:await db.updateFeatureMatch(id,b)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
- if(req.method==='DELETE'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.matches=(d.matches||[]).filter(m=>String(m.id)!==String(id));await write(d);return send(res,200,{ok:true});}
- if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/cancel')){const id=decodeURIComponent(p.split('/')[4]);const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});if(m.status==='cancelled')return send(res,400,{ok:false,error:'Already cancelled'});for(const pl of (m.players||[])){try{await db.adjustBalance(pl.user_id,'gaming',Number(m.entry_fee),'Match cancelled refund '+m.match_code)}catch{}}const d=await read();const mm=(d.matches||[]).find(a=>String(a.id)===String(id));if(mm){mm.status='cancelled';mm.updated_at=new Date().toISOString();}await write(d);await addAudit('match_cancel',id,m.match_code);return send(res,200,{ok:true,match:mm});}
- if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/room')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureRoom(id,b.room_id,b.room_password)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='PUT'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req);try{const m=await db.updateFeatureMatch(id,b);broadcastMatchesChanged({action:'update',match_id:id,status:m&&m.status});return send(res,200,{ok:true,match:m})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='DELETE'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.matches=(d.matches||[]).filter(m=>String(m.id)!==String(id));await write(d);broadcastMatchesChanged({action:'delete',match_id:id});return send(res,200,{ok:true});}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/cancel')){const id=decodeURIComponent(p.split('/')[4]);const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});if(m.status==='cancelled')return send(res,400,{ok:false,error:'Already cancelled'});for(const pl of (m.players||[])){try{await db.adjustBalance(pl.user_id,'gaming',Number(m.entry_fee),'Match cancelled refund '+m.match_code)}catch{}}const d=await read();const mm=(d.matches||[]).find(a=>String(a.id)===String(id));if(mm){mm.status='cancelled';mm.updated_at=new Date().toISOString();}await write(d);await addAudit('match_cancel',id,m.match_code);broadcastMatchesChanged({action:'cancel',match_id:id});return send(res,200,{ok:true,match:mm});}
+ if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/room')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{const m=await db.setFeatureRoom(id,b.room_id,b.room_password);broadcastMatchesChanged({action:'room',match_id:id});return send(res,200,{ok:true,match:m})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/winner')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{return send(res,200,{ok:true,match:await db.setFeatureWinner(id,b.user_id)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
 
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/result/approve')){
    const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
-   try{const m=await db.approveFeatureResult(id,String(b.user_id||''));await addAudit('match_result_approve',id,b.user_id);return send(res,200,{ok:true,match:m})}
+   try{const m=await db.approveFeatureResult(id,String(b.user_id||''));await addAudit('match_result_approve',id,b.user_id);broadcastMatchesChanged({action:'result_approve',match_id:id});return send(res,200,{ok:true,match:m})}
    catch(e){return send(res,400,{ok:false,error:e.message})}
  }
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/result/reject')){
    const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
-   try{const m=await db.rejectFeatureResult(id,String(b.user_id||''),String(b.note||''));await addAudit('match_result_reject',id,b.user_id);return send(res,200,{ok:true,match:m})}
+   try{const m=await db.rejectFeatureResult(id,String(b.user_id||''),String(b.note||''));await addAudit('match_result_reject',id,b.user_id);broadcastMatchesChanged({action:'result_reject',match_id:id});return send(res,200,{ok:true,match:m})}
    catch(e){return send(res,400,{ok:false,error:e.message})}
  }
 
@@ -296,4 +381,4 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
  send(res,404,'Not found','text/plain; charset=utf-8');
 }catch(e){console.error(e);send(res,500,{error:'Server error'})}});
-(async()=>{try{await db.init();await ensureVapidConfig();server.listen(PORT,()=>console.log('Ludo Baji V8.2 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();
+(async()=>{try{await db.init();await ensureVapidConfig();attachMatchWebSocket(server);server.listen(PORT,()=>console.log('Ludo Baji V9 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')+' | WS /ws/matches'))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();

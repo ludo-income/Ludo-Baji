@@ -3,6 +3,57 @@
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function F(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};const ut=localStorage.getItem('ludo_user_token');const at=localStorage.getItem('lb_admin_token');if(ut)h.Authorization='Bearer '+ut;if(at)h.Authorization='Bearer '+at;const r=await fetch(path,{...opt,headers:h});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Request failed');return j}
 
+
+/* Real-time WebSocket for Ludo Matches */
+window._matchWs=null; window._matchWsRetry=null;
+window.connectMatchSocket=function(){
+  try{
+    if(window._matchWs && (window._matchWs.readyState===0||window._matchWs.readyState===1))return;
+    const proto=location.protocol==='https:'?'wss:':'ws:';
+    const ws=new WebSocket(proto+'//'+location.host+'/ws/matches');
+    window._matchWs=ws;
+    ws.onopen=function(){ if(window._matchWsRetry){clearTimeout(window._matchWsRetry);window._matchWsRetry=null} };
+    ws.onmessage=function(ev){
+      try{
+        const msg=JSON.parse(ev.data||'{}');
+        if(msg.type==='matches_changed'){
+          if(document.getElementById('matchList')) window.refreshLudoMatchesLive && window.refreshLudoMatchesLive();
+          if(document.getElementById('mine')) window.refreshMyMatchesLive && window.refreshMyMatchesLive();
+          if(document.getElementById('amList') && window.loadAM) window.loadAM(window._amTab||'match-list');
+        }
+      }catch{}
+    };
+    ws.onclose=function(){
+      window._matchWs=null;
+      if(window._matchWsRetry)clearTimeout(window._matchWsRetry);
+      window._matchWsRetry=setTimeout(function(){window.connectMatchSocket()},3000);
+    };
+    ws.onerror=function(){ try{ws.close()}catch{} };
+  }catch(e){console.warn('Match WS connect failed',e&&e.message)}
+};
+window.refreshLudoMatchesLive=async function(){
+  if(!document.getElementById('matchList'))return;
+  try{
+    const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);
+    window._myMatches=mj.matches||[];
+    window._myMatchIds=window._myMatches.map(m=>m.id);
+    window._ludoMatches=(j.matches||[]).map(m=>({...m,_joined:window._myMatchIds.map(String).includes(String(m.id))}));
+    const active=document.querySelector('.lm-tabs button.active');
+    const type=active&&active.textContent.includes('MY')?'my':active&&active.textContent.includes('SMALL')?'small':active&&active.textContent.includes('BIG')?'big':'all';
+    filterLudoMatches(type,active);
+  }catch{}
+};
+window.refreshMyMatchesLive=async function(){
+  const box=document.getElementById('mine'); if(!box)return;
+  try{
+    const j=await F('/api/user/matches/mine');
+    window._myMatches=j.matches||[];
+    window._myMatchIds=window._myMatches.map(m=>m.id);
+    box.innerHTML=window._myMatches.map(m=>ludoMatchCard(m,true)).join('')||'<p class="muted">No joined matches.</p>';
+  }catch{}
+};
+try{window.connectMatchSocket()}catch{}
+
 window.setupPhonePush=async function setupPhonePush(){
  try{
   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return;
@@ -33,12 +84,12 @@ function ludoMatchCard(m, mine){
 }
 window.currentUserId=function(){try{const p=JSON.parse(localStorage.getItem('ludo_user_profile')||'{}');return p.id||p.user_id||''}catch{return ''}};
 window.copyRoomCode=async function(code){try{await navigator.clipboard.writeText(code);alert('Room Code copied')}catch{const t=document.createElement('textarea');t.value=code;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();alert('Room Code copied')}};
-window.showMatches=async function(){if(!authToken()){openAuth();return}setupPhonePush();clearInterval(window._ludoUserTimer);const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<div class="lm-head"><button onclick="document.getElementById(\'view\').classList.remove(\'show\')">‹</button><h3> Ludo Matches</h3><span>▶</span></div><div class="lm-tabs"><button class="active" onclick="filterLudoMatches(\'all\',this)">✓ ALL</button><button onclick="filterLudoMatches(\'my\',this)">MY</button><button onclick="filterLudoMatches(\'small\',this)">SMALL</button><button onclick="filterLudoMatches(\'big\',this)">BIG</button></div><div id="matchList" class="ludo-match-list">Loading...</div>';try{const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);window._myMatches=mj.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);window._ludoMatches=(j.matches||[]).map(m=>({...m,_joined:window._myMatchIds.map(String).includes(String(m.id))}));filterLudoMatches('all',v.querySelector('.lm-tabs button'));startLudoUserAutoRefresh()}catch(e){v.querySelector('#matchList').innerHTML='<div class="err">'+E(e.message)+'</div>'}};
+window.showMatches=async function(){if(!authToken()){openAuth();return}setupPhonePush();try{connectMatchSocket()}catch{};clearInterval(window._ludoUserTimer);const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<div class="lm-head"><button onclick="document.getElementById(\'view\').classList.remove(\'show\')">‹</button><h3> Ludo Matches</h3><span>▶</span></div><div class="lm-tabs"><button class="active" onclick="filterLudoMatches(\'all\',this)">✓ ALL</button><button onclick="filterLudoMatches(\'my\',this)">MY</button><button onclick="filterLudoMatches(\'small\',this)">SMALL</button><button onclick="filterLudoMatches(\'big\',this)">BIG</button></div><div id="matchList" class="ludo-match-list">Loading...</div>';try{const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);window._myMatches=mj.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);window._ludoMatches=(j.matches||[]).map(m=>({...m,_joined:window._myMatchIds.map(String).includes(String(m.id))}));filterLudoMatches('all',v.querySelector('.lm-tabs button'));startLudoUserAutoRefresh()}catch(e){v.querySelector('#matchList').innerHTML='<div class="err">'+E(e.message)+'</div>'}};
 window.startLudoUserAutoRefresh=function(){clearInterval(window._ludoUserTimer);window._ludoUserTimer=setInterval(async()=>{if(!document.getElementById('matchList'))return;try{const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);window._myMatches=mj.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);window._ludoMatches=(j.matches||[]).map(m=>({...m,_joined:window._myMatchIds.map(String).includes(String(m.id))}));const active=document.querySelector('.lm-tabs button.active');const type=active&&active.textContent.includes('MY')?'my':active&&active.textContent.includes('SMALL')?'small':active&&active.textContent.includes('BIG')?'big':'all';filterLudoMatches(type,active)}catch{}},5000)};
 window.filterLudoMatches=function(type,el){document.querySelectorAll('.lm-tabs button').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');let a=window._ludoMatches||[];if(type==='my'){const mineIds=new Set((window._myMatchIds||[]).map(String));a=a.filter(m=>mineIds.has(String(m.id)))}if(type==='small')a=a.filter(m=>Number(m.entry_fee||0)<=50);if(type==='big')a=a.filter(m=>Number(m.entry_fee||0)>50);const box=document.getElementById('matchList');if(box)box.innerHTML=a.map(m=>ludoMatchCard(m,false)).join('')||'<p class="muted">No matches available.</p>'};
 window.joinUserMatch=async function(id){try{const j=await F('/api/user/matches/'+encodeURIComponent(id)+'/join',{method:'POST'});alert(j.message||'Joined');await refreshDashboard();showMatches()}catch(e){alert(e.message)}};
 window.submitMatchResult=async function(id){const input=document.getElementById('result_'+id);if(!input||!input.files||!input.files[0]){alert('Winner screenshot নির্বাচন করুন');return}const file=input.files[0];if(!/^image\/(jpeg|png|webp)$/i.test(file.type)){alert('শুধু JPG, PNG অথবা WEBP screenshot দিন');return}if(file.size>8*1024*1024){alert('Screenshot সর্বোচ্চ 8MB হতে পারবে');return}const fr=new FileReader();fr.onload=async()=>{try{await F('/api/user/matches/'+encodeURIComponent(id)+'/result',{method:'POST',body:JSON.stringify({screenshot:fr.result})});alert('Winner screenshot জমা হয়েছে');showMyMatches()}catch(e){alert(e.message)}};fr.readAsDataURL(file)};
-window.showMyMatches=async function(){if(!authToken()){openAuth();return}setupPhonePush();const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<div class="lm-head"><button onclick="document.getElementById(\'view\').classList.remove(\'show\')">‹</button><h3> My Match</h3><span>🎯</span></div><div id="mine" class="ludo-match-list">Loading...</div>';try{const j=await F('/api/user/matches/mine');window._myMatches=j.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);v.querySelector('#mine').innerHTML=window._myMatches.map(m=>ludoMatchCard(m,true)).join('')||'<p class="muted">No joined matches.</p>'}catch(e){v.querySelector('#mine').innerHTML='<div class="err">'+E(e.message)+'</div>'}};
+window.showMyMatches=async function(){if(!authToken()){openAuth();return}setupPhonePush();try{connectMatchSocket()}catch{};const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<div class="lm-head"><button onclick="document.getElementById(\'view\').classList.remove(\'show\')">‹</button><h3> My Match</h3><span>🎯</span></div><div id="mine" class="ludo-match-list">Loading...</div>';try{const j=await F('/api/user/matches/mine');window._myMatches=j.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);v.querySelector('#mine').innerHTML=window._myMatches.map(m=>ludoMatchCard(m,true)).join('')||'<p class="muted">No joined matches.</p>'}catch(e){v.querySelector('#mine').innerHTML='<div class="err">'+E(e.message)+'</div>'}};
 window.showNotifications=async function(){if(!authToken()){openAuth();return}const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<h3>🔔 Notifications</h3><button class="btn" onclick="readAllNotifications()">Mark all read</button><div id="notices">Loading...</div>';try{const j=await F('/api/user/notifications');v.querySelector('#notices').innerHTML=(j.notifications||[]).map(n=>`<div class="item"><b>${E(n.title)}</b><div>${E(n.message)}</div><small>${E(new Date(n.created_at).toLocaleString())} ${n.read_at?'':'• UNREAD'}</small></div>`).join('')||'<p>No notifications.</p>'}catch(e){v.innerHTML+='<p class="err">'+E(e.message)+'</p>'}};
 window.readAllNotifications=async function(){await F('/api/user/notifications/read',{method:'POST',body:JSON.stringify({id:'all'})});showNotifications()};
 window.showSupport=async function(){if(!authToken()){openAuth();return}const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<h3>💬 Customer Support</h3><div id="supportMsgs">Loading...</div><textarea id="supportText" placeholder="আপনার সমস্যা লিখুন"></textarea><button class="btn" onclick="sendSupport()">Send</button>';try{const j=await F('/api/user/support');v.querySelector('#supportMsgs').innerHTML=(j.messages||[]).map(n=>`<div class="item"><b>${E(n.sender)}</b><div>${E(n.message)}</div></div>`).join('')||'<p>No messages yet.</p>'}catch(e){}};
@@ -62,6 +113,7 @@ restoreMatchDraft();
 let _matchLoadSeq=0;
 window.adminMatches=function(id){
  window._amTab=id||'match-list';
+ try{connectMatchSocket()}catch{};
  if(window._amTab==='match-list') window.startMatchAutoRefresh(); else clearInterval(window._matchAdminTimer);
  setTimeout(()=>loadAM(window._amTab),0);
  return '<div class="hero"><div><h1>🎮 Match Management</h1><p>Admin এখান থেকে Ludo King-এর 2-player match তৈরি, Room Code, Player এবং Result control করতে পারবেন।</p></div><button type="button" class="btn green" id="amNewMatchBtn" onclick="loadAM(\'match-create\')">＋ New Match</button></div><div class="toolbar"><button type="button" class="btn '+(id==='match-list'?'blue':'gray')+'" id="amAllBtn" onclick="loadAM(\'match-list\')">📋 All Matches</button><button type="button" class="btn '+(id==='match-create'?'blue':'gray')+'" id="amAddBtn" onclick="loadAM(\'match-create\')">＋ Add Match</button><button type="button" class="btn '+(id==='room-id-management'?'blue':'gray')+'" id="amRoomBtn" onclick="loadAM(\'room-id-management\')">🔑 Room Codes</button><button type="button" class="btn '+(id==='prize-approval'?'blue':'gray')+'" id="amResultsBtn" onclick="loadAM(\'prize-approval\')">🏆 Results</button><button type="button" class="btn gray" id="amRefreshBtn" onclick="loadAM(window._amTab||\'match-list\')">↻ Refresh</button></div><div class="panel"><div id="amBox">Loading...</div></div>'};
