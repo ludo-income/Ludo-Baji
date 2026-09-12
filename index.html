@@ -89,6 +89,89 @@ header{background:transparent;border-bottom:0;box-shadow:none;padding:14px 16px 
 .footerHelp .publicLinkGrid{gap:6px;margin-top:8px}
 .footerHelp .publicLinkGrid button{padding:7px 6px;font-size:11px;font-weight:600;border-radius:8px;background:#0a1622;border:1px solid #1e3a50;color:#b8c9d9}
 .promoStrip{margin-top:4px}
+
+/* ===== FINAL HOME + FULLSCREEN FIX v14 ===== */
+body{background:#071323!important;color:#f4f8ff!important}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:#071323;padding-bottom:24px}
+header{background:transparent!important;border:0!important;box-shadow:none!important;padding:12px 16px 4px!important}
+.brandWrap{display:flex;flex-direction:column;align-items:center}
+#mainLogo,.logo{width:110px!important;height:110px!important;object-fit:contain!important;border-radius:20px!important;background:transparent!important;border:0!important}
+.name{display:none!important}
+.search{display:none!important}
+.wallet{display:block!important;padding:6px 16px!important}
+.balanceSingle{background:linear-gradient(145deg,#0d2a22,#0f3d30)!important;border:1px solid #1a5c45!important;border-radius:18px!important;padding:16px 18px!important}
+.balanceSingle strong{font-size:32px!important;color:#1fe89a!important}
+.promoStrip{margin:8px 16px!important}
+.homeExtras{padding:4px 16px 0!important}
+.quick{padding:8px 16px 12px!important}
+.quickGrid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}
+.quickBtn{min-height:64px!important;height:auto!important;display:flex!important;align-items:center!important;gap:10px!important;padding:12px 12px!important;border-radius:16px!important;border:1px solid #1a4a3a!important;background:linear-gradient(145deg,#0d281f,#0a1f19)!important;color:#e8fff6!important;text-align:left!important;overflow:hidden!important}
+.quickBtn .quickIcon{width:36px!important;height:36px!important;min-width:36px!important;border-radius:10px!important;display:grid!important;place-items:center!important;background:#123d30!important;font-size:18px!important;overflow:hidden!important}
+.quickBtn .quickName{flex:1!important;font-size:13px!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.quickBtn .quickArrow{color:#1fe89a!important;flex-shrink:0!important}
+.footerHelp{padding:8px 16px 28px!important}
+.footerHelp .homeNotice{padding:10px!important;border-radius:14px!important;background:#0c1a28!important;border:1px solid #1a3348!important}
+.footerHelp .publicLinkGrid{grid-template-columns:repeat(2,1fr)!important;gap:6px!important}
+.footerHelp .publicLinkGrid button{padding:7px 6px!important;font-size:11px!important}
+
+/* FULL SCREEN pages - hide entire home */
+body.screen-open{background:#f5f8f6!important;color:#202522!important;overflow:hidden!important}
+body.screen-open .app{max-width:480px!important;min-height:100vh!important;background:#f5f8f6!important;padding:0!important;position:relative!important}
+body.screen-open header,
+body.screen-open .wallet,
+body.screen-open .promoStrip,
+body.screen-open .homeExtras,
+body.screen-open .quick,
+body.screen-open .footerHelp,
+body.screen-open .loginHint{display:none!important}
+
+/* Viewer covers full viewport */
+.viewer{display:none!important}
+.viewer.show,
+body.screen-open .viewer,
+body.screen-open .viewer.show{
+  display:block!important;
+  position:fixed!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  top:0!important;
+  bottom:0!important;
+  width:100%!important;
+  max-width:480px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:#f5f8f6!important;
+  color:#202522!important;
+  box-shadow:none!important;
+  z-index:5000!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  min-height:100vh!important;
+}
+
+/* Preview + logged-out still show home chrome */
+body.logged-out:not(.preview-mode) .wallet,
+body.logged-out:not(.preview-mode) .quick,
+body.logged-out:not(.preview-mode) .promoStrip,
+body.logged-out:not(.preview-mode) .footerHelp{display:none!important}
+body.logged-out.preview-mode .wallet,
+body.logged-out.preview-mode .quick,
+body.logged-out.preview-mode .promoStrip,
+body.logged-out.preview-mode .footerHelp{display:block!important}
+body.preview-mode .wallet{display:block!important}
+body.preview-mode .quick{display:block!important}
+
+/* Back header on feature screens */
+.lm-head{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:12px 14px;background:#0b1e33;color:#fff}
+.lm-head button{border:0;background:#14324f;color:#fff;width:40px;height:40px;border-radius:12px;font-size:22px;cursor:pointer}
+.lm-head h3{flex:1;margin:0;font-size:18px;color:#fff}
+.screenTop{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:12px 14px;background:#0b1e33;color:#fff}
+.screenBack{border:0;background:#14324f;color:#fff;width:40px;height:40px;border-radius:12px;font-size:22px;cursor:pointer}
+.screenTitle{flex:1;font-size:18px;font-weight:800;color:#fff}
+.screenBody{padding:14px}
+
 </style><script>(function(){
   var mobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || (screen && screen.width <= 600);
   if(mobileDevice){ document.documentElement.classList.add("mobile-device"); }
