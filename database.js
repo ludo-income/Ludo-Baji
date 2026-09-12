@@ -488,7 +488,15 @@ async function adjustBalance(id,balanceType,amount,note='Admin balance adjustmen
 }
 async function notifyUser(userId,title,message){const item={id:Date.now()+Math.random(),user_id:userId,title,message,read_at:null,created_at:new Date().toISOString()};if(!hasDatabase()){const a=fallbackNotificationsRead();a.unshift(item);fallbackNotificationsWrite(a);return item;}await init();const r=await pool.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3) RETURNING *',[userId,title,message]);return r.rows[0];}
 async function createFeatureMatch(x){
-  const item={id:'M-'+Date.now()+Math.random().toString(36).slice(2,5),match_code:String(x.match_code||('LB'+Date.now())).toUpperCase(),title:String(x.title||'Ludo Match').trim(),entry_fee:Number(x.entry_fee||0),winning_amount:Number(x.winning_amount||0),max_players:2,scheduled_at:x.scheduled_at||new Date().toISOString(),status:x.status||'open',room_id:String(x.room_id||''),room_password:String(x.room_password||''),rules:String(x.rules||''),players:[],winner_user_id:null,prize_status:'pending',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(!item.title||item.entry_fee<0||item.winning_amount<0||!Number.isFinite(item.entry_fee)||!Number.isFinite(item.winning_amount))throw new Error('Invalid match data'); item.entry_fee=Number(item.entry_fee.toFixed(2)); item.winning_amount=Number(item.winning_amount.toFixed(2));const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];d.matches.unshift(item);await saveData(d);return item;
+  const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];
+  const serial=d.matches.length+1;
+  let title=String(x.title||'').trim();
+  if(!title) title='Special Match~~~~'+serial;
+  else if(/^\d+$/.test(title)) title='Special Match~~~~'+title;
+  const item={id:'M-'+Date.now()+Math.random().toString(36).slice(2,5),match_code:String(x.match_code||('LB'+Date.now())).toUpperCase(),title,entry_fee:Number(x.entry_fee||0),winning_amount:Number(x.winning_amount||0),max_players:2,scheduled_at:x.scheduled_at||new Date().toISOString(),status:x.status||'open',room_id:String(x.room_id||'').trim(),room_password:String(x.room_password||''),rules:String(x.rules||'').trim()||'সিট ফুল হলে রুম আইডি দেওয়া হবে',players:[],winner_user_id:null,prize_status:'pending',result_submissions:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!item.title||item.entry_fee<0||item.winning_amount<0||!Number.isFinite(item.entry_fee)||!Number.isFinite(item.winning_amount))throw new Error('Invalid match data');
+  item.entry_fee=Number(item.entry_fee.toFixed(2)); item.winning_amount=Number(item.winning_amount.toFixed(2));
+  d.matches.unshift(item);await saveData(d);return item;
 }
 async function listFeatureMatches(status='all'){const d=await getData();let a=Array.isArray(d.matches)?d.matches:[];a=a.map(x=>{const players=Array.isArray(x.players)?x.players:[];const raw=String(x.status||'open').toLowerCase();const derived=['started','completed','cancelled'].includes(raw)?raw:(players.length>=2?'full':'open');return {...x,status:derived,players}});if(status!=='all')a=a.filter(x=>x.status===status);return a;}
 async function getFeatureMatch(id){const a=await listFeatureMatches('all');return a.find(x=>String(x.id)===String(id)||String(x.match_code)===String(id))||null;}
