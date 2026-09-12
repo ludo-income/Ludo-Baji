@@ -206,4 +206,4 @@ document.getElementById('logoutUser').onclick=()=>{localStorage.removeItem('ludo
 load();
 // Keep Admin changes live without reopening/resetting the current page.
 setInterval(async()=>{try{const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const d=await r.json();const next=(d.mainOptions||[]).filter(x=>x.visible);const oldSig=JSON.stringify(all.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));const newSig=JSON.stringify(next.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));if(oldSig!==newSig){all=next;renderQuick();}loginOtpEnabled=d.system?.user_login_otp!==false;document.body.classList.toggle('preview-mode',!authToken()&&!loginOtpEnabled);}catch{}} ,8000);
-</script><script src="features-ui.js?v=20260912-6"></script></body></html>
+</script><script src="features-ui.js?v=20260912-7"></script></body></html>
