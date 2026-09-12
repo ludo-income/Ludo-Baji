@@ -1,7 +1,15 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
 const db=require('./database');
-const ROOT=__dirname,PORT=process.env.PORT||3000,SECRET=String(process.env.ADMIN_SECRET||''),ADMIN_USERNAME=String(process.env.ADMIN_USERNAME||''),ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||''),ADMIN_ROLE=String(process.env.ADMIN_ROLE||'super_admin');
-const USER_SECRET=String(process.env.USER_SECRET||'');
+const ROOT=__dirname,PORT=process.env.PORT||3000;
+// Backward-compatible environment names: existing Render deployments may use
+// ADMIN_MOBILE + JWT_SECRET. Prefer the newer ADMIN_USERNAME/ADMIN_SECRET/USER_SECRET
+// names when they are present, without forcing the user to recreate their Render config.
+const LEGACY_JWT_SECRET=String(process.env.JWT_SECRET||'');
+const SECRET=String(process.env.ADMIN_SECRET||LEGACY_JWT_SECRET||'');
+const ADMIN_USERNAME=String(process.env.ADMIN_USERNAME||process.env.ADMIN_MOBILE||'');
+const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'');
+const ADMIN_ROLE=String(process.env.ADMIN_ROLE||'super_admin');
+const USER_SECRET=String(process.env.USER_SECRET||((LEGACY_JWT_SECRET&&LEGACY_JWT_SECRET.length>=32)?crypto.createHash('sha256').update(LEGACY_JWT_SECRET+'|ludo-baji-user-secret').digest('hex'):''));
 const CORS_ORIGIN=String(process.env.CORS_ORIGIN||'').trim();
 const TRUST_PROXY=String(process.env.TRUST_PROXY||'').toLowerCase()==='true';
 const MAX_BODY_BYTES=Math.max(1024*1024,Number(process.env.MAX_BODY_MB||10)*1024*1024);
