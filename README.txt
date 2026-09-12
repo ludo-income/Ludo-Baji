@@ -57,3 +57,10 @@ Payment Deposit UI:
 - User can tap a method and copy its number; successful copy shows ✓ Copied.
 - Admin > Payment Methods can customize method name, number, account name, logo, min/max deposit and instructions.
 - Optional environment overrides: BKASH_PERSONAL_NUMBER, BKASH_MERCHANT_NUMBER, NAGAD_PERSONAL_NUMBER.
+
+
+Phone Push Notification
+- The Ludo Match feature sends the Room Code to both joined users when the second player joins.
+- Phone push VAPID keys are generated and stored server-side automatically; optional VAPID_* environment variables can override them.
+- The browser/PWA must be granted notification permission.
+- package.json includes web-push; Render/npm install will install it during deployment.

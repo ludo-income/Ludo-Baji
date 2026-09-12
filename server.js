@@ -1,5 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),url=require('url');
 const db=require('./database');
+let webPush=null; try{webPush=require('web-push')}catch{webPush=null}
 const ROOT=__dirname,PORT=process.env.PORT||3000;
 // Backward-compatible environment names: existing Render deployments may use
 // ADMIN_MOBILE + JWT_SECRET. Prefer the newer ADMIN_USERNAME/ADMIN_SECRET/USER_SECRET
@@ -11,6 +12,10 @@ const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'');
 const ADMIN_ROLE=String(process.env.ADMIN_ROLE||'super_admin');
 const USER_SECRET=String(process.env.USER_SECRET||((LEGACY_JWT_SECRET&&LEGACY_JWT_SECRET.length>=32)?crypto.createHash('sha256').update(LEGACY_JWT_SECRET+'|ludo-baji-user-secret').digest('hex'):''));
 const CORS_ORIGIN=String(process.env.CORS_ORIGIN||'').trim();
+let VAPID_PUBLIC_KEY=String(process.env.VAPID_PUBLIC_KEY||'').trim();
+let VAPID_PRIVATE_KEY=String(process.env.VAPID_PRIVATE_KEY||'').trim();
+const VAPID_SUBJECT=String(process.env.VAPID_SUBJECT||'mailto:admin@example.com').trim();
+async function ensureVapidConfig(){if(!webPush)return false;try{const d=await read();const cfg=d.pushConfig||{};if(!VAPID_PUBLIC_KEY||!VAPID_PRIVATE_KEY){VAPID_PUBLIC_KEY=String(cfg.public_key||'').trim();VAPID_PRIVATE_KEY=String(cfg.private_key||'').trim();}if(!VAPID_PUBLIC_KEY||!VAPID_PRIVATE_KEY){const ecdh=crypto.createECDH('prime256v1');ecdh.generateKeys();VAPID_PRIVATE_KEY=ecdh.getPrivateKey().toString('base64url');VAPID_PUBLIC_KEY=ecdh.getPublicKey().toString('base64url');d.pushConfig={public_key:VAPID_PUBLIC_KEY,private_key:VAPID_PRIVATE_KEY,created_at:new Date().toISOString()};await write(d);}webPush.setVapidDetails(VAPID_SUBJECT,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY);return true}catch(e){console.error('VAPID configuration error:',e.message);return false}}
 const TRUST_PROXY=String(process.env.TRUST_PROXY||'').toLowerCase()==='true';
 const MAX_BODY_BYTES=Math.max(1024*1024,Number(process.env.MAX_BODY_MB||10)*1024*1024);
 const ADMIN_TOKEN_TTL_MS=Math.max(15,Number(process.env.ADMIN_TOKEN_TTL_MINUTES||480))*60*1000;
@@ -21,7 +26,7 @@ requireSecurityEnv();
 const OTP_TTL_MS=Math.max(60,Number(process.env.OTP_TTL_SECONDS||300))*1000;
 const OTP_COOLDOWN_MS=Math.max(30,Number(process.env.OTP_COOLDOWN_SECONDS||60))*1000;
 const OTP_MAX_ATTEMPTS=Math.max(3,Number(process.env.OTP_MAX_ATTEMPTS||5));
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 async function read(){return db.getData()}
 async function write(d){return db.saveData(d)}
 function send(res,status,body,type='application/json; charset=utf-8'){const h={'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'same-origin','Permissions-Policy':'camera=(),microphone=(),geolocation=()'};if(CORS_ORIGIN){h['Access-Control-Allow-Origin']=CORS_ORIGIN;h['Access-Control-Allow-Headers']='Content-Type, Authorization';h['Access-Control-Allow-Methods']='GET,POST,PUT,DELETE,OPTIONS';h['Vary']='Origin'}res.writeHead(status,h);res.end(typeof body==='string'?body:JSON.stringify(body))}
@@ -42,7 +47,27 @@ async function auth(req,res){const raw=String(req.headers.authorization||'').rep
 function revokeAdminToken(req){const raw=String(req.headers.authorization||'').replace(/^Bearer\s+/i,''),x=verifyToken(raw,SECRET);if(x?.jti)adminSessions.delete(x.jti);}
 async function userAuth(req,res){const x=verifyToken((req.headers.authorization||'').replace(/^Bearer\s+/i,''),USER_SECRET);if(!x||x.typ!=='user'){send(res,401,{ok:false,error:'Login required'});return null}const u=await db.getUserById(x.id);if(!u){send(res,401,{ok:false,error:'Account not found'});return null}if(u.status!=='active'){send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});return null}return x}
 function safeHttpUrl(input){const s=String(input||'').trim();if(!s)return '';try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?s:''}catch{return ''}}
+function publicMatchStatus(m){const raw=String(m.status||'open').toLowerCase();if(['started','completed','cancelled'].includes(raw))return raw;return Array.isArray(m.players)&&m.players.length>=2?'full':'open'}
 function normalizeBDPhone(input){let s=String(input||'').trim().replace(/[\s()-]/g,'');if(/^01\d{9}$/.test(s))return '+880'+s.slice(1);if(/^8801\d{9}$/.test(s))return '+'+s;if(/^\+8801\d{9}$/.test(s))return s;return null}
+function pushConfigured(){return !!(webPush&&VAPID_PUBLIC_KEY&&VAPID_PRIVATE_KEY)}
+async function pushSubscribe(userId,subscription){
+  const d=await read(); d.pushSubscriptions=Array.isArray(d.pushSubscriptions)?d.pushSubscriptions:[];
+  const sub=subscription||{}; if(!sub.endpoint||typeof sub.endpoint!=='string')throw new Error('Invalid push subscription');
+  const item={user_id:String(userId),endpoint:sub.endpoint,keys:sub.keys||{},updated_at:new Date().toISOString()};
+  const i=d.pushSubscriptions.findIndex(x=>String(x.user_id)===String(userId)&&x.endpoint===sub.endpoint);
+  if(i>=0)d.pushSubscriptions[i]=item;else d.pushSubscriptions.push(item); await write(d); return item;
+}
+async function pushUnsubscribe(userId,endpoint){const d=await read();d.pushSubscriptions=Array.isArray(d.pushSubscriptions)?d.pushSubscriptions:[];d.pushSubscriptions=d.pushSubscriptions.filter(x=>!(String(x.user_id)===String(userId)&&(!endpoint||x.endpoint===endpoint)));await write(d)}
+async function sendPushToUsers(userIds,title,message,data={}){
+  if(!pushConfigured()) return {sent:0,configured:false};
+  const d=await read();d.pushSubscriptions=Array.isArray(d.pushSubscriptions)?d.pushSubscriptions:[];const wanted=new Set((userIds||[]).map(String));
+  const targets=d.pushSubscriptions.filter(x=>wanted.has(String(x.user_id)));
+  let sent=0;const dead=[];
+  for(const sub of targets){try{await webPush.sendNotification({endpoint:sub.endpoint,keys:sub.keys},JSON.stringify({title,message,data}));sent++}catch(e){if([404,410].includes(Number(e.statusCode)))dead.push(sub.endpoint);else console.error('Push send failed:',e.message)}}
+  if(dead.length){d.pushSubscriptions=d.pushSubscriptions.filter(x=>!dead.includes(x.endpoint));await write(d)}
+  return {sent,configured:true};
+}
+
 function otpHash(email,otp){return crypto.createHash('sha256').update(email+'|'+otp+'|'+USER_SECRET).digest('hex')}
 function makeOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,'0')}
 function normalizeEmail(input){const e=String(input||'').trim().toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254?e:null}
@@ -99,6 +124,9 @@ const server=http.createServer(async(req,res)=>{try{
    await db.clearUserOtpByEmail(email);const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
  }
  if(req.method==='GET'&&p==='/api/auth/me'){const x=await userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
+ if(req.method==='GET'&&p==='/api/user/push/public-key'){return send(res,200,{ok:true,configured:pushConfigured(),public_key:pushConfigured()?VAPID_PUBLIC_KEY:''});}
+ if(req.method==='POST'&&p==='/api/user/push/subscribe'){const x=await userAuth(req,res);if(!x)return;try{const b=await body(req);if(!pushConfigured())return send(res,503,{ok:false,error:'Phone notification service is not configured yet'});await pushSubscribe(x.id,b.subscription);return send(res,200,{ok:true})}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p==='/api/user/push/unsubscribe'){const x=await userAuth(req,res);if(!x)return;try{const b=await body(req);await pushUnsubscribe(x.id,String(b.endpoint||''));return send(res,200,{ok:true})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/user/dashboard'){const x=await userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});const dashboard=await db.getUserDashboard(x.id);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status},dashboard})}
  if(req.method==='PUT'&&p==='/api/auth/profile'){const x=await userAuth(req,res);if(!x)return;const b=await body(req),name=String(b.name||'').trim();if(name.length>60)return send(res,400,{ok:false,error:'Name too long'});const user=await db.updateUserName(x.id,name);return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/deposit/info'){
@@ -139,10 +167,10 @@ const server=http.createServer(async(req,res)=>{try{
  
  // ===== Steps 3-35 APIs =====
  if(req.method==='GET'&&p==='/api/payment-methods'){const d=await read();return send(res,200,{ok:true,methods:(d.paymentMethods||[]).filter(x=>x.enabled)});}
- if(req.method==='GET'&&p==='/api/user/matches'){const x=await userAuth(req,res);if(!x)return;const all=await db.listFeatureMatches(String(u.query.status||'all'));const matches=all.map(m=>({...m,room_id:'',room_password:''}));return send(res,200,{ok:true,matches});}
+ if(req.method==='GET'&&p==='/api/user/matches'){const x=await userAuth(req,res);if(!x)return;const all=await db.listFeatureMatches(String(u.query.status||'all'));const matches=all.map(m=>{const joined=Array.isArray(m.players)&&m.players.some(a=>String(a.user_id)===String(x.id));const ready=Array.isArray(m.players)&&m.players.length>=2;return (joined&&ready)?m:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,matches});}
  if(req.method==='GET'&&p==='/api/user/matches/mine'){const x=await userAuth(req,res);if(!x)return;const matches=await db.listUserFeatureMatches(x.id);const safe=matches.map(m=>{const ready=Array.isArray(m.players)&&m.players.length>=2;return ready?m:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,matches:safe});}
  if(req.method==='GET'&&p.startsWith('/api/user/matches/')&&p.split('/').length===5){const x=await userAuth(req,res);if(!x)return;const m=await db.getFeatureMatch(decodeURIComponent(p.split('/')[4]));if(!m)return send(res,404,{ok:false,error:'Match not found'});const joined=Array.isArray(m.players)&&m.players.some(a=>String(a.user_id)===String(x.id));if(!joined)return send(res,403,{ok:false,error:'You have not joined this match'});if(m.players.length<2)return send(res,200,{ok:true,match:{...m,room_id:'',room_password:''}});return send(res,200,{ok:true,match:m});}
- if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=await userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/join')){const x=await userAuth(req,res);if(!x)return;const id=decodeURIComponent(p.split('/')[4]);try{const r=await db.joinFeatureMatch(id,x.id);const m=r.match||{};if(Array.isArray(m.players)&&m.players.length>=2&&m.room_id){const ids=m.players.map(a=>String(a.user_id));for(const uid of ids){await db.notifyUser(uid,'Ludo Match Room Code',''+m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।')}await sendPushToUsers(ids,'Ludo Match Room Code',m.title+' match-এর ২ জন player পূর্ণ হয়েছে। Room Code: '+m.room_id+' — Ludo King-এ join করুন।',{match_id:m.id,room_code:m.room_id});}return send(res,200,{ok:true,message:'Match joined successfully',...r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
 
  if(req.method==='POST'&&p.startsWith('/api/user/matches/')&&p.endsWith('/result')){
    const x=await userAuth(req,res);if(!x)return;
@@ -171,7 +199,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='PUT'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];let m=d.paymentMethods.find(x=>x.id===id);if(!m){m={id,name:id};d.paymentMethods.push(m)}Object.assign(m,{provider:String(b.provider??m.provider??(String(id).toLowerCase().includes('nagad')?'Nagad':'Payment')),account_type:String(b.account_type??m.account_type??(String(m.name||'').match(/merchant/i)?'Merchant':String(m.name||'').match(/agent/i)?'Agent':String(m.name||'').match(/debit/i)?'Debit':'Personal')),name:String(b.name??m.name),number:String(b.number??m.number),account_name:String((b.account_name??m.account_name)??''),logo:String((b.logo??m.logo)??''),enabled:b.enabled!==undefined?!!b.enabled:m.enabled!==false,min_deposit:Number((b.min_deposit??m.min_deposit)??0),max_deposit:Number((b.max_deposit??m.max_deposit)??1000000),instructions:String((b.instructions??m.instructions)??'')});await write(d);await addAudit('payment_method_update',id,m);return send(res,200,{ok:true,method:m});}
  if(req.method==='DELETE'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];const before=d.paymentMethods.length;d.paymentMethods=d.paymentMethods.filter(x=>String(x.id)!==id);if(d.paymentMethods.length===before)return send(res,404,{ok:false,error:'Payment Method not found'});await write(d);await addAudit('payment_method_delete',id,{});return send(res,200,{ok:true});}
  if(req.method==='POST'&&p==='/api/admin/matches'){const b=await body(req);try{const m=await db.createFeatureMatch(b);await addAudit('match_create',m.id,m.title);return send(res,201,{ok:true,match:m});}catch(e){return send(res,400,{ok:false,error:e.message})}}
- if(req.method==='GET'&&p==='/api/admin/matches'){return send(res,200,{ok:true,matches:await db.listFeatureMatches(String(u.query.status||'all'))});}
+ if(req.method==='GET'&&p==='/api/admin/matches'){const matches=await db.listFeatureMatches(String(u.query.status||'all'));matches.forEach(m=>m.status=publicMatchStatus(m));return send(res,200,{ok:true,matches});}
  if(req.method==='PUT'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req);try{return send(res,200,{ok:true,match:await db.updateFeatureMatch(id,b)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='DELETE'&&p.startsWith('/api/admin/matches/')){const id=decodeURIComponent(p.split('/').pop()),d=await read();d.matches=(d.matches||[]).filter(m=>String(m.id)!==String(id));await write(d);return send(res,200,{ok:true});}
  if(req.method==='POST'&&p.startsWith('/api/admin/matches/')&&p.endsWith('/cancel')){const id=decodeURIComponent(p.split('/')[4]);const m=await db.getFeatureMatch(id);if(!m)return send(res,404,{ok:false,error:'Match not found'});if(m.status==='cancelled')return send(res,400,{ok:false,error:'Already cancelled'});for(const pl of (m.players||[])){try{await db.adjustBalance(pl.user_id,'gaming',Number(m.entry_fee),'Match cancelled refund '+m.match_code)}catch{}}const d=await read();const mm=(d.matches||[]).find(a=>String(a.id)===String(id));if(mm){mm.status='cancelled';mm.updated_at=new Date().toISOString();}await write(d);await addAudit('match_cancel',id,m.match_code);return send(res,200,{ok:true,match:mm});}
@@ -237,7 +265,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/admin/referral'){const d=await read();return send(res,200,{ok:true,referral:d.referral||{enabled:true,code_prefix:'LB',bonus:0}})}
  if(req.method==='PUT'&&p==='/api/admin/referral'){const b=await body(req),d=await read();d.referral={...(d.referral||{}),enabled:b.enabled!==false,code_prefix:String(b.code_prefix||'LB').slice(0,20),bonus:Math.max(0,Number(b.bonus)||0)};await write(d);await addAudit('referral_update','referral',d.referral);return send(res,200,{ok:true,referral:d.referral})}
  if(req.method==='GET'&&p==='/api/leaderboard'){const d=await read(),matches=Array.isArray(d.matches)?d.matches:[],users=await db.listUsers(10000),map=new Map(users.map(x=>[String(x.id),x])),stats=new Map();for(const m of matches){if(!m.winner_user_id)continue;const id=String(m.winner_user_id),u=map.get(id);if(!u)continue;const x=stats.get(id)||{user_code:u.user_code||'Player',wins:0,prize:0};x.wins++;if(m.prize_status==='approved')x.prize+=Number(m.winning_amount||0);stats.set(id,x)}const rows=[...stats.values()].sort((a,b)=>b.wins-a.wins||b.prize-a.prize).slice(0,50).map((x,i)=>({...x,rank:i+1}));return send(res,200,{ok:true,leaderboard:rows});}
- if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};return send(res,200,nd)}
+ if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};delete nd.pushConfig;delete nd.pushSubscriptions;return send(res,200,nd)}
  if(p.startsWith('/api/admin')){const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data'){normalizeMainOptions(d);d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];d.paymentMethods.forEach(m=>{m.provider=m.provider||(/nagad/i.test(String(m.id)+' '+String(m.name))?'Nagad':'bKash');m.account_type=m.account_type||(/merchant/i.test(String(m.name))?'Merchant':/agent/i.test(String(m.name))?'Agent':/debit/i.test(String(m.name))?'Debit':'Personal');m.enabled=m.enabled!==false;m.order=Number(m.order||0)});return send(res,200,{ok:true,data:d});}
   if(req.method==='GET'&&p==='/api/admin/transactions'){
@@ -268,4 +296,4 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
  send(res,404,'Not found','text/plain; charset=utf-8');
 }catch(e){console.error(e);send(res,500,{error:'Server error'})}});
-(async()=>{try{await db.init();server.listen(PORT,()=>console.log('Ludo Baji V8.2 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();
+(async()=>{try{await db.init();await ensureVapidConfig();server.listen(PORT,()=>console.log('Ludo Baji V8.2 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();

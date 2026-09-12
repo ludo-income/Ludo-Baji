@@ -1,0 +1,2 @@
+self.addEventListener('push',event=>{let data={title:'Ludo Baji',message:'নতুন notification',data:{}};try{data=event.data?event.data.json():data}catch{};event.waitUntil(self.registration.showNotification(data.title||'Ludo Baji',{body:data.message||'',icon:'/7543.jpg',badge:'/7543.jpg',data:data.data||{},tag:'ludo-baji'}));});
+self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{for(const c of cs){if('focus' in c)return c.focus()}return clients.openWindow('/')}));});
