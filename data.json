@@ -621,5 +621,12 @@
       "visible": true,
       "order": 7
     }
-  ]
+  ],
+  "supportWidget": {
+    "enabled": true,
+    "image": "support-bot.png",
+    "whatsapp": "8801700000000",
+    "message": "Hello Ludo Baji Support",
+    "title": "Live Support 🔴"
+  }
 }
