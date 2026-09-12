@@ -577,5 +577,49 @@
     "game_play": true,
     "maintenance": false,
     "user_login_otp": true
-  }
+  },
+  "helpLinks": [
+    {
+      "id": "faq",
+      "name": "FAQ",
+      "visible": true,
+      "order": 1
+    },
+    {
+      "id": "rules",
+      "name": "Rules",
+      "visible": true,
+      "order": 2
+    },
+    {
+      "id": "terms",
+      "name": "Terms",
+      "visible": true,
+      "order": 3
+    },
+    {
+      "id": "privacy",
+      "name": "Privacy",
+      "visible": true,
+      "order": 4
+    },
+    {
+      "id": "deposit_rules",
+      "name": "Deposit",
+      "visible": true,
+      "order": 5
+    },
+    {
+      "id": "withdrawal_rules",
+      "name": "Withdraw",
+      "visible": true,
+      "order": 6
+    },
+    {
+      "id": "refund_rules",
+      "name": "Refund",
+      "visible": true,
+      "order": 7
+    }
+  ]
 }
