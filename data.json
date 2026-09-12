@@ -1,7 +1,7 @@
 {
   "site": {
     "name": "Ludo Baji",
-    "logo": "7543.jpg"
+    "logo": "logo-ludo-baji.jpg"
   },
   "adminMenus": [
     {
@@ -447,6 +447,25 @@
   ],
   "matches": [
     {
+      "id": "M-17892131151319xl",
+      "match_code": "LB1789213115131",
+      "title": "Special Match~~~~99",
+      "entry_fee": 50,
+      "winning_amount": 90,
+      "max_players": 2,
+      "scheduled_at": "2026-09-12T11:38:35.131Z",
+      "status": "open",
+      "room_id": "998877",
+      "room_password": "",
+      "rules": "সিট ফুল হলে রুম আইডি দেওয়া হবে",
+      "players": [],
+      "winner_user_id": null,
+      "prize_status": "pending",
+      "result_submissions": [],
+      "created_at": "2026-09-12T11:38:35.131Z",
+      "updated_at": "2026-09-12T11:38:35.131Z"
+    },
+    {
       "id": "M-1789100626304wm4",
       "match_code": "LB1789100626304",
       "title": "Test Match",
@@ -510,6 +529,13 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "A-17892131158035ii",
+      "action": "match_create",
+      "target": "M-17892131151319xl",
+      "detail": "Special Match~~~~99",
+      "created_at": "2026-09-12T11:38:35.803Z"
+    },
     {
       "id": "A-17891241661299te",
       "action": "payment_method_delete",

@@ -1,1 +1,1 @@
-{"name":"ludo-baji-admin","version":"9.0.0","private":true,"scripts":{"start":"node server.js"},"dependencies":{"pg":"^8.16.3","nodemailer":"^7.0.6","web-push":"^3.6.7","ws":"^8.18.0"}}
+{"name":"ludo-baji-admin","version":"9.1.0","private":true,"scripts":{"start":"node server.js"},"dependencies":{"pg":"^8.16.3","nodemailer":"^7.0.6","web-push":"^3.6.7"}}
