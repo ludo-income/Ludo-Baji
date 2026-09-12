@@ -79,4 +79,4 @@ async function saveLogin(){await saveData();select('settings');toast('Login / OT
 window.screenFor=function(x){const id=x&&x.id;if(id==='main')return mainPage();if(id==='users'||id==='user-management')return usersPage();if(id==='payments'||id==='payment-methods')return paymentsPage();if(id==='settings')return settings();if(id==='dashboard')return dashboard();return '<div class="panel"><h2>'+esc(id||'Section')+'</h2><p class="muted">Feature loading...</p></div>'};
 async function logout(){try{if(token)await fetch('/api/admin/logout',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}})}catch{}token='';localStorage.removeItem('lb_admin_token');login()}
 if(token)load();else login();
-</script><script src="features-ui.js?v=20260912-7"></script></body></html>
+</script><script src="features-ui.js?v=20260912-8"></script></body></html>

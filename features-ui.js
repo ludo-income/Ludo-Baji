@@ -109,7 +109,7 @@ if(typeof window.screenFor==='function'){
 window.adminPaymentMethods=function(){setTimeout(loadPM,0);return '<h1 class="page-title">Payment Methods</h1><p class="subtitle">User Deposit screen-এর Payment Method, নাম, নম্বর, Logo ও instructions এখান থেকে পরিবর্তন করতে পারবেন।</p><div class="panel"><div id="pmBox">Loading...</div></div>'};
 async function loadPM(){const b=document.getElementById('pmBox');if(!b)return;const j=await F('/api/admin/payment-methods');b.innerHTML=(j.methods||[]).map(m=>`<div class="option-row" style="align-items:flex-start;flex-wrap:wrap"><div class="mini">${m.logo?`<img src="${E(m.logo)}">`:'💳'}</div><div style="flex:1;min-width:260px"><div class="settings-grid"><div class="field"><label>Method Name</label><input id="pmname-${m.id}" value="${E(m.name)}"></div><div class="field"><label>Payment Number</label><input id="pmn-${m.id}" inputmode="numeric" value="${E(m.number||'')}"></div><div class="field"><label>Account Name</label><input id="pma-${m.id}" value="${E(m.account_name||'')}"></div><div class="field"><label>Minimum Deposit</label><input id="pmin-${m.id}" type="number" value="${Number(m.min_deposit||0)}"></div><div class="field"><label>Maximum Deposit</label><input id="pmax-${m.id}" type="number" value="${Number(m.max_deposit||1000000)}"></div><div class="field"><label>Logo URL / File path</label><input id="pmurl-${m.id}" value="${E(m.logo||'')}"></div><div class="field wide"><label>Instructions</label><textarea id="pmi-${m.id}">${E(m.instructions||'')}</textarea></div><div class="field"><label>Change Logo</label><input id="pmfile-${m.id}" type="file" accept="image/*"></div></div><label><input id="pme-${m.id}" type="checkbox" ${m.enabled?'checked':''}> Enabled</label> <button class="btn green" onclick="savePM('${m.id}')">💾 Save</button></div></div>`).join('')};
 window.savePM=async id=>{const file=document.getElementById('pmfile-'+id)?.files?.[0];const logo=file?await file64(file):(document.getElementById('pmurl-'+id).value.trim());await F('/api/admin/payment-methods/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({name:document.getElementById('pmname-'+id).value.trim(),number:document.getElementById('pmn-'+id).value.trim(),account_name:document.getElementById('pma-'+id).value.trim(),min_deposit:Number(document.getElementById('pmin-'+id).value||0),max_deposit:Number(document.getElementById('pmax-'+id).value||1000000),instructions:document.getElementById('pmi-'+id).value,logo,enabled:document.getElementById('pme-'+id).checked})});alert('Payment Method Saved');loadPM()};
-restoreMatchDraft();
+try{restoreMatchDraft()}catch{};
 let _matchLoadSeq=0;
 window.adminMatches=function(id){
  window._amTab=id||'match-list';
@@ -169,6 +169,14 @@ window.filterAM=function(){const q=(document.getElementById('amSearch')?.value||
 window.saveAMForm=async function(id){try{const titleEl=document.getElementById('mtTitle'),codeEl=document.getElementById('mtCode'),feeEl=document.getElementById('mtFee'),prizeEl=document.getElementById('mtPrize'),dateEl=document.getElementById('mtDate'),rulesEl=document.getElementById('mtRules'),roomEl=document.getElementById('mtRoom'),passEl=document.getElementById('mtPass');const payload={title:titleEl?.value.trim()||'',match_code:codeEl?.value.trim()||'',entry_fee:Number(feeEl?.value||0),winning_amount:Number(prizeEl?.value||0),max_players:2,scheduled_at:dateEl?.value?new Date(dateEl.value).toISOString():new Date().toISOString(),rules:rulesEl?.value||'',room_id:roomEl?.value.trim()||'',room_password:passEl?.value||'',status:(id&&window._editingMatch)?derivedMatchStatus(window._editingMatch):'open'};if(!payload.title)return toast('Match Name দিন');if(!Number.isFinite(payload.entry_fee)||payload.entry_fee<0)return toast('Entry Fee সঠিকভাবে দিন');if(!Number.isFinite(payload.winning_amount)||payload.winning_amount<0)return toast('Winning Prize সঠিকভাবে দিন');if(id){await F('/api/admin/matches/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(payload)});toast('Match updated')}else{await F('/api/admin/matches',{method:'POST',body:JSON.stringify(payload)});toast('Match created')}window._editingMatch=null;window._matchDraft=null;sessionStorage.removeItem('lb_match_create_draft');loadAM('match-list')}catch(e){toast(e.message)}};
 function loadMatchDraft(){
  try{return JSON.parse(sessionStorage.getItem('lb_match_create_draft')||'{}')||{}}catch{return {}}
+}
+function restoreMatchDraft(){
+ try{
+  const d=loadMatchDraft();
+  if(d && (d.title||d.match_code||d.room_id||d.entry_fee||d.winning_amount)){
+   window._matchDraft=d;
+  }
+ }catch{}
 }
 function saveMatchDraft(){
  const ids=['mtTitle','mtCode','mtFee','mtPrize','mtRoom','mtPass','mtDate','mtRules'];
