@@ -127,88 +127,81 @@ async function sendOtpEmail(email,otp){
   const devMode=String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true';
   let lastErr=null;
 
-  // 1) Brevo HTTP API
-  const brevoKey=String(process.env.BREVO_API_KEY||'').trim();
-  if(brevoKey){
+  // 0) Dev mode first when no HTTP mail provider — instant, no hang
+  const hasBrevo=!!String(process.env.BREVO_API_KEY||'').trim();
+  const hasResend=!!String(process.env.RESEND_API_KEY||'').trim();
+  const hasSmtp=!!(process.env.SMTP_USER&&process.env.SMTP_PASS);
+  if(devMode && !hasBrevo && !hasResend){
+    console.log('[OTP DEV] '+email+': '+otp);
+    return {sent:false,dev:true,otp,provider:'dev'};
+  }
+
+  // 1) Brevo
+  if(hasBrevo){
     try{
       const sender=String(process.env.BREVO_SENDER||fromAddr||'').trim();
-      if(!sender) throw new Error('BREVO_SENDER সেট করুন (verified sender email)');
+      if(!sender) throw new Error('BREVO_SENDER সেট করুন');
       const r=await fetch('https://api.brevo.com/v3/smtp/emails',{
         method:'POST',
-        headers:{'api-key':brevoKey,'Content-Type':'application/json','Accept':'application/json'},
+        headers:{'api-key':String(process.env.BREVO_API_KEY).trim(),'Content-Type':'application/json','Accept':'application/json'},
         body:JSON.stringify({sender:{name:'Ludo Baji',email:sender},to:[{email}],subject,htmlContent:htmlBody,textContent:textBody})
       });
-      if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Brevo email failed: '+(t||r.status));}
+      if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Brevo failed: '+(t||r.status));}
       return {sent:true,provider:'brevo'};
     }catch(e){lastErr=e;console.error('Brevo failed:',e.message);if(!devMode)throw e;}
   }
 
-  // 2) Resend HTTP API — free tier must use onboarding@resend.dev (or verified domain)
-  const resendKey=String(process.env.RESEND_API_KEY||'').trim();
-  if(resendKey){
+  // 2) Resend
+  if(hasResend){
     try{
       const sender=String(process.env.RESEND_FROM||'beth.t@example.com').trim();
       const from=sender.includes('<')?sender:('Ludo Baji <'+sender+'>');
       const r=await fetch('https://api.resend.com/emails',{
         method:'POST',
-        headers:{Authorization:'Bearer '+resendKey,'Content-Type':'application/json'},
+        headers:{Authorization:'Bearer '+String(process.env.RESEND_API_KEY).trim(),'Content-Type':'application/json'},
         body:JSON.stringify({from,to:[email],subject,html:htmlBody,text:textBody})
       });
-      if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Resend email failed: '+(t||r.status));}
+      if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Resend failed: '+(t||r.status));}
       return {sent:true,provider:'resend'};
     }catch(e){lastErr=e;console.error('Resend failed:',e.message);if(!devMode)throw e;}
   }
 
-  // 3) Gmail / SMTP (Render-এ প্রায়ই ব্লক)
-  const host=process.env.SMTP_HOST,user=process.env.SMTP_USER,pass=process.env.SMTP_PASS;
-  if(user&&pass){
+  // 3) SMTP — ONE quick attempt only (Render usually blocks; max ~4s)
+  if(hasSmtp){
     try{
-      let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}
-      const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+(fromAddr||user)+'>');
+      let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('nodemailer missing');}
+      const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+(fromAddr||process.env.SMTP_USER)+'>');
       const mail={from,to:email,subject,text:textBody,html:htmlBody};
-      const port=Number(process.env.SMTP_PORT||0);
-      const secureEnv=String(process.env.SMTP_SECURE||'').toLowerCase();
-      const configs=[];
-      if(host){
-        if(port===465||secureEnv==='true')configs.push({host,port:465,secure:true,auth:{user,pass}});
-        else if(port===587||port>0)configs.push({host,port:port||587,secure:false,requireTLS:true,auth:{user,pass}});
-        else {
-          configs.push({host,port:587,secure:false,requireTLS:true,auth:{user,pass}});
-          configs.push({host,port:465,secure:true,auth:{user,pass}});
-        }
-      } else {
-        configs.push({service:'gmail',auth:{user,pass}});
-        configs.push({host:'smtp.gmail.com',port:587,secure:false,requireTLS:true,auth:{user,pass}});
-        configs.push({host:'smtp.gmail.com',port:465,secure:true,auth:{user,pass}});
+      const host=String(process.env.SMTP_HOST||'smtp.gmail.com').trim();
+      const port=Number(process.env.SMTP_PORT||465);
+      const secure=port===465||String(process.env.SMTP_SECURE||'').toLowerCase()==='true';
+      const transporter=nodemailer.createTransport({
+        host,port,secure,
+        auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},
+        connectionTimeout:3000,greetingTimeout:3000,socketTimeout:4000,
+        tls:{rejectUnauthorized:false}
+      });
+      await Promise.race([
+        transporter.sendMail(mail),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('SMTP timeout')),4000))
+      ]);
+      return {sent:true,provider:'smtp'};
+    }catch(e){
+      lastErr=e;
+      console.error('SMTP failed:',e.message);
+      if(!devMode){
+        throw new Error('Gmail SMTP কাজ করেনি (Render ব্লক করে)। RESEND_API_KEY + ডোমেইন অথবা BREVO_API_KEY দিন, অথবা টেস্টের জন্য OTP_DEV_MODE=true সেট করুন।');
       }
-      let smtpErr=null;
-      for(const cfg of configs){
-        try{
-          const transporter=nodemailer.createTransport({
-            ...cfg,
-            connectionTimeout:8000,
-            greetingTimeout:8000,
-            socketTimeout:10000,
-            tls:{rejectUnauthorized:false}
-          });
-          await Promise.race([
-            transporter.sendMail(mail),
-            new Promise((_,rej)=>setTimeout(()=>rej(new Error('SMTP timeout (Render Gmail SMTP ব্লক করতে পারে)')),10000))
-          ]);
-          return {sent:true,provider:'smtp'};
-        }catch(e){smtpErr=e;console.error('SMTP failed:',e.message);}
-      }
-      throw new Error('Gmail SMTP ব্যর্থ: '+((smtpErr&&smtpErr.message)||'SMTP failed')+'. Render-এ Gmail SMTP প্রায়ই কাজ করে না।');
-    }catch(e){lastErr=e;console.error('SMTP failed:',e.message);if(!devMode)throw e;}
+    }
   }
 
-  // 4) Dev mode fallback — always works for testing
+  // 4) Dev fallback
   if(devMode){
     console.log('[OTP DEV] '+email+': '+otp);
     return {sent:false,dev:true,otp,provider:'dev'};
   }
 
-  throw new Error((lastErr&&lastErr.message)||'Email সেট নেই। RESEND_API_KEY বা BREVO_API_KEY বা SMTP_USER/PASS দিন, অথবা টেস্টের জন্য OTP_DEV_MODE=true দিন।');
+  throw new Error((lastErr&&lastErr.message)||'ইমেইল সেট নেই। OTP_DEV_MODE=true (টেস্ট) অথবা RESEND/BREVO API Key দিন।');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
 const MAIN_PAGE_DEFAULTS=[
