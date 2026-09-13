@@ -170,14 +170,18 @@ body.screen-open #supportFloat{display:none!important}
 body.screen-open #supportFloat{display:none!important}
 
 /* ===== App Splash (Ludo Best style) ===== */
-#appSplash{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,#12325a 0%,#0a1628 45%,#050d18 100%);transition:opacity .45s ease,visibility .45s ease}
+#appSplash{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,#12325a 0%,#0a1628 45%,#050d18 100%);transition:opacity .35s ease,visibility .35s ease}
 #appSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
 #appSplash .sp-inner{text-align:center;padding:20px}
-#appSplash .sp-logo{width:128px;height:128px;border-radius:28px;object-fit:contain;background:#000;box-shadow:0 0 40px #1687ff55,0 12px 40px #000a;margin:0 auto 22px;display:block}
+#appSplash .sp-logo{width:128px;height:128px;border-radius:28px;object-fit:contain;background:transparent;box-shadow:0 0 40px #1687ff55,0 12px 40px #000a;margin:0 auto 22px;display:block}
 #appSplash .sp-name{font-size:28px;font-weight:800;color:#fff;letter-spacing:.3px;margin:0 0 6px}
 #appSplash .sp-tag{font-size:14px;color:#8ea6bc;margin:0 0 28px}
 #appSplash .sp-spin{width:36px;height:36px;margin:0 auto 14px;border:3px solid #1c4263;border-top-color:#1fe89a;border-radius:50%;animation:spSpin .8s linear infinite}
 #appSplash .sp-msg{font-size:13px;color:#7a93a8}
+/* Refresh: only small spinner, no black full screen */
+#appSplash.mini{background:transparent;pointer-events:none}
+#appSplash.mini .sp-logo,#appSplash.mini .sp-name,#appSplash.mini .sp-tag,#appSplash.mini .sp-msg{display:none!important}
+#appSplash.mini .sp-spin{width:28px;height:28px;margin:0;border-width:3px;border-color:rgba(255,255,255,.15);border-top-color:#1fe89a;box-shadow:0 0 12px #1fe89a55}
 @keyframes spSpin{to{transform:rotate(360deg)}}
 /* Download App button */
 #dlAppBtn{position:fixed;left:12px;bottom:18px;z-index:3500;display:none;align-items:center;gap:8px;border:0;padding:11px 14px;border-radius:999px;background:linear-gradient(145deg,#1687ff,#0d5ec4);color:#fff;font-weight:800;font-size:13px;box-shadow:0 8px 24px #1687ff66;cursor:pointer}
@@ -204,14 +208,23 @@ const quickItems=[];const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp
 const authModal=document.getElementById('authModal'),profileModal=document.getElementById('profileModal');
 function authToken(){return localStorage.getItem('ludo_user_token')||''}
 async function api(path,opt={}){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(authToken())headers.Authorization='Bearer '+authToken();const r=await fetch(path,{...opt,headers});const j=await r.json().catch(()=>({error:'Server error'}));if(!r.ok)throw new Error(j.error||'Request failed');return j}
+(function(){
+  var s=document.getElementById('appSplash');
+  var nav=performance.getEntriesByType&&performance.getEntriesByType('navigation')[0];
+  var isReload=(nav&&nav.type==='reload')||(performance.navigation&&performance.navigation.type===1);
+  var seen=false;try{seen=sessionStorage.getItem('lb_splash_seen')==='1'}catch(e){}
+  if(s&&(isReload||seen)){s.classList.add('mini')}
+  try{sessionStorage.setItem('lb_splash_seen','1')}catch(e){}
+})();
 window._splashShownAt=Date.now();
 function hideAppSplash(){
   const s=document.getElementById('appSplash');
   if(!s)return;
-  const wait=Math.max(0,1200-(Date.now()-(window._splashShownAt||Date.now())));
+  var minMs=s.classList.contains('mini')?300:1000;
+  const wait=Math.max(0,minMs-(Date.now()-(window._splashShownAt||Date.now())));
   setTimeout(function(){
     s.classList.add('hide');
-    setTimeout(function(){if(s&&s.parentNode)try{s.parentNode.removeChild(s)}catch(e){}},450);
+    setTimeout(function(){if(s&&s.parentNode)try{s.parentNode.removeChild(s)}catch(e){}},400);
   },wait);
 }
 window._deferredInstallPrompt=null;
