@@ -25,7 +25,7 @@ const adminSessions=new Map(),adminLoginAttempts=new Map(),otpRequestAttempts=ne
 function requireSecurityEnv(){const missing=[];if(!ADMIN_USERNAME||ADMIN_USERNAME.length<3||ADMIN_USERNAME.length>100)missing.push('ADMIN_USERNAME (3-100 characters)');if(!ADMIN_PASSWORD||ADMIN_PASSWORD.length<12||ADMIN_PASSWORD.length>200)missing.push('ADMIN_PASSWORD (12-200 characters)');if(!SECRET||SECRET.length<32)missing.push('ADMIN_SECRET (minimum 32 characters)');if(!USER_SECRET||USER_SECRET.length<32)missing.push('USER_SECRET (minimum 32 characters)');if(SECRET&&USER_SECRET&&SECRET===USER_SECRET)missing.push('USER_SECRET must be different from ADMIN_SECRET');if(missing.length)throw new Error('Required security environment variables are missing/unsafe: '+missing.join(', '));}
 requireSecurityEnv();
 const OTP_TTL_MS=Math.max(60,Number(process.env.OTP_TTL_SECONDS||300))*1000;
-const OTP_COOLDOWN_MS=Math.max(30,Number(process.env.OTP_COOLDOWN_SECONDS||60))*1000;
+const OTP_COOLDOWN_MS=Math.max(5,Number(process.env.OTP_COOLDOWN_SECONDS||10))*1000;
 const OTP_MAX_ATTEMPTS=Math.max(3,Number(process.env.OTP_MAX_ATTEMPTS||5));
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 async function read(){return db.getData()}
@@ -39,8 +39,8 @@ function clientKey(req){if(TRUST_PROXY){const xf=String(req.headers['x-forwarded
 function loginBlocked(key){const now=Date.now(),x=adminLoginAttempts.get(key);if(!x)return false;if(now-x.first>ADMIN_LOGIN_WINDOW_MS){adminLoginAttempts.delete(key);return false}return x.count>=ADMIN_LOGIN_MAX_ATTEMPTS}
 function recordLoginFailure(key){const now=Date.now(),x=adminLoginAttempts.get(key);if(!x||now-x.first>ADMIN_LOGIN_WINDOW_MS){adminLoginAttempts.set(key,{first:now,count:1});return}x.count++;adminLoginAttempts.set(key,x)}
 function clearLoginFailures(key){adminLoginAttempts.delete(key)}
-function otpBlocked(key){const now=Date.now(),x=otpRequestAttempts.get(key);if(!x)return false;if(now-x.first>60*1000){otpRequestAttempts.delete(key);return false}return x.count>=5}
-function recordOtpRequest(key){const now=Date.now(),x=otpRequestAttempts.get(key);if(!x||now-x.first>60*1000){otpRequestAttempts.set(key,{first:now,count:1});return}x.count++;otpRequestAttempts.set(key,x)}
+function otpBlocked(key){const now=Date.now(),x=otpRequestAttempts.get(key);if(!x)return false;if(now-x.first>10*1000){otpRequestAttempts.delete(key);return false}return x.count>=5}
+function recordOtpRequest(key){const now=Date.now(),x=otpRequestAttempts.get(key);if(!x||now-x.first>10*1000){otpRequestAttempts.set(key,{first:now,count:1});return}x.count++;otpRequestAttempts.set(key,x)}
 function clearOtpRequests(key){otpRequestAttempts.delete(key)}
 function issueAdminToken(){const jti=crypto.randomBytes(24).toString('hex'),e=Date.now()+ADMIN_TOKEN_TTL_MS;adminSessions.set(jti,{expiresAt:e,role:ADMIN_ROLE});return signToken({u:'admin',e,jti,role:ADMIN_ROLE},SECRET)}
 function permissionForPath(method,p){if(p==='/api/admin/data'||p.startsWith('/api/admin/main-options'))return 'website';if(p.startsWith('/api/admin/payment-methods'))return 'deposits';if(p.startsWith('/api/admin/deposits'))return 'deposits';if(p.startsWith('/api/admin/withdrawals'))return 'withdrawals';if(p.startsWith('/api/admin/users'))return 'users';if(p.startsWith('/api/admin/matches')||p==='/api/admin/match-players')return 'matches';if(p.startsWith('/api/admin/transactions'))return 'transactions';if(p.startsWith('/api/admin/support'))return 'support';if(p.startsWith('/api/admin/reports'))return 'reports';if(p.startsWith('/api/admin/audit-log'))return 'audit';if(p.startsWith('/api/admin/roles'))return 'roles';if(p.startsWith('/api/admin/banners')||p.startsWith('/api/admin/faqs')||p.startsWith('/api/admin/pages')||p.startsWith('/api/admin/referral')||p.startsWith('/api/admin/tournaments'))return 'website';if(p.startsWith('/api/admin/system')||p.startsWith('/api/admin/notice'))return 'settings';return null}
@@ -77,7 +77,7 @@ async function addAudit(action,target,detail){try{const d=await read();d.auditLo
 
 async function sendOtpEmail(email,otp){
   const host=process.env.SMTP_HOST,port=Number(process.env.SMTP_PORT||465),user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,from=process.env.SMTP_FROM||user;
-  if(host&&user&&pass){let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}const transporter=nodemailer.createTransport({host,port,secure:String(process.env.SMTP_SECURE||'true').toLowerCase()==='true',auth:{user,pass}});await transporter.sendMail({from,to:email,subject:'Ludo Baji Login OTP',text:`Your Ludo Baji OTP is ${otp}. It expires in 5 minutes. Do not share this OTP with anyone.`});return {sent:true,provider:'smtp'};}
+  if(host&&user&&pass){let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}const transporter=nodemailer.createTransport({host,port,secure:String(process.env.SMTP_SECURE||'true').toLowerCase()==='true',auth:{user,pass},connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000});await transporter.sendMail({from,to:email,subject:'Ludo Baji Login OTP',text:`Your Ludo Baji OTP is ${otp}. It expires in 5 minutes. Do not share this OTP with anyone.`});return {sent:true,provider:'smtp'};}
   if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log(`[OTP DEV] ${email}: ${otp}`);return {sent:false,dev:true,otp};}
   throw new Error('Email provider is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM, or enable OTP_DEV_MODE for testing.');
 }
@@ -190,12 +190,18 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/admin/logout'){const x=await auth(req,res);if(!x)return;revokeAdminToken(req);return send(res,200,{ok:true})}
  if(req.method==='POST'&&p==='/api/auth/request-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
-   const x=await body(req),email=normalizeEmail(x.email);if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});const otpKey=clientKey(req)+'|'+email;if(otpBlocked(otpKey))return send(res,429,{ok:false,error:'এই Email-এর জন্য অনেকবার OTP চাওয়া হয়েছে। 1 মিনিট পরে আবার চেষ্টা করুন'});recordOtpRequest(otpKey);
+   const x=await body(req),email=normalizeEmail(x.email);if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});const otpKey=clientKey(req)+'|'+email;if(otpBlocked(otpKey))return send(res,429,{ok:false,error:'এই Email-এর জন্য অনেকবার OTP চাওয়া হয়েছে। 10 সেকেন্ড পরে আবার চেষ্টা করুন'});recordOtpRequest(otpKey);
    let user=await db.findUserByEmail(email);if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
    const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
    if(!user)user=await db.createUserByEmail(email);
    const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
-   try{const result=await sendOtpEmail(email,otp);await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}: {})})}catch(e){return send(res,503,{ok:false,error:e.message})}
+   try{
+     await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);
+     // Fast response: email পাঠানো ব্যাকগ্রাউন্ডে চলবে
+     send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000)});
+     sendOtpEmail(email,otp).then(r=>{if(r&&r.dev)console.log('[OTP DEV]',email,otp)}).catch(e=>console.error('OTP email failed:',e.message));
+     return;
+   }catch(e){return send(res,503,{ok:false,error:e.message})}
  }
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
