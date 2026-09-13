@@ -622,9 +622,84 @@ async function getAdminFinance(){
     commission_balance:Number(fin.balance||0),
     total_commission_earned:Number(fin.total_profit||0),
     commission_log:(fin.log||fin.commission_log||[]).slice(0,100),
-    log:(fin.log||[]).slice(0,100)
+    log:(fin.log||[]).slice(0,100),
+    admin_withdrawals:Array.isArray(fin.admin_withdrawals)?fin.admin_withdrawals.slice(0,100):[]
   };
 }
+
+/** Match cancel → Admin Account থেকে Entry Fee ফেরত (users-কে refund হয়েছে) */
+function debitAdminEntriesOnCancel(d, m){
+  const fin=ensureFinance(d);
+  const entry=Number(m.entry_fee||0);
+  const players=Array.isArray(m.players)?m.players:[];
+  if(!(entry>0) || !players.length) return 0;
+  let total=0;
+  for(const pl of players){
+    const amt=entry;
+    total+=amt;
+    fin.balance=Number((fin.balance-amt).toFixed(2));
+    fin.total_collected=Number((Math.max(0,fin.total_collected-amt)).toFixed(2));
+    fin.commission_balance=fin.balance;
+    pushFinanceLog(fin,{
+      id:"RF-"+Date.now()+Math.random().toString(36).slice(2,5),
+      type:"match_cancel_refund",
+      match_id:m.id,
+      match_code:m.match_code||"",
+      title:m.title||"",
+      user_id:String(pl.user_id||""),
+      amount:-amt,
+      balance_after:fin.balance,
+      note:"Match cancelled — entry returned from Admin Account",
+      created_at:new Date().toISOString()
+    });
+  }
+  return total;
+}
+
+/**
+ * Admin নিজের লাভের টাকা তুলতে পারবে (bKash / Nagad / Rocket)
+ * সরাসরি Admin Account Balance থেকে কেটে নেয় এবং লগ রাখে।
+ */
+async function adminWithdraw(method, accountNumber, amount, note){
+  const d=await getData();
+  const fin=ensureFinance(d);
+  const amt=Number(amount||0);
+  const meth=String(method||"").trim().toLowerCase();
+  const acc=String(accountNumber||"").trim();
+  if(!["bkash","nagad","rocket"].includes(meth)) throw new Error("Method হতে হবে bKash, Nagad বা Rocket");
+  if(!acc || acc.length<8) throw new Error("সঠিক Account Number দিন");
+  if(!Number.isFinite(amt) || amt<=0) throw new Error("সঠিক Amount দিন");
+  if(amt > Number(fin.balance||0)) throw new Error("Admin Account Balance অপর্যাপ্ত (৳"+Number(fin.balance||0).toFixed(2)+")");
+  fin.balance=Number((fin.balance-amt).toFixed(2));
+  fin.commission_balance=fin.balance;
+  const row={
+    id:"AW-"+Date.now()+Math.random().toString(36).slice(2,6),
+    type:"admin_withdraw",
+    method:meth,
+    account_number:acc,
+    amount:amt,
+    note:String(note||"").trim()||"Admin profit withdrawal",
+    balance_after:fin.balance,
+    status:"completed",
+    created_at:new Date().toISOString()
+  };
+  fin.admin_withdrawals=Array.isArray(fin.admin_withdrawals)?fin.admin_withdrawals:[];
+  fin.admin_withdrawals.unshift(row);
+  if(fin.admin_withdrawals.length>200) fin.admin_withdrawals=fin.admin_withdrawals.slice(0,200);
+  pushFinanceLog(fin,{
+    id:row.id,
+    type:"admin_withdraw",
+    method:meth,
+    account_number:acc,
+    amount:-amt,
+    balance_after:fin.balance,
+    note:row.note,
+    created_at:row.created_at
+  });
+  await saveData(d);
+  return row;
+}
+
 async function approveFeaturePrize(id){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';const commission=creditMatchCommission(d,m);m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return {...m,commission_amount:commission};});}
 
 async function submitFeatureResult(id,userId,screenshot){
@@ -707,4 +782,4 @@ async function getUserAdminDetail(userId, limit=200){
   ]);
   return {user,dashboard,transactions,deposits,withdrawals,matches,notifications,support};
 }
-module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail,getAdminFinance};
+module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail,getAdminFinance,adminWithdraw,debitAdminEntriesOnCancel};
