@@ -1,18 +1,31 @@
 {
   "name": "Ludo Baji",
   "short_name": "Ludo Baji",
+  "description": "Play • Win • Earn - Ludo Baji",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#071323",
+  "theme_color": "#071323",
   "icons": [
     {
       "src": "/7543.jpg",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
       "src": "/7543.jpg",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/7543.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
     }
   ]
 }

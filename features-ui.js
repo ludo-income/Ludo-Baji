@@ -65,6 +65,16 @@ window.refreshMyMatchesLive=async function(){
 };
 try{window.connectMatchSocket()}catch{}
 
+/* Early Service Worker registration for PWA Install (Chrome Install button) */
+(function registerSWEarly(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/service-worker.js').catch(function(e){
+      console.warn('SW register failed:', e && e.message);
+    });
+  });
+})();
+
 window.setupPhonePush=async function setupPhonePush(){
  try{
   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return;
