@@ -76,9 +76,28 @@ function maskEmail(email){const [local,domain]=String(email).split('@');if(!doma
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
 
 async function sendOtpEmail(email,otp){
-  const host=process.env.SMTP_HOST,port=Number(process.env.SMTP_PORT||465),user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,from=process.env.SMTP_FROM||user;
-  if(host&&user&&pass){let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}const transporter=nodemailer.createTransport({host,port,secure:String(process.env.SMTP_SECURE||'true').toLowerCase()==='true',auth:{user,pass},connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000});await transporter.sendMail({from,to:email,subject:'Ludo Baji Login OTP',text:`Your Ludo Baji OTP is ${otp}. It expires in 5 minutes. Do not share this OTP with anyone.`});return {sent:true,provider:'smtp'};}
-  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log(`[OTP DEV] ${email}: ${otp}`);return {sent:false,dev:true,otp};}
+  const host=process.env.SMTP_HOST,port=Number(process.env.SMTP_PORT||465),user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,fromAddr=String(process.env.SMTP_FROM||user||'').trim();
+  if(host&&user&&pass){
+    let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}
+    const secure=String(process.env.SMTP_SECURE||(port===465?'true':'false')).toLowerCase()==='true';
+    const transporter=nodemailer.createTransport({
+      host,port,secure,
+      auth:{user,pass},
+      connectionTimeout:7000,greetingTimeout:7000,socketTimeout:9000,
+      tls:{minVersion:'TLSv1.2'}
+    });
+    const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+fromAddr+'>');
+    await transporter.sendMail({
+      from,
+      to:email,
+      subject:'Ludo Baji - Your OTP Code: '+otp,
+      text:'Your Ludo Baji OTP is '+otp+'. It expires in 5 minutes. Do not share this OTP with anyone.',
+      html:'<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:20px;background:#0b1f17;color:#fff;border-radius:12px"><h2 style="margin:0 0 12px;color:#10c878">Ludo Baji</h2><p style="margin:0 0 8px;color:#cde">Your login OTP:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;background:#123;padding:14px 18px;border-radius:10px;text-align:center;color:#fff">'+otp+'</div><p style="margin:14px 0 0;font-size:13px;color:#9ab">Expires in 5 minutes. Do not share with anyone.</p></div>',
+      headers:{'X-Priority':'1','X-Mailer':'LudoBaji'}
+    });
+    return {sent:true,provider:'smtp'};
+  }
+  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log('[OTP DEV] '+email+': '+otp);return {sent:false,dev:true,otp};}
   throw new Error('Email provider is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM, or enable OTP_DEV_MODE for testing.');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
@@ -197,11 +216,9 @@ const server=http.createServer(async(req,res)=>{try{
    const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
    try{
      await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);
-     // Fast response: email পাঠানো ব্যাকগ্রাউন্ডে চলবে
-     send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000)});
-     sendOtpEmail(email,otp).then(r=>{if(r&&r.dev)console.log('[OTP DEV]',email,otp)}).catch(e=>console.error('OTP email failed:',e.message));
-     return;
-   }catch(e){return send(res,503,{ok:false,error:e.message})}
+     const result=await sendOtpEmail(email,otp);
+     return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}:{})});
+   }catch(e){return send(res,503,{ok:false,error:e.message||'OTP পাঠানো যায়নি। অন্য Email চেষ্টা করুন অথবা Spam ফোল্ডার চেক করুন।'})}
  }
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
