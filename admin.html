@@ -4,7 +4,16 @@
 @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}.option-row{grid-template-columns:42px 1fr 80px 70px 110px}.preview-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:720px){.topbar{height:64px;padding:0 10px}.shell{min-height:calc(100vh - 64px)}.sidebar{position:fixed;left:-255px;top:64px;height:calc(100vh - 64px);z-index:50;transition:.2s}.sidebar.open{left:0}.content{padding:10px}.brand strong{font-size:18px}.brand img{width:40px;height:40px}.hero{padding:16px;display:block}.hero .btn{margin-top:12px}.cards{grid-template-columns:repeat(2,1fr)}.option-row{grid-template-columns:42px 1fr auto}.option-row .order{display:none}.row-actions{grid-column:2/-1}.form-grid{grid-template-columns:1fr}.wide{grid-column:auto}.preview-grid{grid-template-columns:repeat(2,1fr)}.menu-mobile{display:block!important}.top-actions .who{display:none}}
 .menu-mobile{display:none;background:#e9efff;color:#12213a;border:0;border-radius:9px;width:40px;height:40px;font-size:22px;margin-right:8px}
-<style>.skeleton{height:52px;border-radius:10px;background:linear-gradient(90deg,#0b213d 25%,#173451 37%,#0b213d 63%);background-size:400% 100%;animation:sk 1.2s infinite}@keyframes sk{0%{background-position:100% 0}100%{background-position:-100% 0}}.page-title{margin:0 0 6px}.subtitle{color:var(--muted);margin-top:0}.pagination{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}.pagination button{border:1px solid #294b6b;background:#071a30;color:#fff;border-radius:8px;padding:7px 11px}.pagination button.active{background:var(--blue)}.mini img{width:42px;height:42px;object-fit:cover;border-radius:8px}</style></style></head><body><div id="root"></div><div id="toast" class="toast"></div>
+<style>.skeleton{height:52px;border-radius:10px;background:linear-gradient(90deg,#0b213d 25%,#173451 37%,#0b213d 63%);background-size:400% 100%;animation:sk 1.2s infinite}@keyframes sk{0%{background-position:100% 0}100%{background-position:-100% 0}}.page-title{margin:0 0 6px}.subtitle{color:var(--muted);margin-top:0}.pagination{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}.pagination button{border:1px solid #294b6b;background:#071a30;color:#fff;border-radius:8px;padding:7px 11px}.pagination button.active{background:var(--blue)}.mini img{width:42px;height:42px;object-fit:cover;border-radius:8px}</style></style>
+<link rel="manifest" href="/admin-manifest.webmanifest">
+<meta name="theme-color" content="#061327">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ludo Baji Admin">
+<link rel="apple-touch-icon" href="/7543.jpg">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/service-worker.js').catch(function(){})})}</script>
+</head><body><div id="root"></div><div id="toast" class="toast"></div>
 <script>
 const root=document.getElementById('root');let token=localStorage.getItem('lb_admin_token')||'';let data={};let active=sessionStorage.getItem('lb_admin_active')||'dashboard';let editing=null;let fileData='';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -96,4 +105,4 @@ async function saveLogin(){await saveData();select('settings');toast('Login / OT
 window.screenFor=function(x){const id=x&&x.id;if(id==='main')return mainPage();if(id==='users'||id==='user-management')return usersPage();if(id==='payments'||id==='payment-methods')return paymentsPage();if(id==='settings')return settings();if(id==='dashboard')return dashboard();return '<div class="panel"><h2>'+esc(id||'Section')+'</h2><p class="muted">Feature loading...</p></div>'};
 async function logout(){try{if(token)await fetch('/api/admin/logout',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}})}catch{}token='';localStorage.removeItem('lb_admin_token');login()}
 if(token)load();else login();
-</script><script src="features-ui.js?v=20260912-FINAL"></script></body></html>
+</script><script src="features-ui.js?v=20260913-BACKFIX"></script></body></html>
