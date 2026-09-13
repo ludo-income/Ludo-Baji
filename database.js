@@ -504,7 +504,55 @@ async function updateFeatureMatch(id,x){const d=await getData();d.matches=Array.
 async function joinFeatureMatch(matchId,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(matchId));if(!m)throw new Error('Match not found');m.players=Array.isArray(m.players)?m.players:[];if(m.status!=='open')throw new Error('Match is not open');if(m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Already joined');if(m.players.length>=Number(m.max_players))throw new Error('Match is full');if(m.players.length===1&&!String(m.room_id||'').trim())throw new Error('Admin আগে Ludo King Room Code সেট করুন');const bal=await getUserDashboard(userId);if(Number(bal.gaming_balance||0)<Number(m.entry_fee))throw new Error('Gaming Balance insufficient');if(Number(m.entry_fee)>0) await adjustBalance(userId,'gaming',-Number(m.entry_fee),'Match entry fee '+m.match_code);const slot=m.players.length+1;m.players.push({user_id:userId,slot,status:'joined',joined_at:new Date().toISOString()});if(m.players.length>=Number(m.max_players))m.status='full';await saveData(d);if(m.players.length<2)await notifyUser(userId,'Match Joined','আপনি '+m.title+' match-এ Slot '+slot+' এ join করেছেন।');const tx=fallbackTransactionsRead();tx.unshift({id:'ENTRY-'+Date.now(),user_id:userId,type:'match_entry',amount:Number(m.entry_fee),balance_type:'gaming',reference:'ENTRY-'+m.match_code,status:'completed',note:'Joined '+m.title,balance_before:null,balance_after:null,balance_change:-Number(m.entry_fee),created_at:new Date().toISOString()});if(!hasDatabase())fallbackTransactionsWrite(tx);return {match:m,slot};});}
 async function setFeatureRoom(id,roomId,password){return updateFeatureMatch(id,{room_id:roomId,room_password:password});}
 async function setFeatureWinner(id,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(!m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Winner must be a joined player');m.winner_user_id=String(userId);m.status='completed';m.prize_status='pending';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(userId,'Match Result','আপনার '+m.title+' match-এর result প্রকাশিত হয়েছে।');return m;});}
-async function approveFeaturePrize(id){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return m;});}
+
+function ensureFinance(d){
+  if(!d.finance || typeof d.finance!=='object') d.finance={commission_balance:0,total_commission_earned:0,commission_log:[]};
+  d.finance.commission_balance=Number(d.finance.commission_balance||0);
+  d.finance.total_commission_earned=Number(d.finance.total_commission_earned||0);
+  d.finance.commission_log=Array.isArray(d.finance.commission_log)?d.finance.commission_log:[];
+  return d.finance;
+}
+function creditMatchCommission(d,m){
+  const fin=ensureFinance(d);
+  if(m.commission_credited) return Number(m.commission_amount||0);
+  const players=Array.isArray(m.players)?m.players.length:0;
+  const entry=Number(m.entry_fee||0);
+  const prize=Number(m.winning_amount||0);
+  const collected=Number((entry*Math.max(players,0)).toFixed(2));
+  let commission=Number((collected-prize).toFixed(2));
+  if(!Number.isFinite(commission)) commission=0;
+  // allow 0 commission; negative would mean prize > pool (admin loss) — still record
+  m.commission_amount=commission;
+  m.pool_collected=collected;
+  m.commission_credited=true;
+  fin.commission_balance=Number((fin.commission_balance+commission).toFixed(2));
+  if(commission>0) fin.total_commission_earned=Number((fin.total_commission_earned+commission).toFixed(2));
+  fin.commission_log.unshift({
+    id:'COM-'+Date.now(),
+    match_id:m.id,
+    match_code:m.match_code||'',
+    title:m.title||'',
+    entry_fee:entry,
+    players,
+    pool:collected,
+    prize,
+    commission,
+    created_at:new Date().toISOString()
+  });
+  if(fin.commission_log.length>500) fin.commission_log=fin.commission_log.slice(0,500);
+  return commission;
+}
+async function getAdminFinance(){
+  const d=await getData();
+  const fin=ensureFinance(d);
+  return {
+    commission_balance:Number(fin.commission_balance||0),
+    total_commission_earned:Number(fin.total_commission_earned||0),
+    commission_log:(fin.commission_log||[]).slice(0,100)
+  };
+}
+
+async function approveFeaturePrize(id){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';const commission=creditMatchCommission(d,m);m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return {...m,commission_amount:commission};});}
 
 async function submitFeatureResult(id,userId,screenshot){
   return withFeatureMatchLock(async()=>{
@@ -542,6 +590,7 @@ async function approveFeatureResult(id,userId){
     m.winner_user_id=String(userId); m.status='completed'; m.prize_status='approved';
     sub.status='approved'; sub.reviewed_at=new Date().toISOString(); sub.review_note='';
     await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);
+    creditMatchCommission(d,m);
     m.updated_at=new Date().toISOString();
     await saveData(d);
     await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');
@@ -585,4 +634,4 @@ async function getUserAdminDetail(userId, limit=200){
   ]);
   return {user,dashboard,transactions,deposits,withdrawals,matches,notifications,support};
 }
-module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail};
+module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail,getAdminFinance};

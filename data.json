@@ -628,5 +628,10 @@
     "whatsapp": "8801700000000",
     "message": "Hello Ludo Baji Support",
     "title": "Live Support 🔴"
+  },
+  "finance": {
+    "commission_balance": 0,
+    "total_commission_earned": 0,
+    "commission_log": []
   }
 }
