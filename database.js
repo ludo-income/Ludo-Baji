@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+function cryptoRandom(n){return crypto.randomBytes(Math.max(1,Number(n)||8)).toString('hex').slice(0,Math.max(1,Number(n)||8))}
 
 const DATA = path.join(__dirname, 'data.json');
 const USERS_DATA = path.join(__dirname, 'users.json');
