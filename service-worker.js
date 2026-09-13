@@ -1,5 +1,5 @@
 /* Ludo Baji Service Worker - PWA Install + Push */
-const CACHE_NAME = 'ludo-baji-v1';
+const CACHE_NAME = 'ludo-baji-v2';
 const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/7543.jpg', '/logo-ludo-baji.jpg'];
 
 self.addEventListener('install', (event) => {
