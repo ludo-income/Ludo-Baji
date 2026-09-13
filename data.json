@@ -630,8 +630,13 @@
     "title": "Live Support 🔴"
   },
   "finance": {
-    "commission_balance": 0,
-    "total_commission_earned": 0,
-    "commission_log": []
+    "balance": 0.0,
+    "total_profit": 0.0,
+    "total_collected": 0.0,
+    "total_paid_prizes": 0.0,
+    "commission_balance": 0.0,
+    "total_commission_earned": 0.0,
+    "commission_log": [],
+    "log": []
   }
 }

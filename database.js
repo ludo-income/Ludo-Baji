@@ -501,57 +501,130 @@ async function createFeatureMatch(x){
 async function listFeatureMatches(status='all'){const d=await getData();let a=Array.isArray(d.matches)?d.matches:[];a=a.map(x=>{const players=Array.isArray(x.players)?x.players:[];const raw=String(x.status||'open').toLowerCase();const derived=['started','completed','cancelled'].includes(raw)?raw:(players.length>=2?'full':'open');return {...x,status:derived,players}});if(status!=='all')a=a.filter(x=>x.status===status);return a;}
 async function getFeatureMatch(id){const a=await listFeatureMatches('all');return a.find(x=>String(x.id)===String(id)||String(x.match_code)===String(id))||null;}
 async function updateFeatureMatch(id,x){const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(String(x.status||'')==='started' && (!Array.isArray(m.players)||m.players.length<2))throw new Error('2 জন player join না হলে Match START করা যাবে না');Object.assign(m,{title:String(x.title??m.title),entry_fee:Number(x.entry_fee??m.entry_fee),winning_amount:Number(x.winning_amount??m.winning_amount),max_players:2,scheduled_at:x.scheduled_at??m.scheduled_at,rules:String((x.rules??m.rules)??''),status:String(x.status??m.status),room_id:String((x.room_id??m.room_id)??''),room_password:String((x.room_password??m.room_password)??''),updated_at:new Date().toISOString()});await saveData(d);return m;}
-async function joinFeatureMatch(matchId,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(matchId));if(!m)throw new Error('Match not found');m.players=Array.isArray(m.players)?m.players:[];if(m.status!=='open')throw new Error('Match is not open');if(m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Already joined');if(m.players.length>=Number(m.max_players))throw new Error('Match is full');if(m.players.length===1&&!String(m.room_id||'').trim())throw new Error('Admin আগে Ludo King Room Code সেট করুন');const bal=await getUserDashboard(userId);if(Number(bal.gaming_balance||0)<Number(m.entry_fee))throw new Error('Gaming Balance insufficient');if(Number(m.entry_fee)>0) await adjustBalance(userId,'gaming',-Number(m.entry_fee),'Match entry fee '+m.match_code);const slot=m.players.length+1;m.players.push({user_id:userId,slot,status:'joined',joined_at:new Date().toISOString()});if(m.players.length>=Number(m.max_players))m.status='full';await saveData(d);if(m.players.length<2)await notifyUser(userId,'Match Joined','আপনি '+m.title+' match-এ Slot '+slot+' এ join করেছেন।');const tx=fallbackTransactionsRead();tx.unshift({id:'ENTRY-'+Date.now(),user_id:userId,type:'match_entry',amount:Number(m.entry_fee),balance_type:'gaming',reference:'ENTRY-'+m.match_code,status:'completed',note:'Joined '+m.title,balance_before:null,balance_after:null,balance_change:-Number(m.entry_fee),created_at:new Date().toISOString()});if(!hasDatabase())fallbackTransactionsWrite(tx);return {match:m,slot};});}
+async function joinFeatureMatch(matchId,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(matchId));if(!m)throw new Error('Match not found');m.players=Array.isArray(m.players)?m.players:[];if(m.status!=='open')throw new Error('Match is not open');if(m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Already joined');if(m.players.length>=Number(m.max_players))throw new Error('Match is full');if(m.players.length===1&&!String(m.room_id||'').trim())throw new Error('Admin আগে Ludo King Room Code সেট করুন');const bal=await getUserDashboard(userId);if(Number(bal.gaming_balance||0)<Number(m.entry_fee))throw new Error('Gaming Balance insufficient');if(Number(m.entry_fee)>0){ await adjustBalance(userId,'gaming',-Number(m.entry_fee),'Match entry fee '+m.match_code); creditAdminEntry(d,m,userId,Number(m.entry_fee)); }const slot=m.players.length+1;m.players.push({user_id:userId,slot,status:'joined',joined_at:new Date().toISOString()});if(m.players.length>=Number(m.max_players))m.status='full';await saveData(d);if(m.players.length<2)await notifyUser(userId,'Match Joined','আপনি '+m.title+' match-এ Slot '+slot+' এ join করেছেন।');const tx=fallbackTransactionsRead();tx.unshift({id:'ENTRY-'+Date.now(),user_id:userId,type:'match_entry',amount:Number(m.entry_fee),balance_type:'gaming',reference:'ENTRY-'+m.match_code,status:'completed',note:'Joined '+m.title,balance_before:null,balance_after:null,balance_change:-Number(m.entry_fee),created_at:new Date().toISOString()});if(!hasDatabase())fallbackTransactionsWrite(tx);return {match:m,slot};});}
 async function setFeatureRoom(id,roomId,password){return updateFeatureMatch(id,{room_id:roomId,room_password:password});}
 async function setFeatureWinner(id,userId){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m)throw new Error('Match not found');if(!m.players.some(p=>String(p.user_id)===String(userId)))throw new Error('Winner must be a joined player');m.winner_user_id=String(userId);m.status='completed';m.prize_status='pending';m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(userId,'Match Result','আপনার '+m.title+' match-এর result প্রকাশিত হয়েছে।');return m;});}
 
+
 function ensureFinance(d){
-  if(!d.finance || typeof d.finance!=='object') d.finance={commission_balance:0,total_commission_earned:0,commission_log:[]};
-  d.finance.commission_balance=Number(d.finance.commission_balance||0);
-  d.finance.total_commission_earned=Number(d.finance.total_commission_earned||0);
-  d.finance.commission_log=Array.isArray(d.finance.commission_log)?d.finance.commission_log:[];
-  return d.finance;
+  if(!d.finance || typeof d.finance!=='object') d.finance={};
+  const f=d.finance;
+  // Admin Account Wallet (holds match entry pool; profit stays after prize paid)
+  f.balance=Number(f.balance!=null?f.balance:(f.commission_balance||0));
+  f.total_profit=Number(f.total_profit!=null?f.total_profit:(f.total_commission_earned||0));
+  f.total_collected=Number(f.total_collected||0);
+  f.total_paid_prizes=Number(f.total_paid_prizes||0);
+  f.commission_balance=f.balance; // alias for old UI
+  f.total_commission_earned=f.total_profit;
+  f.commission_log=Array.isArray(f.commission_log)?f.commission_log:[];
+  f.log=Array.isArray(f.log)?f.log:f.commission_log;
+  return f;
 }
-function creditMatchCommission(d,m){
+function pushFinanceLog(fin, row){
+  fin.log=Array.isArray(fin.log)?fin.log:[];
+  fin.commission_log=fin.log;
+  fin.log.unshift(row);
+  if(fin.log.length>500) fin.log=fin.log.slice(0,500);
+}
+/** Player join → Entry Fee Admin Account-এ জমা */
+function creditAdminEntry(d, m, userId, amount){
   const fin=ensureFinance(d);
-  if(m.commission_credited) return Number(m.commission_amount||0);
-  const players=Array.isArray(m.players)?m.players.length:0;
-  const entry=Number(m.entry_fee||0);
-  const prize=Number(m.winning_amount||0);
-  const collected=Number((entry*Math.max(players,0)).toFixed(2));
-  let commission=Number((collected-prize).toFixed(2));
-  if(!Number.isFinite(commission)) commission=0;
-  // allow 0 commission; negative would mean prize > pool (admin loss) — still record
-  m.commission_amount=commission;
-  m.pool_collected=collected;
-  m.commission_credited=true;
-  fin.commission_balance=Number((fin.commission_balance+commission).toFixed(2));
-  if(commission>0) fin.total_commission_earned=Number((fin.total_commission_earned+commission).toFixed(2));
-  fin.commission_log.unshift({
-    id:'COM-'+Date.now(),
+  const amt=Number(amount||0);
+  if(!(amt>0)) return 0;
+  fin.balance=Number((fin.balance+amt).toFixed(2));
+  fin.total_collected=Number((fin.total_collected+amt).toFixed(2));
+  fin.commission_balance=fin.balance;
+  pushFinanceLog(fin,{
+    id:'IN-'+Date.now()+Math.random().toString(36).slice(2,5),
+    type:'match_entry',
     match_id:m.id,
     match_code:m.match_code||'',
     title:m.title||'',
-    entry_fee:entry,
-    players,
-    pool:collected,
-    prize,
-    commission,
+    user_id:String(userId),
+    amount:amt,
+    balance_after:fin.balance,
+    note:'Match entry received',
     created_at:new Date().toISOString()
   });
-  if(fin.commission_log.length>500) fin.commission_log=fin.commission_log.slice(0,500);
-  return commission;
+  return amt;
+}
+/**
+ * Prize approve:
+ * - Winner gets only winning amount
+ * - Admin Account থেকে prize কাটে
+ * - বাকিটাই লাভ (আগেই entry দিয়ে এসেছিল)
+ */
+function settleAdminPrize(d, m){
+  const fin=ensureFinance(d);
+  if(m.commission_credited || m.prize_settled){
+    return {prize:Number(m.winning_amount||0), profit:Number(m.commission_amount||0)};
+  }
+  const players=Array.isArray(m.players)?m.players.length:0;
+  const entry=Number(m.entry_fee||0);
+  const prize=Number(m.winning_amount||0);
+  const pool=Number((entry*Math.max(players,0)).toFixed(2));
+  const profit=Number((pool-prize).toFixed(2));
+  // Debit prize from Admin Account (entries were already credited on join)
+  fin.balance=Number((fin.balance-prize).toFixed(2));
+  fin.total_paid_prizes=Number((fin.total_paid_prizes+prize).toFixed(2));
+  if(profit>0) fin.total_profit=Number((fin.total_profit+profit).toFixed(2));
+  fin.commission_balance=fin.balance;
+  fin.total_commission_earned=fin.total_profit;
+  m.pool_collected=pool;
+  m.commission_amount=profit;
+  m.commission_credited=true;
+  m.prize_settled=true;
+  pushFinanceLog(fin,{
+    id:'OUT-'+Date.now()+Math.random().toString(36).slice(2,5),
+    type:'prize_paid',
+    match_id:m.id,
+    match_code:m.match_code||'',
+    title:m.title||'',
+    amount:-prize,
+    prize:prize,
+    pool:pool,
+    profit:profit,
+    balance_after:fin.balance,
+    note:'Prize paid to winner; profit kept in Admin Account',
+    created_at:new Date().toISOString()
+  });
+  if(profit!==0){
+    pushFinanceLog(fin,{
+      id:'PF-'+Date.now()+Math.random().toString(36).slice(2,5),
+      type:'profit',
+      match_id:m.id,
+      match_code:m.match_code||'',
+      title:m.title||'',
+      amount:profit,
+      pool:pool,
+      prize:prize,
+      commission:profit,
+      balance_after:fin.balance,
+      note:'Match profit retained',
+      created_at:new Date().toISOString()
+    });
+  }
+  return {prize, profit, pool};
+}
+/** old name kept for compatibility */
+function creditMatchCommission(d,m){
+  const r=settleAdminPrize(d,m);
+  return r.profit;
 }
 async function getAdminFinance(){
   const d=await getData();
   const fin=ensureFinance(d);
   return {
-    commission_balance:Number(fin.commission_balance||0),
-    total_commission_earned:Number(fin.total_commission_earned||0),
-    commission_log:(fin.commission_log||[]).slice(0,100)
+    balance:Number(fin.balance||0),
+    total_profit:Number(fin.total_profit||0),
+    total_collected:Number(fin.total_collected||0),
+    total_paid_prizes:Number(fin.total_paid_prizes||0),
+    commission_balance:Number(fin.balance||0),
+    total_commission_earned:Number(fin.total_profit||0),
+    commission_log:(fin.log||fin.commission_log||[]).slice(0,100),
+    log:(fin.log||[]).slice(0,100)
   };
 }
-
 async function approveFeaturePrize(id){return withFeatureMatchLock(async()=>{const d=await getData();d.matches=Array.isArray(d.matches)?d.matches:[];const m=d.matches.find(a=>String(a.id)===String(id));if(!m||!m.winner_user_id)throw new Error('Winner not selected');if(m.prize_status==='approved')throw new Error('Prize already approved');if(!Number.isFinite(Number(m.winning_amount))||Number(m.winning_amount)<0)throw new Error('Invalid prize amount');await adjustBalance(m.winner_user_id,'winning',Number(m.winning_amount),'Prize for '+m.match_code);m.prize_status='approved';const commission=creditMatchCommission(d,m);m.updated_at=new Date().toISOString();await saveData(d);await notifyUser(m.winner_user_id,'Prize Credited','আপনার ৳'+Number(m.winning_amount).toFixed(2)+' prize Winning Balance-এ যোগ হয়েছে।');return {...m,commission_amount:commission};});}
 
 async function submitFeatureResult(id,userId,screenshot){
