@@ -76,26 +76,42 @@ function maskEmail(email){const [local,domain]=String(email).split('@');if(!doma
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
 
 async function sendOtpEmail(email,otp){
-  const host=process.env.SMTP_HOST,port=Number(process.env.SMTP_PORT||465),user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,fromAddr=String(process.env.SMTP_FROM||user||'').trim();
+  const host=process.env.SMTP_HOST,user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,fromAddr=String(process.env.SMTP_FROM||user||'').trim();
   if(host&&user&&pass){
     let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}
-    const secure=String(process.env.SMTP_SECURE||(port===465?'true':'false')).toLowerCase()==='true';
-    const transporter=nodemailer.createTransport({
-      host,port,secure,
-      auth:{user,pass},
-      connectionTimeout:7000,greetingTimeout:7000,socketTimeout:9000,
-      tls:{minVersion:'TLSv1.2'}
-    });
     const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+fromAddr+'>');
-    await transporter.sendMail({
-      from,
-      to:email,
+    const mail={
+      from,to:email,
       subject:'Ludo Baji - Your OTP Code: '+otp,
       text:'Your Ludo Baji OTP is '+otp+'. It expires in 5 minutes. Do not share this OTP with anyone.',
       html:'<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:20px;background:#0b1f17;color:#fff;border-radius:12px"><h2 style="margin:0 0 12px;color:#10c878">Ludo Baji</h2><p style="margin:0 0 8px;color:#cde">Your login OTP:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;background:#123;padding:14px 18px;border-radius:10px;text-align:center;color:#fff">'+otp+'</div><p style="margin:14px 0 0;font-size:13px;color:#9ab">Expires in 5 minutes. Do not share with anyone.</p></div>',
       headers:{'X-Priority':'1','X-Mailer':'LudoBaji'}
-    });
-    return {sent:true,provider:'smtp'};
+    };
+    // Try user-configured port first, then 587 STARTTLS, then 465 SSL
+    const envPort=Number(process.env.SMTP_PORT||0);
+    const envSecure=String(process.env.SMTP_SECURE||'').toLowerCase();
+    const attempts=[];
+    if(envPort){attempts.push({port:envPort,secure:envSecure==='true'||envPort===465});}
+    attempts.push({port:587,secure:false});
+    attempts.push({port:465,secure:true});
+    let lastErr=null;
+    const seen=new Set();
+    for(const a of attempts){
+      const key=a.port+':'+(a.secure?'1':'0');
+      if(seen.has(key))continue;seen.add(key);
+      try{
+        const transporter=nodemailer.createTransport({
+          host,port:a.port,secure:a.secure,
+          auth:{user,pass},
+          connectionTimeout:12000,greetingTimeout:12000,socketTimeout:15000,
+          requireTLS:!a.secure,
+          tls:{minVersion:'TLSv1.2',rejectUnauthorized:true}
+        });
+        await transporter.sendMail(mail);
+        return {sent:true,provider:'smtp',port:a.port};
+      }catch(e){lastErr=e;console.error('SMTP try port',a.port,e.message);}
+    }
+    throw new Error((lastErr&&lastErr.message)||'SMTP connection failed. Render Environment-এ SMTP_PORT=587 এবং SMTP_SECURE=false সেট করুন।');
   }
   if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log('[OTP DEV] '+email+': '+otp);return {sent:false,dev:true,otp};}
   throw new Error('Email provider is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM, or enable OTP_DEV_MODE for testing.');
