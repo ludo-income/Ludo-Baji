@@ -273,34 +273,90 @@ async function submitDeposit(){
   if(file.size>8*1024*1024){er.textContent='Screenshot সর্বোচ্চ 8MB';return}
   try{const screenshot=await fileToDataURL(file);const j=await api('/api/user/deposits',{method:'POST',body:JSON.stringify({method:depositMethod,amount,transaction_id:txn,screenshot})});er.className='err success';er.textContent=j.message||'Deposit request জমা হয়েছে';document.getElementById('depAmount').value='';document.getElementById('depTxn').value='';document.getElementById('depShot').value='';document.getElementById('depPreview').style.display='none';await loadDepositHistory()}catch(e){er.textContent=e.message}
 }
-let withdrawMethod='bkash',withdrawBalanceType='winning',withdrawInfo=null,withdrawConfig=null;
+let withdrawMethod='bkash',withdrawBalanceType='winning',withdrawInfo=null,withdrawConfig={notice:'প্রিয় User, আপনি সর্বনিম্ন ৳100 থেকে সর্বোচ্চ ৳10,000 টাকা Withdraw করতে পারবেন। ধন্যবাদ।',min_amount:100,max_amount:10000,methods:[{id:'bkash',name:'bKash',logo:'💗',enabled:true,order:1},{id:'nagad',name:'Nagad',logo:'🟠',enabled:true,order:2},{id:'rocket',name:'Rocket',logo:'🚀',enabled:true,order:3},{id:'upay',name:'Upay',logo:'🟣',enabled:true,order:4}]};
+function renderWithdrawMethods(){
+  const methods=(withdrawConfig.methods||[]).filter(m=>m.enabled!==false).sort((a,b)=>Number(a.order||99)-Number(b.order||99));
+  const box=document.getElementById('wdMethods');
+  if(!box)return;
+  if(!methods.length){box.innerHTML='<div class="smallText">কোনো Withdraw method চালু নেই</div>';return;}
+  if(!methods.some(m=>m.id===withdrawMethod))withdrawMethod=methods[0].id;
+  box.innerHTML=methods.map(m=>'<button type="button" class="payChoice'+(m.id===withdrawMethod?' active':'')+'" id="wdM-'+esc(m.id)+'" onclick="selectWithdrawMethod(\''+esc(m.id)+'\')">'+(m.logo&&String(m.logo).startsWith('http')?'<img src="'+esc(m.logo)+'" style="width:22px;height:22px;vertical-align:middle;border-radius:4px;margin-right:4px" alt="">':esc(m.logo||'💳'))+' '+esc(m.name||m.id)+'</button>').join('');
+}
 async function openWithdraw(){
   setPageState('withdraw');
   const preview=!authToken()&&!loginOtpEnabled;
   if(!authToken()&&!preview){openAuth('withdraw');return}
-  if(preview){const v=document.getElementById('view');v.classList.add('show');v.innerHTML='<h3>💰 Withdraw</h3><div class="previewModeBox">🔎 <b>Preview Mode</b><br>এখানে শুধু Withdraw page-এর নাম, Logo, Button ও layout যাচাই করা যাবে। Real withdrawal বন্ধ আছে।</div><div class="item">Withdraw form preview</div>';return;}
-  const v=document.getElementById('view');v.classList.add('show');
-  v.innerHTML='<h3>💸 Withdraw</h3><div id="wdNotice" class="homeNotice" style="margin:0 0 12px"><b>নোটিশ</b><div id="wdNoticeText">Loading...</div></div><div class="withdrawPanel"><b>Payment Method</b><div class="paymentChoices" id="wdMethods"></div><div class="field"><label>Withdraw From</label><div class="withdrawBalance"><button id="wdWinning" class="active" onclick="selectWithdrawBalance(\'winning\')">🏆 Winning Balance<br><span id="wdWinningBal">৳ 0.00</span></button><button id="wdGaming" onclick="selectWithdrawBalance(\'gaming\')">🎮 Gaming Balance<br><span id="wdGamingBal">৳ 0.00</span></button></div></div><div class="field"><label>Account Holder Name</label><input id="wdName" maxlength="80" placeholder="নাম লিখুন"></div><div class="field"><label>Mobile Number</label><input id="wdAccount" inputmode="numeric" maxlength="14" placeholder="01XXXXXXXXX"></div><div class="field"><label>Withdraw Amount (৳)</label><input id="wdAmount" type="number" min="100" max="10000" step="0.01" placeholder="যেমন 500"></div><div class="smallText" id="wdLimitText">Minimum ৳100 — Maximum ৳10,000</div><button class="btn" style="width:100%;margin-top:12px" onclick="submitWithdrawal()">Withdrawal Submit</button><div id="wdErr" class="err"></div></div><div class="withdrawHistory"><h3 style="color:#202522;font-size:19px">📜 Withdrawal History</h3><div id="wdHistory">Loading...</div></div>';
+  enterScreen('withdraw');
+  const v=document.getElementById('view');
+  if(preview){
+    v.innerHTML='<div class="screenTop"><button class="screenBack" onclick="screenBack()">‹</button><div class="screenTitle">💸 Withdraw</div></div><div class="screenBody"><div class="previewModeBox">🔎 <b>Preview Mode</b><br>Real withdrawal বন্ধ আছে। Login করলে Withdraw করতে পারবেন।</div></div>';
+    return;
+  }
+  v.innerHTML='<div class="screenTop"><button class="screenBack" onclick="screenBack()">‹</button><div class="screenTitle">💸 Withdraw</div></div><div class="screenBody"><div id="wdNotice" class="homeNotice" style="margin:0 0 12px;background:#e8f8ef;border:1px solid #b7e6c9;color:#123"><b style="color:#0a7a45">নোটিশ</b><div id="wdNoticeText" style="margin-top:6px;font-size:14px;line-height:1.45">Loading...</div></div><div class="withdrawPanel"><b>Payment Method</b><div class="paymentChoices" id="wdMethods" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div><div class="field"><label>Withdraw From</label><div class="withdrawBalance"><button type="button" id="wdWinning" class="active" onclick="selectWithdrawBalance(\'winning\')">🏆 Winning Balance<br><span id="wdWinningBal">৳ 0.00</span></button><button type="button" id="wdGaming" onclick="selectWithdrawBalance(\'gaming\')">🎮 Gaming Balance<br><span id="wdGamingBal">৳ 0.00</span></button></div></div><div class="field"><label>Account Holder Name *</label><input id="wdName" maxlength="80" placeholder="নাম লিখুন" autocomplete="name"></div><div class="field"><label>Mobile Number *</label><input id="wdAccount" inputmode="numeric" maxlength="14" placeholder="01XXXXXXXXX" autocomplete="tel"></div><div class="field"><label>Withdraw Amount (৳) *</label><input id="wdAmount" type="number" min="100" max="10000" step="1" placeholder="যেমন 500"></div><div class="smallText" id="wdLimitText">সর্বনিম্ন ৳100 — সর্বোচ্চ ৳10,000</div><button type="button" class="btn" style="width:100%;margin-top:12px" id="wdSubmitBtn" onclick="submitWithdrawal()">Withdrawal Submit</button><div id="wdErr" class="err"></div></div><div class="withdrawHistory"><h3 style="color:#202522;font-size:19px">📜 Withdrawal History</h3><div id="wdHistory">Loading...</div></div></div>';
   try{
-    const j=await api('/api/withdraw/config');
-    withdrawConfig=j.config||{};
-    const methods=(withdrawConfig.methods||[]).filter(m=>m.enabled!==false).sort((a,b)=>Number(a.order||99)-Number(b.order||99));
-    const box=document.getElementById('wdMethods');
-    if(!methods.length){box.innerHTML='<div class="smallText">কোনো Withdraw method চালু নেই</div>';}
-    else{
-      if(!methods.some(m=>m.id===withdrawMethod))withdrawMethod=methods[0].id;
-      box.innerHTML=methods.map(m=>'<button class="payChoice'+(m.id===withdrawMethod?' active':'')+'" id="wdM-'+esc(m.id)+'" onclick="selectWithdrawMethod(\''+esc(m.id)+'\')">'+(m.logo&&String(m.logo).startsWith('http')?'<img src="'+esc(m.logo)+'" style="width:22px;height:22px;vertical-align:middle;border-radius:4px;margin-right:4px">':esc(m.logo||'💳'))+' '+esc(m.name||m.id)+'</button>').join('');
-    }
-    document.getElementById('wdNoticeText').textContent=withdrawConfig.notice||'প্রিয় User, আপনি সর্বনিম্ন ৳100 থেকে সর্বোচ্চ ৳10,000 টাকা Withdraw করতে পারবেন। ধন্যবাদ।';
+    try{
+      const j=await api('/api/withdraw/config');
+      if(j&&j.config)withdrawConfig=j.config;
+    }catch(cfgErr){console.warn('withdraw config',cfgErr.message)}
+    renderWithdrawMethods();
+    const nt=document.getElementById('wdNoticeText');
+    if(nt)nt.textContent=withdrawConfig.notice||'প্রিয় User, আপনি সর্বনিম্ন ৳100 থেকে সর্বোচ্চ ৳10,000 টাকা Withdraw করতে পারবেন। ধন্যবাদ।';
     const mn=Number(withdrawConfig.min_amount||100),mx=Number(withdrawConfig.max_amount||10000);
-    document.getElementById('wdLimitText').textContent='সর্বনিম্ন ৳'+mn+' — সর্বোচ্চ ৳'+mx;
+    const lt=document.getElementById('wdLimitText');if(lt)lt.textContent='সর্বনিম্ন ৳'+mn+' — সর্বোচ্চ ৳'+mx;
     const amt=document.getElementById('wdAmount');if(amt){amt.min=mn;amt.max=mx;}
-    await refreshWithdrawalBalances();await loadWithdrawalHistory();
-  }catch(e){const er=document.getElementById('wdErr');if(er)er.textContent=e.message}
+    await refreshWithdrawalBalances();
+    await loadWithdrawalHistory();
+  }catch(e){
+    const er=document.getElementById('wdErr');
+    if(er)er.textContent=e.message||'Withdraw page load failed';
+  }
 }
-function selectWithdrawMethod(method){withdrawMethod=method;document.querySelectorAll('#wdMethods .payChoice').forEach(btn=>{btn.classList.toggle('active',btn.id==='wdM-'+method)});}
-function selectWithdrawBalance(type){withdrawBalanceType=type;document.getElementById('wdWinning')?.classList.toggle('active',type==='winning');document.getElementById('wdGaming')?.classList.toggle('active',type==='gaming')}
-async function submitWithdrawal(){const er=document.getElementById('wdErr');er.className='err';er.textContent='';const name=(document.getElementById('wdName')?.value||'').trim();const account=document.getElementById('wdAccount').value.trim(),amount=Number(document.getElementById('wdAmount').value);const mn=Number(withdrawConfig?.min_amount||100),mx=Number(withdrawConfig?.max_amount||10000);if(!name||name.length<2){er.textContent='Account Holder Name দিন';return}if(!/^(01\d{9}|(?:\+880|880)1\d{9})$/.test(account)){er.textContent='সঠিক Mobile Number দিন (01XXXXXXXXX)';return}if(!Number.isFinite(amount)||amount<mn||amount>mx){er.textContent='Withdrawal amount ৳'+mn+' থেকে ৳'+mx+' এর মধ্যে হতে হবে';return}try{const j=await api('/api/user/withdrawals',{method:'POST',body:JSON.stringify({method:withdrawMethod,account_number:account,account_name:name,amount,balance_type:withdrawBalanceType})});er.className='err success';er.textContent=j.message||'Withdrawal request জমা হয়েছে';document.getElementById('wdName').value='';document.getElementById('wdAccount').value='';document.getElementById('wdAmount').value='';await refreshDashboard();await refreshWithdrawalBalances();await loadWithdrawalHistory()}catch(e){er.textContent=e.message}}
+function selectWithdrawMethod(method){
+  withdrawMethod=method;
+  document.querySelectorAll('#wdMethods .payChoice').forEach(btn=>{btn.classList.toggle('active',btn.id==='wdM-'+method)});
+}
+function selectWithdrawBalance(type){
+  withdrawBalanceType=type;
+  document.getElementById('wdWinning')?.classList.toggle('active',type==='winning');
+  document.getElementById('wdGaming')?.classList.toggle('active',type==='gaming');
+}
+async function submitWithdrawal(){
+  const er=document.getElementById('wdErr');if(!er)return;
+  er.className='err';er.textContent='';
+  const btn=document.getElementById('wdSubmitBtn');
+  const name=(document.getElementById('wdName')?.value||'').trim();
+  const account=(document.getElementById('wdAccount')?.value||'').trim();
+  const amount=Number(document.getElementById('wdAmount')?.value);
+  const mn=Number(withdrawConfig?.min_amount||100),mx=Number(withdrawConfig?.max_amount||10000);
+  if(!withdrawMethod){er.textContent='Payment Method সিলেক্ট করুন';return}
+  if(!name||name.length<2){er.textContent='Account Holder Name দিন';return}
+  if(!/^(01\d{9}|(?:\+880|880)1\d{9})$/.test(account)){er.textContent='সঠিক Mobile Number দিন (01XXXXXXXXX)';return}
+  if(!Number.isFinite(amount)||amount<mn||amount>mx){er.textContent='Withdrawal amount ৳'+mn+' থেকে ৳'+mx+' এর মধ্যে হতে হবে';return}
+  if(btn){btn.disabled=true;btn.textContent='Submitting...'}
+  try{
+    const j=await api('/api/user/withdrawals',{method:'POST',body:JSON.stringify({method:withdrawMethod,account_number:account,account_name:name,amount,balance_type:withdrawBalanceType})});
+    er.className='err success';
+    er.textContent=j.message||'Withdrawal request জমা হয়েছে। Admin approval-এর অপেক্ষায়।';
+    const n=document.getElementById('wdName');if(n)n.value='';
+    const a=document.getElementById('wdAccount');if(a)a.value='';
+    const am=document.getElementById('wdAmount');if(am)am.value='';
+    await refreshDashboard();
+    await refreshWithdrawalBalances();
+    await loadWithdrawalHistory();
+  }catch(e){er.textContent=e.message||'Withdrawal failed'}
+  finally{if(btn){btn.disabled=false;btn.textContent='Withdrawal Submit'}}
+}
+async function refreshWithdrawalBalances(){
+  try{
+    const j=await api('/api/user/dashboard');
+    const w=document.getElementById('wdWinningBal');
+    const g=document.getElementById('wdGamingBal');
+    if(w)w.textContent='৳ '+Number(j.dashboard.winning_balance||0).toFixed(2);
+    if(g)g.textContent='৳ '+Number(j.dashboard.gaming_balance||0).toFixed(2);
+    window._gamingBal=Number(j.dashboard.gaming_balance||0);
+    window._winningBal=Number(j.dashboard.winning_balance||0);
+  }catch(e){console.warn('wd bal',e.message)}
+}
 async function loadWithdrawalHistory(){const box=document.getElementById('wdHistory');if(!box)return;try{const j=await api('/api/user/withdrawals');if(!j.withdrawals.length){box.innerHTML='<div class="smallText">এখনো কোনো Withdrawal নেই।</div>';return}box.innerHTML=j.withdrawals.map(d=>{const st=d.status==='approved'?'Approved':d.status==='rejected'?'Rejected':'Pending';const acct=String(d.account_number||'');const masked=acct.length>6?acct.slice(0,3)+'****'+acct.slice(-3):acct;return '<div class="depRow"><div class="depTop"><b>'+esc(String(d.method).toUpperCase())+' • ৳'+Number(d.amount).toFixed(2)+'</b><span class="depStatus '+esc(d.status)+'">'+st+'</span></div><div class="smallText">Name: '+esc(d.account_name||'-')+' • Account: '+esc(masked)+' • '+esc(d.balance_type||'winning')+' balance</div><div class="smallText">'+new Date(d.created_at).toLocaleString()+'</div>'+(d.note?'<div class="smallText">Note: '+esc(d.note)+'</div>':'')+'</div>'}).join('')}catch(e){box.textContent=e.message}}
 async function loadDepositHistory(){const box=document.getElementById('depHistory');if(!box)return;try{const j=await api('/api/user/deposits');if(!j.deposits.length){box.innerHTML='<div class="smallText">এখনো কোনো Deposit নেই।</div>';return}box.innerHTML=j.deposits.map(d=>{const st=d.status==='approved'?'Approved':d.status==='rejected'?'Rejected':'Pending';return '<div class="depRow"><div class="depTop"><b>'+esc(String(d.method).toUpperCase())+' • ৳'+Number(d.amount).toFixed(2)+'</b><span class="depStatus '+esc(d.status)+'">'+st+'</span></div><div class="smallText">TXN: '+esc(d.transaction_id||'-')+'</div><div class="smallText">'+new Date(d.created_at).toLocaleString()+'</div></div>'}).join('')}catch(e){box.textContent=e.message}}
 let statementFilter='all';
