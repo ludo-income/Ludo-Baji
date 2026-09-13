@@ -149,27 +149,47 @@ async function sendOtpEmail(email,otp){
     return {sent:true,provider:'resend'};
   }
 
-  // 3) Gmail / SMTP (fallback — Render-এ অনেক সময় timeout হয়)
+  // 3) Gmail / SMTP (Render-এ প্রায়ই ব্লক/টাইমআউট হয় — দ্রুত fail করে এরর দেখাবে)
   const host=process.env.SMTP_HOST,user=process.env.SMTP_USER,pass=process.env.SMTP_PASS;
   if(user&&pass){
     let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}
     const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+(fromAddr||user)+'>');
     const mail={from,to:email,subject,text:textBody,html:htmlBody};
-    const configs=[{service:'gmail',auth:{user,pass}}];
+    const port=Number(process.env.SMTP_PORT||0);
+    const secureEnv=String(process.env.SMTP_SECURE||'').toLowerCase();
+    const configs=[];
+    // Prefer explicit host/port if given
     if(host){
-      configs.push({host,port:587,secure:false,requireTLS:true,auth:{user,pass}});
-      configs.push({host,port:465,secure:true,auth:{user,pass}});
+      if(port===465||secureEnv==='true')configs.push({host,port:465,secure:true,auth:{user,pass}});
+      else if(port===587||port>0)configs.push({host,port:port||587,secure:false,requireTLS:true,auth:{user,pass}});
+      else {
+        configs.push({host,port:587,secure:false,requireTLS:true,auth:{user,pass}});
+        configs.push({host,port:465,secure:true,auth:{user,pass}});
+      }
+    } else {
+      configs.push({service:'gmail',auth:{user,pass}});
+      configs.push({host:'smtp.gmail.com',port:587,secure:false,requireTLS:true,auth:{user,pass}});
+      configs.push({host:'smtp.gmail.com',port:465,secure:true,auth:{user,pass}});
     }
     let lastErr=null;
     for(const cfg of configs){
       try{
-        const transporter=nodemailer.createTransport({...cfg,connectionTimeout:12000,greetingTimeout:12000,socketTimeout:15000});
-        await transporter.sendMail(mail);
+        const transporter=nodemailer.createTransport({
+          ...cfg,
+          connectionTimeout:8000,
+          greetingTimeout:8000,
+          socketTimeout:10000,
+          tls:{rejectUnauthorized:false}
+        });
+        await Promise.race([
+          transporter.sendMail(mail),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error('SMTP timeout (Render Gmail SMTP ব্লক করতে পারে)')),10000))
+        ]);
         return {sent:true,provider:'smtp'};
-      }catch(e){lastErr=e;console.error('SMTP failed:',e.message);}
+      }catch(e){lastErr=e;console.error('SMTP failed:',e.message); try{/* ignore close */}catch{}}
     }
     const msg=(lastErr&&lastErr.message)||'SMTP failed';
-    throw new Error('Gmail/SMTP ইমেইল পাঠানো যায়নি: '+msg+'. Gmail App Password চেক করুন, অথবা BREVO_API_KEY সেট করুন।');
+    throw new Error('Gmail SMTP ব্যর্থ: '+msg+'. Render-এ Gmail SMTP প্রায়ই কাজ করে না। BREVO_API_KEY ব্যবহার করুন (বিনামূল্যে, নির্ভরযোগ্য)।');
   }
 
   if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
