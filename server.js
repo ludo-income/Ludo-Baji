@@ -75,6 +75,47 @@ function normalizeEmail(input){const e=String(input||'').trim().toLowerCase();re
 function maskEmail(email){const [local,domain]=String(email).split('@');if(!domain)return '****';return (local.length<=2?(local[0]||'*'):local.slice(0,2))+'***@'+domain}
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
 
+function supabaseConfigured(){
+  const url=String(process.env.SUPABASE_URL||'').trim().replace(/\/$/,'');
+  const key=String(process.env.SUPABASE_ANON_KEY||process.env.SUPABASE_PUBLISHABLE_KEY||'').trim();
+  return !!(url&&key);
+}
+function supabaseAuthHeaders(){
+  const key=String(process.env.SUPABASE_ANON_KEY||process.env.SUPABASE_PUBLISHABLE_KEY||'').trim();
+  return {'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'};
+}
+async function supabaseSendOtp(email){
+  const url=String(process.env.SUPABASE_URL||'').trim().replace(/\/$/,'');
+  if(!url)throw new Error('SUPABASE_URL missing');
+  const r=await fetch(url+'/auth/v1/otp',{
+    method:'POST',
+    headers:supabaseAuthHeaders(),
+    body:JSON.stringify({email,create_user:true})
+  });
+  const t=await r.text().catch(()=> '');
+  let j={};try{j=JSON.parse(t||'{}')}catch{j={raw:t}}
+  if(!r.ok){
+    const msg=j.msg||j.error_description||j.error||t||('Supabase OTP failed '+r.status);
+    throw new Error(String(msg));
+  }
+  return {sent:true,provider:'supabase'};
+}
+async function supabaseVerifyOtp(email,otp){
+  const url=String(process.env.SUPABASE_URL||'').trim().replace(/\/$/,'');
+  if(!url)throw new Error('SUPABASE_URL missing');
+  const r=await fetch(url+'/auth/v1/verify',{
+    method:'POST',
+    headers:supabaseAuthHeaders(),
+    body:JSON.stringify({email,token:String(otp),type:'email'})
+  });
+  const t=await r.text().catch(()=> '');
+  let j={};try{j=JSON.parse(t||'{}')}catch{j={raw:t}}
+  if(!r.ok){
+    const msg=j.msg||j.error_description||j.error||t||('Invalid OTP');
+    throw new Error(String(msg));
+  }
+  return j;
+}
 async function sendOtpEmail(email,otp){
   const fromAddr=String(process.env.SMTP_FROM||process.env.SMTP_USER||process.env.BREVO_SENDER||'').trim();
   const subject='Ludo Baji OTP: '+otp;
@@ -249,15 +290,22 @@ const server=http.createServer(async(req,res)=>{try{
    let user=await db.findUserByEmail(email);if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
    const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
    if(!user)user=await db.createUserByEmail(email);
-   const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
    try{
+     // 1) Supabase Email OTP (সবচেয়ে নির্ভরযোগ্য)
+     if(supabaseConfigured()){
+       await supabaseSendOtp(email);
+       const sent=new Date().toISOString();
+       // local placeholder so verify can also try local fallback; real code comes from Supabase email
+       await db.setUserOtpByEmail(email,otpHash(email,'supabase'),new Date(Date.now()+OTP_TTL_MS).toISOString(),sent);
+       return send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),provider:'supabase'});
+     }
+     const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
      await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);
      const hasHttpMail=!!(String(process.env.BREVO_API_KEY||'').trim()||String(process.env.RESEND_API_KEY||'').trim());
      if(hasHttpMail || String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
        const result=await sendOtpEmail(email,otp);
        return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}:{})});
      }
-     // SMTP only: respond fast, send in background (Render SMTP often slow/timeout)
      send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000)});
      setImmediate(()=>{sendOtpEmail(email,otp).then(()=>console.log('[OTP] sent to',email)).catch(e=>console.error('[OTP] failed',email,e.message));});
      return;
@@ -266,7 +314,22 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
    const x=await body(req),email=normalizeEmail(x.email),otp=String(x.otp||'').trim();if(!email||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'Email এবং ৬ সংখ্যার OTP দিন'});
-   const user=await db.findUserByEmail(email);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   let user=await db.findUserByEmail(email);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   // Supabase verify first when configured
+   if(supabaseConfigured()){
+     try{
+       await supabaseVerifyOtp(email,otp);
+       await db.clearUserOtpByEmail(email);
+       const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);
+       const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);
+       return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
+     }catch(e){
+       // fall through to local OTP if was sent via SMTP/dev
+       if(!user.otp_hash||user.otp_hash===otpHash(email,'supabase')){
+         return send(res,401,{ok:false,error:e.message||'OTP সঠিক নয়'});
+       }
+     }
+   }
    if(!user.otp_hash||!user.otp_expires_at)return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});
    if(Date.now()>new Date(user.otp_expires_at).getTime()){await db.clearUserOtpByEmail(email);return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});}
    if(Number(user.otp_attempts||0)>=OTP_MAX_ATTEMPTS){await db.clearUserOtpByEmail(email);return send(res,429,{ok:false,error:'অনেকবার ভুল OTP দেওয়া হয়েছে। নতুন OTP নিন'});}
