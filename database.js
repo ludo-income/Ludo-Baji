@@ -347,12 +347,14 @@ async function reviewDeposit(depositId, status, adminId=null, note='') {
 
 
 
-async function createWithdrawal(userId, method, accountNumber, amount, balanceType='winning') {
-  if (!['bkash','nagad'].includes(method)) throw new Error('bKash অথবা Nagad নির্বাচন করুন');
+async function createWithdrawal(userId, method, accountNumber, amount, balanceType='winning', accountName='') {
+  if (!['bkash','nagad','rocket','upay'].includes(method)) throw new Error('bKash, Nagad, Rocket অথবা Upay নির্বাচন করুন');
   if (!['gaming','winning'].includes(balanceType)) throw new Error('সঠিক Balance নির্বাচন করুন');
   amount=assertMoneyAmount(amount);
   accountNumber=String(accountNumber||'').trim();
-  if(!/^(?:\+?8801|01)\d{9}$/.test(accountNumber.replace(/[\s-]/g,''))) throw new Error('সঠিক bKash/Nagad account number দিন');
+  accountName=String(accountName||'').trim();
+  if(!accountName || accountName.length<2) throw new Error('Account Holder Name দিন');
+  if(!/^(?:\+?8801|01)\d{9}$/.test(accountNumber.replace(/[\s-]/g,''))) throw new Error('সঠিক Mobile Number দিন (01XXXXXXXXX)');
   if (!hasDatabase()) return withFallbackFinancialLock(async()=>{
     const snapshot=snapshotFallbackFinancialFiles();
     try {
@@ -361,7 +363,7 @@ async function createWithdrawal(userId, method, accountNumber, amount, balanceTy
       const key=balanceType+'_balance',before=Number(u[key]||0); if(before<amount) throw new Error('পর্যাপ্ত Balance নেই');
       const id=Date.now()+'-'+Math.random().toString(36).slice(2,8),now=new Date().toISOString(),ref='WDR-'+id;
       const after=Number((before-amount).toFixed(2)); u[key]=after;
-      const item={id,user_id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',method,account_number:accountNumber,amount,balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:now,reviewed_at:null,balance_before:before,balance_after:after};
+      const item={id,user_id:u.id,user_code:u.user_code,email:u.email||'',phone:u.phone||null,name:u.name||'',method,account_number:accountNumber,account_name:accountName,amount,balance_type:balanceType,status:'pending',note:'',reviewed_by:null,created_at:now,reviewed_at:null,balance_before:before,balance_after:after};
       const withdrawals=fallbackWithdrawalsRead(); withdrawals.unshift(item); fallbackWithdrawalsWrite(withdrawals); fallbackUsersWrite(users);
       const txs=fallbackTransactionsRead(); txs.unshift({id:ref,user_id:u.id,type:'withdrawal',amount,balance_type:balanceType,reference:ref,status:'pending',note:'Withdrawal request via '+method,balance_before:before,balance_after:after,balance_change:-amount,created_at:now}); fallbackTransactionsWrite(txs);
       const notes=fallbackNotificationsRead(); notes.unshift({id:Date.now()+Math.random(),user_id:u.id,title:'Withdrawal Submitted',message:'আপনার ৳'+amount.toFixed(2)+' Withdrawal request জমা হয়েছে।',read_at:null,created_at:now}); fallbackNotificationsWrite(notes);
@@ -377,7 +379,8 @@ async function createWithdrawal(userId, method, accountNumber, amount, balanceTy
     const col=balanceType==='gaming'?'gaming_balance':'winning_balance';
     const w=await client.query(`SELECT ${col} AS balance FROM wallets WHERE user_id=$1 FOR UPDATE`,[userId]);
     const before=Number(w.rows[0]?.balance||0); if(before<amount) throw new Error('পর্যাপ্ত Balance নেই'); const after=Number((before-amount).toFixed(2));
-    const r=await client.query('INSERT INTO withdrawals(user_id,method,account_number,amount,balance_type,status,note) VALUES($1,$2,$3,$4,$5,\'pending\',\'\') RETURNING *',[userId,method,accountNumber,amount,balanceType]);
+    try{await client.query('ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT')}catch{}
+    const r=await client.query('INSERT INTO withdrawals(user_id,method,account_number,account_name,amount,balance_type,status,note) VALUES($1,$2,$3,$4,$5,$6,\'pending\',\'\') RETURNING *',[userId,method,accountNumber,accountName,amount,balanceType]);
     await client.query(`UPDATE wallets SET ${col}=$1,updated_at=NOW() WHERE user_id=$2`,[after,userId]);
     await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note,balance_before,balance_after,balance_change) VALUES($1,\'withdrawal\',$2,$3,$4,\'pending\',$5,$6,$7,$8)',[userId,amount,balanceType,'WDR-'+r.rows[0].id,'Withdrawal request via '+method,before,after,-amount]);
     await client.query('INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)',[userId,'Withdrawal Submitted','আপনার ৳'+amount.toFixed(2)+' Withdrawal request জমা হয়েছে।']);
@@ -387,7 +390,7 @@ async function createWithdrawal(userId, method, accountNumber, amount, balanceTy
 async function listUserWithdrawals(userId, limit=50) {
   if (!hasDatabase()) return fallbackWithdrawalsRead().filter(d=>String(d.user_id)===String(userId)).slice(0,limit);
   await init();
-  const r=await pool.query('SELECT id,method,account_number,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);
+  const r=await pool.query('SELECT id,method,account_number,account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);
   return r.rows;
 }
 
@@ -401,7 +404,7 @@ async function listAdminWithdrawals(status='all', limit=100) {
   await init();
   const where=status==='all'?'':' WHERE w.status=$1';
   const params=status==='all'?[limit]:[status,limit];
-  const r=await pool.query(`SELECT w.id,w.user_id,u.user_code,u.phone,u.name,w.method,w.account_number,w.amount,w.balance_type,w.status,w.note,w.created_at,w.reviewed_at FROM withdrawals w JOIN users u ON u.id=w.user_id${where} ORDER BY w.created_at DESC LIMIT $${params.length}`,params);
+  const r=await pool.query(`SELECT w.id,w.user_id,u.user_code,u.phone,u.name,w.method,w.account_number,w.account_name,w.amount,w.balance_type,w.status,w.note,w.created_at,w.reviewed_at FROM withdrawals w JOIN users u ON u.id=w.user_id${where} ORDER BY w.created_at DESC LIMIT $${params.length}`,params);
   return r.rows;
 }
 
@@ -775,7 +778,7 @@ async function getUserAdminDetail(userId, limit=200){
   const [transactions,deposits,withdrawals,matches,notifications,support]=await Promise.all([
     listUserTransactions(userId,limit),
     hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,amount,transaction_id,screenshot,status,created_at,reviewed_at FROM deposits WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackDepositsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
-    hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,account_number,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackWithdrawalsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
+    hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,account_number,account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackWithdrawalsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
     listUserFeatureMatches(userId),
     listNotifications(userId,limit),
     supportList(userId)

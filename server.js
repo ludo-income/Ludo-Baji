@@ -76,35 +76,65 @@ function maskEmail(email){const [local,domain]=String(email).split('@');if(!doma
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
 
 async function sendOtpEmail(email,otp){
-  const host=process.env.SMTP_HOST,user=process.env.SMTP_USER,pass=process.env.SMTP_PASS,fromAddr=String(process.env.SMTP_FROM||user||'').trim();
+  const fromAddr=String(process.env.SMTP_FROM||process.env.SMTP_USER||process.env.BREVO_SENDER||'').trim();
+  const subject='Ludo Baji OTP: '+otp;
+  const textBody='Your Ludo Baji OTP is '+otp+'. It expires in 5 minutes. Do not share this OTP with anyone.';
+  const htmlBody='<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:20px;background:#0b1f17;color:#fff;border-radius:12px"><h2 style="margin:0 0 12px;color:#10c878">Ludo Baji</h2><p style="margin:0 0 8px;color:#cde">Your login OTP:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;background:#123;padding:14px 18px;border-radius:10px;text-align:center;color:#fff">'+otp+'</div><p style="margin:14px 0 0;font-size:13px;color:#9ab">Expires in 5 minutes. Do not share with anyone.</p></div>';
+
+  // 1) Brevo HTTP API (Render-এ সবচেয়ে নির্ভরযোগ্য — HTTPS, SMTP ব্লক হয় না)
+  const brevoKey=String(process.env.BREVO_API_KEY||'').trim();
+  if(brevoKey){
+    const sender=fromAddr||String(process.env.BREVO_SENDER||'').trim();
+    if(!sender) throw new Error('BREVO_SENDER বা SMTP_FROM সেট করুন (verified sender email)');
+    const r=await fetch('https://api.brevo.com/v3/smtp/emails',{
+      method:'POST',
+      headers:{'api-key':brevoKey,'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({sender:{name:'Ludo Baji',email:sender},to:[{email}],subject,htmlContent:htmlBody,textContent:textBody})
+    });
+    if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Brevo email failed: '+(t||r.status));}
+    return {sent:true,provider:'brevo'};
+  }
+
+  // 2) Resend HTTP API
+  const resendKey=String(process.env.RESEND_API_KEY||'').trim();
+  if(resendKey){
+    const sender=fromAddr||'beth.t@example.com';
+    const r=await fetch('https://api.resend.com/emails',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+resendKey,'Content-Type':'application/json'},
+      body:JSON.stringify({from:sender.includes('<')?sender:'Ludo Baji <'+sender+'>',to:[email],subject,html:htmlBody,text:textBody})
+    });
+    if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Resend email failed: '+(t||r.status));}
+    return {sent:true,provider:'resend'};
+  }
+
+  // 3) Gmail / SMTP (fallback — Render-এ অনেক সময় timeout হয়)
+  const host=process.env.SMTP_HOST,user=process.env.SMTP_USER,pass=process.env.SMTP_PASS;
   if(user&&pass){
     let nodemailer;try{nodemailer=require('nodemailer')}catch{throw new Error('Email provider dependency is missing. Run npm install.')}
     const from=fromAddr.includes('<')?fromAddr:('"Ludo Baji" <'+(fromAddr||user)+'>');
-    const mail={
-      from,to:email,
-      subject:'Ludo Baji OTP: '+otp,
-      text:'Your Ludo Baji OTP is '+otp+'. It expires in 5 minutes. Do not share this OTP with anyone.',
-      html:'<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:20px;background:#0b1f17;color:#fff;border-radius:12px"><h2 style="margin:0 0 12px;color:#10c878">Ludo Baji</h2><p style="margin:0 0 8px;color:#cde">Your login OTP:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;background:#123;padding:14px 18px;border-radius:10px;text-align:center;color:#fff">'+otp+'</div><p style="margin:14px 0 0;font-size:13px;color:#9ab">Expires in 5 minutes. Do not share with anyone.</p></div>'
-    };
-    const configs=[];
-    // 1) Gmail service mode (most reliable with App Password)
-    configs.push({service:'gmail',auth:{user,pass}});
-    // 2) Explicit 587 STARTTLS
-    if(host){configs.push({host:host||'smtp.gmail.com',port:587,secure:false,requireTLS:true,auth:{user,pass},tls:{minVersion:'TLSv1.2'}});}
-    // 3) Explicit 465 SSL
-    if(host){configs.push({host:host||'smtp.gmail.com',port:465,secure:true,auth:{user,pass},tls:{minVersion:'TLSv1.2'}});}
+    const mail={from,to:email,subject,text:textBody,html:htmlBody};
+    const configs=[{service:'gmail',auth:{user,pass}}];
+    if(host){
+      configs.push({host,port:587,secure:false,requireTLS:true,auth:{user,pass}});
+      configs.push({host,port:465,secure:true,auth:{user,pass}});
+    }
     let lastErr=null;
     for(const cfg of configs){
       try{
-        const transporter=nodemailer.createTransport({...cfg,connectionTimeout:20000,greetingTimeout:20000,socketTimeout:25000});
+        const transporter=nodemailer.createTransport({...cfg,connectionTimeout:12000,greetingTimeout:12000,socketTimeout:15000});
         await transporter.sendMail(mail);
         return {sent:true,provider:'smtp'};
-      }catch(e){lastErr=e;console.error('SMTP attempt failed:',e.message);}
+      }catch(e){lastErr=e;console.error('SMTP failed:',e.message);}
     }
-    throw new Error((lastErr&&lastErr.message)||'SMTP failed');
+    throw new Error((lastErr&&lastErr.message)||'SMTP failed. BREVO_API_KEY সেট করুন (বিনামূল্যে, নির্ভরযোগ্য)।');
   }
-  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){console.log('[OTP DEV] '+email+': '+otp);return {sent:false,dev:true,otp};}
-  throw new Error('Email provider is not configured. Set SMTP_USER, SMTP_PASS, SMTP_FROM (Gmail App Password).');
+
+  if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
+    console.log('[OTP DEV] '+email+': '+otp);
+    return {sent:false,dev:true,otp};
+  }
+  throw new Error('Email সেট নেই। BREVO_API_KEY + BREVO_SENDER সেট করুন, অথবা OTP_DEV_MODE=true দিন।');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
 const MAIN_PAGE_DEFAULTS=[
@@ -222,9 +252,14 @@ const server=http.createServer(async(req,res)=>{try{
    const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
    try{
      await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);
-     // দ্রুত রেসপন্স — ইমেইল ব্যাকগ্রাউন্ডে যাবে (Render timeout এড়াতে)
+     const hasHttpMail=!!(String(process.env.BREVO_API_KEY||'').trim()||String(process.env.RESEND_API_KEY||'').trim());
+     if(hasHttpMail || String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
+       const result=await sendOtpEmail(email,otp);
+       return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}:{})});
+     }
+     // SMTP only: respond fast, send in background (Render SMTP often slow/timeout)
      send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000)});
-     setImmediate(()=>{sendOtpEmail(email,otp).then(r=>{if(r&&r.dev)console.log('[OTP DEV]',email,otp);else console.log('[OTP] sent to',email);}).catch(e=>console.error('[OTP] email failed for',email,e.message));});
+     setImmediate(()=>{sendOtpEmail(email,otp).then(()=>console.log('[OTP] sent to',email)).catch(e=>console.error('[OTP] failed',email,e.message));});
      return;
    }catch(e){return send(res,503,{ok:false,error:e.message||'OTP পাঠানো যায়নি'})}
  }
@@ -269,15 +304,68 @@ const server=http.createServer(async(req,res)=>{try{
    const x=await userAuth(req,res);if(!x)return;
    return send(res,200,{ok:true,withdrawals:await db.listUserWithdrawals(x.id)});
  }
+ function defaultWithdrawConfig(){
+   return {
+     notice:'প্রিয় User, আপনি সর্বনিম্ন ৳100 থেকে সর্বোচ্চ ৳10,000 টাকা Withdraw করতে পারবেন। ধন্যবাদ।',
+     min_amount:100,
+     max_amount:10000,
+     methods:[
+       {id:'bkash',name:'bKash',logo:'💗',enabled:true,order:1},
+       {id:'nagad',name:'Nagad',logo:'🟠',enabled:true,order:2},
+       {id:'rocket',name:'Rocket',logo:'🚀',enabled:true,order:3},
+       {id:'upay',name:'Upay',logo:'🟣',enabled:true,order:4}
+     ]
+   };
+ }
+ function getWithdrawConfig(d){
+   const base=defaultWithdrawConfig();
+   const cfg=(d&&d.withdrawConfig&&typeof d.withdrawConfig==='object')?d.withdrawConfig:{};
+   const methods=Array.isArray(cfg.methods)&&cfg.methods.length?cfg.methods:base.methods;
+   return {
+     notice:String(cfg.notice!=null?cfg.notice:base.notice),
+     min_amount:Math.max(1,Number(cfg.min_amount!=null?cfg.min_amount:base.min_amount)||100),
+     max_amount:Math.max(1,Number(cfg.max_amount!=null?cfg.max_amount:base.max_amount)||10000),
+     methods:methods.map((m,i)=>({
+       id:String(m.id||'').toLowerCase(),
+       name:String(m.name||m.id||'Method'),
+       logo:String(m.logo||''),
+       enabled:m.enabled!==false,
+       order:Number(m.order||i+1)
+     })).filter(m=>['bkash','nagad','rocket','upay'].includes(m.id))
+   };
+ }
+ if(req.method==='GET'&&p==='/api/withdraw/config'){
+   const d=await read();return send(res,200,{ok:true,config:getWithdrawConfig(d)});
+ }
+ if(req.method==='GET'&&p==='/api/admin/withdraw-config'){
+   const a=await auth(req,res);if(!a)return;const d=await read();return send(res,200,{ok:true,config:getWithdrawConfig(d)});
+ }
+ if(req.method==='PUT'&&p==='/api/admin/withdraw-config'){
+   const a=await auth(req,res);if(!a)return;const b=await body(req),d=await read();
+   const cur=getWithdrawConfig(d);
+   const next={
+     notice:String(b.notice!=null?b.notice:cur.notice).slice(0,500),
+     min_amount:Math.max(1,Number(b.min_amount!=null?b.min_amount:cur.min_amount)||100),
+     max_amount:Math.max(1,Number(b.max_amount!=null?b.max_amount:cur.max_amount)||10000),
+     methods:Array.isArray(b.methods)?b.methods:cur.methods
+   };
+   if(next.max_amount<next.min_amount)next.max_amount=next.min_amount;
+   d.withdrawConfig=getWithdrawConfig({withdrawConfig:next});
+   await write(d);await addAudit('withdraw_config_update','withdrawConfig',d.withdrawConfig);
+   return send(res,200,{ok:true,config:d.withdrawConfig,message:'Withdraw settings saved'});
+ }
  if(req.method==='POST'&&p==='/api/user/withdrawals'){
    const x=await userAuth(req,res);if(!x)return;
-   const b=await body(req),method=String(b.method||'').toLowerCase(),accountNumber=String(b.account_number||'').trim(),amount=Number(b.amount),balanceType=String(b.balance_type||'winning').toLowerCase();
-   const minWithdrawal=Math.max(1,Number(process.env.MIN_WITHDRAWAL||100)),maxWithdrawal=Math.max(minWithdrawal,Number(process.env.MAX_WITHDRAWAL||1000000));
-   if(!['bkash','nagad'].includes(method))return send(res,400,{ok:false,error:'bKash অথবা Nagad নির্বাচন করুন'});
+   const b=await body(req),method=String(b.method||'').toLowerCase(),accountNumber=String(b.account_number||'').trim(),accountName=String(b.account_name||'').trim(),amount=Number(b.amount),balanceType=String(b.balance_type||'winning').toLowerCase();
+   const dcfg=await read();const cfg=getWithdrawConfig(dcfg);
+   const minWithdrawal=cfg.min_amount,maxWithdrawal=cfg.max_amount;
+   const enabledIds=cfg.methods.filter(m=>m.enabled).map(m=>m.id);
+   if(!enabledIds.includes(method))return send(res,400,{ok:false,error:'এই Withdraw method এখন বন্ধ আছে'});
    if(!['gaming','winning'].includes(balanceType))return send(res,400,{ok:false,error:'সঠিক Balance নির্বাচন করুন'});
-   if(!/^01\d{9}$/.test(accountNumber)&&!/^(?:\+880|880)1\d{9}$/.test(accountNumber))return send(res,400,{ok:false,error:'সঠিক bKash/Nagad account number দিন'});
+   if(!accountName||accountName.length<2)return send(res,400,{ok:false,error:'Account Holder Name দিন'});
+   if(!/^01\d{9}$/.test(accountNumber)&&!/^(?:\+880|880)1\d{9}$/.test(accountNumber))return send(res,400,{ok:false,error:'সঠিক Mobile Number দিন (01XXXXXXXXX)'});
    if(!Number.isFinite(amount)||amount<minWithdrawal||amount>maxWithdrawal)return send(res,400,{ok:false,error:`Withdrawal amount ৳${minWithdrawal} থেকে ৳${maxWithdrawal} এর মধ্যে হতে হবে`});
-   try{const d=await db.createWithdrawal(x.id,method,accountNumber,amount,balanceType);return send(res,201,{ok:true,message:'Withdrawal request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',withdrawal:{id:d.id,method:d.method,account_number:d.account_number,amount:Number(d.amount),balance_type:d.balance_type,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Withdrawal failed'})}
+   try{const d=await db.createWithdrawal(x.id,method,accountNumber,amount,balanceType,accountName);return send(res,201,{ok:true,message:'Withdrawal request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',withdrawal:{id:d.id,method:d.method,account_number:d.account_number,account_name:d.account_name||accountName,amount:Number(d.amount),balance_type:d.balance_type,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Withdrawal failed'})}
  }
  
  // ===== Steps 3-35 APIs =====
@@ -388,7 +476,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='PUT'&&p==='/api/admin/support-widget'){const b=await body(req);const d=await read();d.supportWidget={enabled:b.enabled!==false,title:String(b.title||'Live Support 🔴').trim(),image:String(b.image||d.supportWidget?.image||'support-bot.png').trim(),whatsapp:String(b.whatsapp||'').replace(/[^0-9]/g,''),message:String(b.message||'Hello').trim()};await write(d);return send(res,200,{ok:true,supportWidget:d.supportWidget})}
 if(req.method==='GET'&&p==='/api/admin/help-links'){const d=await read();const links=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];return send(res,200,{ok:true,helpLinks:links})}
  if(req.method==='PUT'&&p==='/api/admin/help-links'){const b=await body(req);const d=await read();if(!Array.isArray(b.helpLinks))return send(res,400,{ok:false,error:'helpLinks array required'});d.helpLinks=b.helpLinks.map((x,i)=>({id:String(x.id||'').trim(),name:String(x.name||x.id||'Link').trim(),visible:x.visible!==false,order:Number(x.order)||(i+1)})).filter(x=>x.id);await write(d);return send(res,200,{ok:true,helpLinks:d.helpLinks})}
-if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};nd.supportWidget=d.supportWidget||{enabled:true,image:'support-bot.png',whatsapp:'',message:'Hello'};nd.helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];nd.matches=Array.isArray(d.matches)?d.matches.filter(m=>String(m.status||'').toLowerCase()!=='cancelled').map(m=>({id:m.id,match_code:m.match_code,title:m.title,entry_fee:m.entry_fee,winning_amount:m.winning_amount,max_players:2,status:m.status,scheduled_at:m.scheduled_at,rules:m.rules,players:Array.isArray(m.players)?m.players.map(p=>({slot:p.slot,status:p.status})): [],created_at:m.created_at,room_id:'',room_password:''})):[];delete nd.pushConfig;delete nd.pushSubscriptions;return send(res,200,nd)}
+if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};nd.withdrawConfig=getWithdrawConfig(d);nd.supportWidget=d.supportWidget||{enabled:true,image:'support-bot.png',whatsapp:'',message:'Hello'};nd.helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];nd.matches=Array.isArray(d.matches)?d.matches.filter(m=>String(m.status||'').toLowerCase()!=='cancelled').map(m=>({id:m.id,match_code:m.match_code,title:m.title,entry_fee:m.entry_fee,winning_amount:m.winning_amount,max_players:2,status:m.status,scheduled_at:m.scheduled_at,rules:m.rules,players:Array.isArray(m.players)?m.players.map(p=>({slot:p.slot,status:p.status})): [],created_at:m.created_at,room_id:'',room_password:''})):[];delete nd.pushConfig;delete nd.pushSubscriptions;return send(res,200,nd)}
  if(p.startsWith('/api/admin')){const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data'){normalizeMainOptions(d);d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];d.paymentMethods.forEach(m=>{m.provider=m.provider||(/nagad/i.test(String(m.id)+' '+String(m.name))?'Nagad':'bKash');m.account_type=m.account_type||(/merchant/i.test(String(m.name))?'Merchant':/agent/i.test(String(m.name))?'Agent':/debit/i.test(String(m.name))?'Debit':'Personal');m.enabled=m.enabled!==false;m.order=Number(m.order||0)});return send(res,200,{ok:true,data:d});}
   if(req.method==='GET'&&p==='/api/admin/transactions'){
