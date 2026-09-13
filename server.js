@@ -168,14 +168,15 @@ async function sendOtpEmail(email,otp){
         return {sent:true,provider:'smtp'};
       }catch(e){lastErr=e;console.error('SMTP failed:',e.message);}
     }
-    throw new Error((lastErr&&lastErr.message)||'SMTP failed. BREVO_API_KEY সেট করুন (বিনামূল্যে, নির্ভরযোগ্য)।');
+    const msg=(lastErr&&lastErr.message)||'SMTP failed';
+    throw new Error('Gmail/SMTP ইমেইল পাঠানো যায়নি: '+msg+'. Gmail App Password চেক করুন, অথবা BREVO_API_KEY সেট করুন।');
   }
 
   if(String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
     console.log('[OTP DEV] '+email+': '+otp);
     return {sent:false,dev:true,otp};
   }
-  throw new Error('Email সেট নেই। BREVO_API_KEY + BREVO_SENDER সেট করুন, অথবা OTP_DEV_MODE=true দিন।');
+  throw new Error('Email সেট নেই। SMTP_USER + SMTP_PASS (Gmail App Password) দিন, অথবা BREVO_API_KEY + BREVO_SENDER সেট করুন, অথবা টেস্টের জন্য OTP_DEV_MODE=true দিন।');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
 const MAIN_PAGE_DEFAULTS=[
@@ -301,14 +302,9 @@ const server=http.createServer(async(req,res)=>{try{
      }
      const otp=makeOtp(),expires=new Date(now+OTP_TTL_MS).toISOString(),sent=new Date(now).toISOString();
      await db.setUserOtpByEmail(email,otpHash(email,otp),expires,sent);
-     const hasHttpMail=!!(String(process.env.BREVO_API_KEY||'').trim()||String(process.env.RESEND_API_KEY||'').trim());
-     if(hasHttpMail || String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
-       const result=await sendOtpEmail(email,otp);
-       return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),...(result.dev?{dev_otp:otp}:{})});
-     }
-     send(res,200,{ok:true,message:'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000)});
-     setImmediate(()=>{sendOtpEmail(email,otp).then(()=>console.log('[OTP] sent to',email)).catch(e=>console.error('[OTP] failed',email,e.message));});
-     return;
+     // Always await email send so SMTP/Gmail failures are returned to the user (no silent false success)
+     const result=await sendOtpEmail(email,otp);
+     return send(res,200,{ok:true,message:result.dev?'Test OTP generated':'OTP sent successfully',email:maskEmail(email),expires_in:Math.floor(OTP_TTL_MS/1000),provider:result.provider||(result.dev?'dev':'smtp'),...(result.dev?{dev_otp:otp}:{})});
    }catch(e){return send(res,503,{ok:false,error:e.message||'OTP পাঠানো যায়নি'})}
  }
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
