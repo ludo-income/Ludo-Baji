@@ -1,6 +1,6 @@
 /* Ludo Baji Service Worker - PWA Install + Push */
-const CACHE_NAME = 'ludo-baji-v5';
-const PRECACHE = ['/', '/index.html', '/admin', '/admin.html', '/manifest.webmanifest', '/admin-manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/7543.jpg', '/logo-ludo-baji.jpg'];
+const CACHE_NAME = 'ludo-baji-v6-maint';
+const PRECACHE = ['/', '/index.html', '/admin', '/admin.html', '/manifest.webmanifest', '/admin-manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/7543.jpg', '/logo-ludo-baji.jpg', '/maintenance-banner.jpg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -21,10 +21,27 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Always network-first for API
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(req).catch(() => caches.match(req)));
     return;
   }
+
+  // Network-first for HTML pages so Maintenance UI updates immediately
+  const isHTML = url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname === '/admin' || url.pathname === '/admin/';
+  if (isHTML) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then((c) => c || caches.match('/')))
+    );
+    return;
+  }
+
+  // Other static assets: cache-first
   event.respondWith(
     caches.match(req).then((cached) => cached || fetch(req).then((res) => {
       const copy = res.clone();
