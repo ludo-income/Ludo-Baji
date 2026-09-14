@@ -22,7 +22,7 @@
     hero.id='lbHero';
     hero.innerHTML=
       '<div class="heroBox">'+
-        '<div class="heroArt">🎲</div>'+
+        '<img class="heroLogo" src="logo-user.png" alt="Ludo Baji" onerror="this.onerror=null;this.src=\'logo-ludo-baji.jpg\'">'+
         '<h1 class="heroTitle" id="lbHeroTitle">Ludo Baji</h1>'+
         '<div class="heroSub">Ludo in under 10 minutes</div>'+
       '</div>'+
