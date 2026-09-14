@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+function cryptoRandom(n){return crypto.randomBytes(Math.max(1,Number(n)||8)).toString('hex').slice(0,Math.max(1,Number(n)||8))}
 
 const DATA = path.join(__dirname, 'data.json');
 const USERS_DATA = path.join(__dirname, 'users.json');
@@ -34,6 +36,16 @@ function restoreFallbackFinancialFiles(snapshot){
 }
 
 function fallbackRead() {
+  // Never overwrite existing production data.json — only seed if missing
+  if (!fs.existsSync(DATA)) {
+    const def = path.join(__dirname, 'data.default.json');
+    if (fs.existsSync(def)) {
+      try { fs.copyFileSync(def, DATA); } catch (e) {}
+    }
+  }
+  if (!fs.existsSync(DATA)) {
+    return { site: { name: 'Ludo Baji', logo: 'logo-ludo-baji.jpg' }, mainOptions: [], paymentMethods: [], system: {} };
+  }
   return JSON.parse(fs.readFileSync(DATA, 'utf8'));
 }
 function fallbackWrite(data) {
