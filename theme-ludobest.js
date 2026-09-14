@@ -172,13 +172,30 @@
     if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth(); return; }
     document.querySelectorAll('#lbBottom button').forEach(function(b){ b.classList.remove('on'); });
     const np=$('navProfile'); if(np) np.classList.add('on');
+    // close any old modal so it never stacks behind
+    try{
+      const pm=document.getElementById('profileModal');
+      if(pm){ pm.classList.remove('show'); pm.style.display='none'; }
+    }catch(e){}
     if(typeof enterScreen==='function') enterScreen('profile');
     else { document.body.classList.add('screen-open'); $('view').classList.add('show'); }
     const v=$('view');
     v.innerHTML=
       '<div class="profilePage">'+
-        '<div class="pUser"><div class="pAv">👤</div><div style="flex:1"><b id="pfName">User</b><div class="smallText" id="pfPhone"></div><div class="smallText" id="pfEmail"></div><div class="smallText" id="pfUid"></div></div>'+
-        '<button class="btn" style="background:#1d4ed8;padding:8px 10px" onclick="document.getElementById(\'profileModal\').classList.add(\'show\')">✎ Edit</button></div>'+
+        '<div class="pUser">'+
+          '<div class="pAv">👤</div>'+
+          '<div style="flex:1"><b id="pfName">User</b><div class="smallText" id="pfPhone"></div><div class="smallText" id="pfEmail"></div><div class="smallText" id="pfUid"></div></div>'+
+          '<button type="button" class="btn" id="pfEditBtn" style="background:#1d4ed8;padding:8px 10px">✎ Edit</button>'+
+        '</div>'+
+        '<div id="pfEditBox" style="display:none;background:#102338;border:1px solid #1c3d5a;border-radius:14px;padding:12px;margin-bottom:12px">'+
+          '<label style="display:block;color:#9bb3c9;font-size:12px;margin-bottom:6px">নাম</label>'+
+          '<input id="pfEditName" maxlength="60" placeholder="আপনার নাম" style="width:100%;padding:10px;border-radius:10px;border:1px solid #1c3d5a;background:#0b1726;color:#fff;margin-bottom:10px">'+
+          '<div style="display:flex;gap:8px">'+
+            '<button type="button" class="btn" id="pfSaveBtn" style="flex:1;background:#16a34a">Save</button>'+
+            '<button type="button" class="btn" id="pfCancelBtn" style="flex:1;background:#374151">Cancel</button>'+
+          '</div>'+
+          '<div id="pfEditMsg" style="margin-top:8px;font-size:13px"></div>'+
+        '</div>'+
         '<div class="pBal"><button class="addBtn" onclick="openDeposit()">＋ ADD</button>'+
         '<div style="color:#9bb3c9;font-size:12px">AVAILABLE BALANCE</div><strong id="pfBal">BDT 0</strong>'+
         '<div style="color:#f5c400;margin-top:4px">🏆 Winning: <span id="pfWin">0</span></div>'+
@@ -189,9 +206,51 @@
         '<div class="menuRow" onclick="if(typeof showLeaderboard===\'function\')showLeaderboard()">🏆 Top Players <span>›</span></div>'+
         '<div class="menuRow" onclick="shareApp()">📤 Share App <span>›</span></div>'+
         '<div class="menuRow" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'terms\')">ℹ️ Terms & Conditions <span>›</span></div>'+
-        '<div class="menuRow danger" onclick="document.getElementById(\'logoutUser\').click()">Logout <span>›</span></div>'+
+        '<div class="menuRow danger" id="pfLogoutBtn">Logout <span>›</span></div>'+
         '<div style="text-align:center;color:#7f97ad;margin-top:16px;font-size:12px">Version 1.0.6</div>'+
       '</div>';
+
+    // Edit toggle (inline — no old modal)
+    const editBtn=$('pfEditBtn'), editBox=$('pfEditBox'), editName=$('pfEditName');
+    if(editBtn) editBtn.onclick=function(){
+      if(!editBox) return;
+      const open=editBox.style.display!=='none';
+      editBox.style.display=open?'none':'block';
+      if(!open && editName) editName.value=($('pfName')&&$('pfName').textContent)||'';
+      const msg=$('pfEditMsg'); if(msg) msg.textContent='';
+    };
+    const cancelBtn=$('pfCancelBtn');
+    if(cancelBtn) cancelBtn.onclick=function(){ if(editBox) editBox.style.display='none'; };
+    const saveBtn=$('pfSaveBtn');
+    if(saveBtn) saveBtn.onclick=async function(){
+      const msg=$('pfEditMsg');
+      try{
+        const name=(editName&&editName.value||'').trim();
+        if(!name){ if(msg){ msg.style.color='#f87171'; msg.textContent='নাম লিখুন'; } return; }
+        const j=await api('/api/auth/profile',{method:'PUT',body:JSON.stringify({name:name})});
+        currentUser=j.user;
+        if($('pfName')) $('pfName').textContent=j.user.name||name;
+        if(msg){ msg.style.color='#4ade80'; msg.textContent='Profile saved'; }
+        setTimeout(function(){ if(editBox) editBox.style.display='none'; }, 700);
+      }catch(e){
+        if(msg){ msg.style.color='#f87171'; msg.textContent=e.message||'Save failed'; }
+      }
+    };
+    const logoutBtn=$('pfLogoutBtn');
+    if(logoutBtn) logoutBtn.onclick=function(){
+      try{ localStorage.removeItem('ludo_user_token'); }catch(e){}
+      currentUser=null;
+      try{ document.body.classList.add('logged-out'); }catch(e){}
+      try{ if(typeof setPageState==='function') setPageState('home'); }catch(e){}
+      try{ if(typeof renderQuick==='function') renderQuick(); }catch(e){}
+      try{
+        const pm=document.getElementById('profileModal');
+        if(pm){ pm.classList.remove('show'); pm.style.display='none'; }
+      }catch(e){}
+      goHomeTab();
+      if(typeof openAuth==='function') openAuth();
+    };
+
     try{
       const j=await api('/api/auth/me');
       currentUser=j.user;
@@ -199,7 +258,7 @@
       if($('pfEmail')) $('pfEmail').textContent=j.user.email||'';
       if($('pfPhone')) $('pfPhone').textContent=j.user.phone||'';
       if($('pfUid')) $('pfUid').textContent='UID: '+(j.user.user_code||j.user.id||'');
-      if($('profileName')) $('profileName').value=j.user.name||'';
+      if(editName) editName.value=j.user.name||'';
     }catch(e){}
     try{
       const d=await api('/api/user/dashboard');
@@ -254,8 +313,136 @@
 
   window.loadProfile=function(){ return openProfileSkin(); };
 
+  /* ---- Screen stack + mobile back ---- */
+  window._lbStack = window._lbStack || [];
+  function lbPush(name){
+    try{
+      window._lbStack.push(name||'screen');
+      history.pushState({lb:1, n:name}, '', location.pathname + location.search + '#' + encodeURIComponent(name||'screen'));
+    }catch(e){}
+  }
+  function lbOpenScreen(){
+    document.body.classList.add('screen-open');
+    const v=$('view'); if(v){ v.classList.add('show'); }
+  }
+  // wrap enterScreen if exists
+  const _oldEnter = window.enterScreen;
+  window.enterScreen = function(name){
+    lbOpenScreen();
+    lbPush(name||'screen');
+    if(typeof _oldEnter==='function') return _oldEnter(name);
+  };
+  // improve goHomeTab to clear stack
+  const _oldGoHome = window.goHomeTab;
+  window.goHomeTab = function(){
+    window._lbStack = [];
+    try{ history.replaceState(null,'', location.pathname + location.search); }catch(e){}
+    document.body.classList.remove('screen-open');
+    const v=$('view'); if(v){ v.classList.remove('show'); v.innerHTML=''; }
+    if(typeof _oldGoHome==='function') _oldGoHome();
+    else {
+      try{ if(typeof setPageState==='function') setPageState('home', true); }catch(e){}
+      document.querySelectorAll('#lbBottom button').forEach(function(b){ b.classList.remove('on'); });
+      const h=$('navHome'); if(h) h.classList.add('on');
+      try{ setHomeSeg('games'); }catch(e){}
+      window.scrollTo(0,0);
+    }
+  };
+
+  window.addEventListener('popstate', function(){
+    // step back one screen
+    if(document.body.classList.contains('screen-open')){
+      // if stack has more than one, just close current to previous home-like
+      window._lbStack.pop();
+      if(window._lbStack.length > 0){
+        // still in a nested screen conceptually → go home for simplicity
+        goHomeTab();
+      } else {
+        goHomeTab();
+      }
+      return;
+    }
+    // if auth open, close auth
+    const am=$('authModal');
+    if(am && (am.classList.contains('show') || am.style.display==='flex' || am.style.display==='block')){
+      try{ am.classList.remove('show'); am.style.display='none'; }catch(e){}
+      document.body.classList.remove('auth-open');
+    }
+  });
+
+  /* Auth open → hide bottom nav */
+  function syncAuthClass(){
+    const am=$('authModal');
+    const open = !!(am && (am.classList.contains('show') || getComputedStyle(am).display!=='none' && am.style.display!=='none' && am.classList.contains('show')));
+    // more reliable check
+    let isAuth=false;
+    try{
+      if(am){
+        const s=getComputedStyle(am);
+        isAuth = am.classList.contains('show') || (s.display!=='none' && s.visibility!=='hidden' && parseFloat(s.opacity||'1')>0.1 && am.querySelector('.card, .modal-card, form, input'));
+      }
+    }catch(e){}
+    document.body.classList.toggle('auth-open', isAuth || (am && am.classList.contains('show')));
+  }
+  // MutationObserver on auth modal
+  function watchAuth(){
+    const am=$('authModal');
+    if(!am) return;
+    const mo=new MutationObserver(function(){ syncAuthClass(); });
+    mo.observe(am, {attributes:true, attributeFilter:['class','style']});
+    // also intercept openAuth/close
+    const _oa=window.openAuth;
+    if(typeof _oa==='function'){
+      window.openAuth=function(){
+        document.body.classList.add('auth-open');
+        const r=_oa.apply(this, arguments);
+        setTimeout(syncAuthClass, 50);
+        return r;
+      };
+    }
+    const closeBtn=$('closeAuth');
+    if(closeBtn){
+      closeBtn.addEventListener('click', function(){
+        document.body.classList.remove('auth-open');
+      });
+    }
+  }
+
+  // Push history when opening common screens
+  const wrapPush = function(fnName){
+    const old=window[fnName];
+    if(typeof old!=='function') return;
+    window[fnName]=function(){
+      lbOpenScreen();
+      lbPush(fnName);
+      return old.apply(this, arguments);
+    };
+  };
+  // delay wrap until functions exist
+  setTimeout(function(){
+    ['showMatches','showMyMatches','showNotifications','showReferral','showLeaderboard','openDeposit','openWithdraw','openStatement'].forEach(wrapPush);
+    // wallet/profile already call enterScreen-ish
+    const _ow=window.openWalletSkin;
+    if(typeof _ow==='function'){
+      window.openWalletSkin=function(){ lbOpenScreen(); lbPush('wallet'); return _ow.apply(this,arguments); };
+    }
+    const _op=window.openProfileSkin;
+    if(typeof _op==='function'){
+      window.openProfileSkin=function(){ lbOpenScreen(); lbPush('profile'); return _op.apply(this,arguments); };
+    }
+    watchAuth();
+    syncAuthClass();
+  }, 400);
+
+  // periodic sync for auth class (cheap)
+  setInterval(function(){
+    const am=$('authModal');
+    if(am && am.classList.contains('show')) document.body.classList.add('auth-open');
+    else if(am && !am.classList.contains('show')) document.body.classList.remove('auth-open');
+  }, 500);
+
   injectHome();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', injectHome);
-  // Re-bind after late scripts
-  setTimeout(function(){ injectHome(); bindHomeClicks(); }, 300);
+  setTimeout(function(){ injectHome(); bindHomeClicks(); watchAuth(); }, 300);
 })();
+
