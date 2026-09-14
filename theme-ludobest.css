@@ -1,0 +1,71 @@
+/* Ludo Best–style user skin. Admin files untouched. */
+body.lb-skin{background:#07111d!important;color:#eaf4ff!important}
+body.lb-skin .app{max-width:430px!important;margin:0 auto!important;min-height:100vh!important;background:linear-gradient(#0b1a2e,#07111d 40%,#06101a)!important;padding-bottom:88px!important}
+body.lb-skin header .brandWrap .name{display:none!important}
+body.lb-skin header{padding:10px 14px 0!important}
+body.lb-skin .head{align-items:center}
+body.lb-skin #mainLogo,.lb-skin .logo{width:42px!important;height:42px!important;border-radius:10px!important}
+body.lb-skin .headSpacer{display:none!important}
+body.lb-skin header #profileBtn{display:none!important}
+body.lb-skin header .head{justify-content:space-between}
+body.lb-skin .lb-top-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+body.lb-skin .lb-ico-btn{width:38px;height:38px;border-radius:50%;border:1px solid #1c3d5a;background:#0d2238;color:#fff;display:grid;place-items:center;cursor:pointer;position:relative}
+body.lb-skin .lb-wallet-chip{display:flex;align-items:center;gap:6px;border-radius:999px;border:1px solid #1c3d5a;background:#0d2238;padding:6px 10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer}
+body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;display:grid;place-items:center;font-weight:800}
+body.lb-skin .wallet,.lb-skin .promoStrip,.lb-skin .quickHead,.lb-skin .footerHelp{display:none!important}
+body.lb-skin .heroBox{text-align:center;padding:8px 16px 4px}
+body.lb-skin .heroArt{font-size:72px;line-height:1;filter:drop-shadow(0 10px 24px #0008);margin:6px 0 8px}
+body.lb-skin .heroTitle{font-size:28px;font-weight:800;margin:0}
+body.lb-skin .heroSub{color:#9bb3c9;margin:6px 0 14px;font-size:14px}
+body.lb-skin .playNow{width:calc(100% - 32px);margin:0 16px 16px;border:0;border-radius:999px;background:#f5c400;color:#1a1400;font-weight:900;font-size:18px;padding:14px;cursor:pointer;box-shadow:0 8px 22px #f5c40055}
+body.lb-skin .seg{margin:0 16px 14px;background:#122033;border-radius:999px;padding:4px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
+body.lb-skin .seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:10px;font-weight:800;cursor:pointer}
+body.lb-skin .seg button.on{background:#14b8c4;color:#042226}
+body.lb-skin .quick{padding:0 16px 12px!important}
+body.lb-skin .quickGrid{display:block!important;grid-template-columns:none!important}
+body.lb-skin .quickBtn{width:100%!important;min-height:auto!important;margin-bottom:10px;border-radius:16px!important;border:1px solid #1c3d5a!important;background:linear-gradient(90deg,#12324e,#0c2238)!important;color:#fff!important;display:flex!important;align-items:center!important;padding:12px!important}
+body.lb-skin .gameCard{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#16324a,#0d1e30);border:1px solid #234864;border-radius:16px;padding:10px;margin:0 16px 12px;cursor:pointer;position:relative}
+body.lb-skin .gameCard img,.lb-skin .gameCard .gcArt{width:86px;height:56px;border-radius:10px;object-fit:cover;background:#102338;display:grid;place-items:center;font-size:28px}
+body.lb-skin .gameCard b{display:block;font-size:16px}
+body.lb-skin .gameCard small{color:#9bb3c9}
+body.lb-skin .gcCount{position:absolute;right:10px;top:8px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:11px;font-weight:800;padding:2px 7px}
+body.lb-skin .tgCard{margin:0 16px 12px;background:#0e2a46;border:1px solid #1d4e78;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+body.lb-skin .tgCard b{display:block}
+body.lb-skin .tgCard small{color:#9bb3c9}
+body.lb-skin .tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:8px 12px;cursor:pointer}
+body.lb-skin .safeBox{margin:8px 16px 20px;text-align:center;color:#9bb3c9}
+body.lb-skin .safeBox .tick{width:46px;height:46px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 8px;font-size:22px}
+body.lb-skin .bottomNav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:430px;background:#0b1726;border-top:1px solid #1c3d5a;display:grid;grid-template-columns:1fr 1fr 1fr;z-index:3600;padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+body.lb-skin .bottomNav button{border:0;background:transparent;color:#7f97ad;font-weight:800;padding:8px 4px;cursor:pointer}
+body.lb-skin .bottomNav button.on{color:#fff}
+body.lb-skin .bottomNav button.on span.ico{background:#1a334c;border-radius:14px;padding:6px 16px;display:inline-block}
+body.lb-skin #supportFloat{right:12px;bottom:86px!important;width:72px!important}
+body.lb-skin #supportFloat img{width:64px!important;height:64px!important}
+body.lb-skin #supportFloat .sfLabel{font-size:10px!important;background:#14b8c4!important}
+body.lb-skin body.screen-open .bottomNav,body.lb-skin.screen-open .bottomNav{display:none}
+body.lb-skin #appSplash{background:#07111d}
+body.lb-skin .sp-tag{color:#9bb3c9}
+body.lb-skin .profilePage{padding:16px 16px 30px}
+body.lb-skin .pUser{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+body.lb-skin .pAv{width:56px;height:56px;border-radius:50%;background:#16324a;display:grid;place-items:center;font-size:28px}
+body.lb-skin .pBal{background:linear-gradient(180deg,#12324a,#0c2236);border:1px solid #234864;border-radius:16px;padding:14px;margin-bottom:12px}
+body.lb-skin .pBal strong{font-size:28px}
+body.lb-skin .addBtn{float:right;border:0;background:#22c55e;color:#04210d;font-weight:800;border-radius:12px;padding:8px 12px;cursor:pointer}
+body.lb-skin .stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;text-align:center}
+body.lb-skin .stats3 div{background:#0b1c2c;border-radius:12px;padding:10px}
+body.lb-skin .menuRow{display:flex;align-items:center;justify-content:space-between;background:#0d1d2e;border:1px solid #1c3d5a;border-radius:14px;padding:13px 14px;margin-top:8px;cursor:pointer;color:#fff}
+body.lb-skin .menuRow.danger{color:#f87171;border-color:#5b2430}
+body.lb-skin .walletHead{background:#fff;color:#111;border-radius:0 0 18px 18px;padding:18px 16px 16px;text-align:center}
+body.lb-skin .wActs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+body.lb-skin .wActs button{border:0;border-radius:10px;padding:11px 6px;font-weight:800;color:#fff;cursor:pointer}
+body.lb-skin .wDep{background:#16a34a}body.lb-skin .wWd{background:#dc2626}body.lb-skin .wGift{background:#2563eb}
+body.lb-skin .helpRow{display:flex;justify-content:space-between;align-items:center;margin:10px 0;color:#cfe0ef;font-size:13px}
+body.lb-skin .helpRow button{border:0;background:#dc2626;color:#fff;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
+body.screen-open.lb-skin .viewer,body.lb-skin.screen-open .viewer{background:#0b1726!important;color:#eaf4ff!important}
+body.lb-skin.screen-open .screenTop{background:#0b1726;border-bottom:1px solid #1c3d5a;color:#fff}
+body.lb-skin.screen-open .screenBack{background:#122033;color:#fff;border-color:#1c3d5a}
+body.lb-skin.screen-open .screenTitle{color:#fff}
+body.lb-skin.screen-open .screenBody{color:#eaf4ff}
+body.lb-skin.screen-open .screenCard{background:#102338;border-color:#1c3d5a;color:#fff}
+body.lb-skin .lm-head{background:#0b1726;padding:8px 8px 4px}
+body.lb-skin .ludo-match-list{padding:0 10px 20px}
