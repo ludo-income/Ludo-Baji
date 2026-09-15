@@ -1,6 +1,16 @@
 /* User-app skin: exact Ludo Best home. Old grid only in Others tab. */
 (function(){
   document.body.classList.add('lb-skin');
+  window._lbReady=true;
+  // Force SW update so JS/CSS fixes apply
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){ try{ r.update(); }catch(e){} });
+      });
+    }
+  }catch(e){}
+
   const $ = (id)=>document.getElementById(id);
 
   function injectHome(){
@@ -345,7 +355,7 @@
     if(logoutBtn) logoutBtn.onclick=function(){
       try{ localStorage.removeItem('ludo_user_token'); }catch(e){}
       currentUser=null;
-      try{ document.body.classList.add('logged-out'); }catch(e){}
+      try{ if(typeof setSessionUI==='function') setSessionUI(false); else document.body.classList.add('logged-out'); }catch(e){}
       try{ if(typeof setPageState==='function') setPageState('home'); }catch(e){}
       try{ if(typeof renderQuick==='function') renderQuick(); }catch(e){}
       try{
@@ -650,8 +660,10 @@
     else if(am && !am.classList.contains('show')) document.body.classList.remove('auth-open');
   }, 500);
 
-  injectHome();
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', injectHome);
-  setTimeout(function(){ injectHome(); bindHomeClicks(); watchAuth(); }, 300);
+  // Apply skin immediately so base UI never flashes on refresh
+  try{ injectHome(); }catch(e){}
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ try{injectHome();}catch(e){} });
+  setTimeout(function(){ try{injectHome(); bindHomeClicks(); watchAuth();}catch(e){} }, 100);
+  setTimeout(function(){ try{injectHome();}catch(e){} }, 400);
 })();
 
