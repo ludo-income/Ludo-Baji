@@ -131,12 +131,47 @@
     } else alert('Telegram লিংক এখনো সেট করা হয়নি');
   };
 
+  
+  function lbWalletIcon(logo, fallback){
+    const s=String(logo||'');
+    if(!s) return fallback;
+    if(s.startsWith('http')||s.startsWith('data:')||/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(s)){
+      return '<img src="'+String(s).replace(/"/g,'&quot;')+'" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:6px">';
+    }
+    return s;
+  }
+  function lbActionIcon(logo, fallbackHtml, extraClass){
+    const s=String(logo||'');
+    if(s && (s.startsWith('http')||s.startsWith('data:')||/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(s))){
+      return '<div class="ftAIco '+(extraClass||'')+'" style="padding:0;overflow:hidden;display:grid;place-items:center"><img src="'+String(s).replace(/"/g,'&quot;')+'" alt="" style="width:100%;height:100%;object-fit:cover"></div>';
+    }
+    if(s) return '<div class="ftAIco '+(extraClass||'')+'">'+s+'</div>';
+    return '<div class="ftAIco '+(extraClass||'')+'">'+fallbackHtml+'</div>';
+  }
+
   window.openWalletSkin=async function(){
     if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth(); return; }
     document.body.classList.add('screen-open');
     const v=$('view'); if(v) v.classList.add('show');
     if(!window._lbNavLock){ try{ lbPush('wallet'); }catch(e){} }
+    if(!window._walletUi){
+      try{
+        if(window._siteCache && window._siteCache.walletUi){ window._walletUi=window._siteCache.walletUi; }
+        else {
+          const r=await fetch('/api/wallet-ui');
+          const j=await r.json().catch(()=>({}));
+          if(j&&j.walletUi) window._walletUi=j.walletUi;
+        }
+      }catch(e){}
+    }
     const g=Number(window._gamingBal||0), w=Number(window._winningBal||0), tot=g+w;
+    const wu=window._walletUi||{};
+    const dIco=lbWalletIcon(wu.deposit_logo,'↓');
+    const wIco=lbWalletIcon(wu.withdraw_logo,'↑');
+    const sIco=lbWalletIcon(wu.statement_logo,'≡');
+    const dQ=lbActionIcon(wu.deposit_quick_logo||wu.deposit_logo,'＋','dep');
+    const wQ=lbActionIcon(wu.withdraw_quick_logo||wu.withdraw_logo,'↑','wd');
+    const sQ=lbActionIcon(wu.statement_quick_logo||wu.statement_logo,'☰','st');
     v.innerHTML=
       '<div class="ftPage">'+
         '<div class="ftTop"><button type="button" class="ftBack" onclick="lbBack()">‹</button><div class="ftTitle">Wallet</div><div style="width:40px"></div></div>'+
@@ -145,16 +180,16 @@
           '<div class="ftBalAmount">৳ '+tot.toFixed(0)+'</div>'+
           '<div class="ftBalSub">Gaming ৳'+g.toFixed(0)+'  ·  Winning ৳'+w.toFixed(0)+'</div>'+
           '<div class="ftQuick">'+
-            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">↓</span>Deposit</button>'+
-            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">↑</span>Withdraw</button>'+
-            '<button type="button" class="ftQBtn" onclick="openStatement()"><span class="ftQIco">≡</span>Statement</button>'+
+            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">'+dIco+'</span>Deposit</button>'+
+            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">'+wIco+'</span>Withdraw</button>'+
+            '<button type="button" class="ftQBtn" onclick="openStatement()"><span class="ftQIco">'+sIco+'</span>Statement</button>'+
           '</div>'+
         '</div>'+
         '<div class="ftSection">'+
           '<div class="ftSecTitle">Quick actions</div>'+
-          '<div class="ftActionRow" onclick="openDeposit()"><div class="ftAIco dep">＋</div><div class="ftATxt"><b>Deposit</b><small>bKash / Nagad</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow" onclick="openWithdraw()"><div class="ftAIco wd">↑</div><div class="ftATxt"><b>Withdraw</b><small>Winning balance</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow" onclick="openStatement()"><div class="ftAIco st">☰</div><div class="ftATxt"><b>All Statements</b><small>Transaction history</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openDeposit()">'+dQ+'<div class="ftATxt"><b>Deposit</b><small>bKash / Nagad</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openWithdraw()">'+wQ+'<div class="ftATxt"><b>Withdraw</b><small>Winning balance</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openStatement()">'+sQ+'<div class="ftATxt"><b>All Statements</b><small>Transaction history</small></div><span class="ftChevron">›</span></div>'+
         '</div>'+
         '<div class="ftSection">'+
           '<div class="ftSecTitle">Recent</div>'+
@@ -414,11 +449,21 @@
 
   // Step back one screen (for on-screen ‹ buttons)
   window.lbBack = function(){
+    // Prefer in-app stack; avoid leaving the PWA/app on hardware/UI back
     if(window._lbStack.length >= 1){
-      try{ history.back(); }catch(e){
+      window._lbNavLock = true;
+      try{
         window._lbStack.pop();
-        if(window._lbStack.length === 0) lbGoHome(true);
-        else lbRestore(window._lbStack[window._lbStack.length-1]);
+        if(window._lbStack.length === 0){
+          lbGoHome(true);
+          try{ history.replaceState({lb:1,n:'home',i:0},'',location.pathname+location.search); }catch(e){}
+        } else {
+          const prev = window._lbStack[window._lbStack.length-1];
+          lbRestore(prev);
+          try{ history.replaceState({lb:1,n:prev,i:window._lbStack.length},'',location.pathname+location.search+'#'+encodeURIComponent(prev)); }catch(e){}
+        }
+      } finally {
+        setTimeout(function(){ window._lbNavLock=false; }, 50);
       }
       return;
     }
@@ -431,16 +476,21 @@
   };
 
   window.addEventListener('popstate', function(ev){
+    if(window._lbNavLock) return;
     // Auth modal first
     const am=$('authModal');
     if(am && am.classList.contains('show')){
       try{ am.classList.remove('show'); am.style.display='none'; }catch(e){}
       document.body.classList.remove('auth-open');
+      // re-push so another back closes screen not app
+      try{ history.pushState({lb:1,n:'auth',i:window._lbStack.length},'',location.pathname+location.search); }catch(e){}
       return;
     }
 
     if(window._lbStack.length === 0){
       lbGoHome(true);
+      // trap: push home so continuous back stays in app
+      try{ history.pushState({lb:1,n:'home',i:0},'',location.pathname+location.search); }catch(e){}
       return;
     }
 
@@ -449,6 +499,7 @@
 
     if(window._lbStack.length === 0){
       lbGoHome(true);
+      try{ history.pushState({lb:1,n:'home',i:0},'',location.pathname+location.search); }catch(e){}
       return;
     }
 

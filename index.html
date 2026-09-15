@@ -249,6 +249,7 @@ async function load(){
     const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});
     if(!r.ok) throw new Error('Site configuration unavailable');
     const d=await r.json();
+    try{window._siteCache=d;if(d.walletUi)window._walletUi=d.walletUi;if(d.withdrawConfig)withdrawConfig=d.withdrawConfig;}catch(e){}
     document.title=d.site?.name||'Ludo Baji';
     const sn=document.getElementById('siteName')||document.querySelector('.name');if(sn)sn.textContent=d.site?.name||'Ludo Baji';
     const ml=document.querySelector('#mainLogo');if(ml)ml.src=d.site?.logo||'logo-ludo-baji.jpg';
@@ -328,11 +329,15 @@ function forceCloseAllScreens(){try{clearInterval(window._ludoUserTimer)}catch(e
 async function restorePageState(){const state=pageState();if((!authToken()&&!(!loginOtpEnabled))||state==='home'||state==='')return;if(state==='profile'){loadProfile();return}if(state==='deposit'){openDeposit();return}if(state.indexOf('deposit-')===0){await openDeposit();openPaymentDetail(state.slice(8));return}if(state==='withdraw'){openWithdraw();return}if(state==='statement'){openStatement();return}if(state==='match'||state==='matches'){if(typeof showMatches==='function')showMatches();return}if(state==='mymatch'||state==='my-matches'){if(typeof showMyMatches==='function')showMyMatches();return}const found=optionFor(state);if(found){show(found);}}
 function enterScreen(id){selectedId=id;setPageState(id);document.body.classList.add('screen-open');const v=document.getElementById('view');v.classList.add('show');window.scrollTo(0,0)}
 function closeScreen(fromPop){forceCloseAllScreens();if(!fromPop)setPageState('home',true)}
-function screenBack(){forceCloseAllScreens();setPageState('home',true)}
+function screenBack(){if(document.body.classList.contains('lb-skin')&&typeof lbBack==='function'&&window._lbStack&&window._lbStack.length){lbBack();return}forceCloseAllScreens();setPageState('home',true)}
 function safeHttpUrl(v){try{const u=new URL(String(v||''),location.href);return ['http:','https:'].includes(u.protocol)?u.href:''}catch{return ''}}
 function quickOpen(id,name,icon){if(id==='deposit'){openDeposit();return}if(id==='withdraw'){openWithdraw();return}if(id==='statement'){openStatement();return}const found=optionFor(id);if(found){if(found.action==='url'&&safeHttpUrl(found.url)){location.href=safeHttpUrl(found.url);return}show(found,null);return}enterScreen(id);const v=document.getElementById('view');v.innerHTML='<div class="screenTop"><button class="screenBack" onclick="screenBack()">‹</button><div class="screenTitle">'+esc(name)+'</div></div><div class="screenBody"><div class="screenCard"><div class="screenCardTitle">'+esc(name)+'</div><div class="screenCardSub">এই Section-এর content Admin Panel থেকে নিয়ন্ত্রিত হবে।</div></div></div>'}
 /* Phone Back: কোনো স্ক্রিন খোলা থাকলে শুধু স্ক্রিন বন্ধ হবে, অ্যাপ থেকে বের হবে না */
 window.addEventListener('popstate',function(){
+  /* lb-skin (theme-ludobest) handles its own stack — avoid double-close */
+  if(document.body.classList.contains('lb-skin') && window._lbStack && window._lbStack.length){
+    return;
+  }
   if(isScreenOpen()){
     forceCloseAllScreens();
     history.pushState({app:1,screen:'home'},'',location.pathname+location.search);
@@ -382,7 +387,7 @@ function renderWithdrawMethods(){
   if(!box)return;
   if(!methods.length){box.innerHTML='<div class="smallText">কোনো Withdraw method চালু নেই</div>';return;}
   if(!methods.some(m=>m.id===withdrawMethod))withdrawMethod=methods[0].id;
-  box.innerHTML=methods.map(m=>'<button type="button" class="payChoice'+(m.id===withdrawMethod?' active':'')+'" id="wdM-'+esc(m.id)+'" onclick="selectWithdrawMethod(\''+esc(m.id)+'\')">'+(m.logo&&String(m.logo).startsWith('http')?'<img src="'+esc(m.logo)+'" style="width:22px;height:22px;vertical-align:middle;border-radius:4px;margin-right:4px" alt="">':esc(m.logo||'💳'))+' '+esc(m.name||m.id)+'</button>').join('');
+  box.innerHTML=methods.map(m=>{const lg=String(m.logo||'');const isImg=lg.startsWith('http')||lg.startsWith('data:')||/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(lg);const icon=isImg?'<img src="'+esc(lg)+'" style="width:22px;height:22px;vertical-align:middle;border-radius:4px;margin-right:4px;object-fit:contain" alt="" onerror="this.style.display=\'none\'">':esc(lg||'💳');return '<button type="button" class="payChoice'+(m.id===withdrawMethod?' active':'')+'" id="wdM-'+esc(m.id)+'" onclick="selectWithdrawMethod(\''+esc(m.id)+'\')">'+icon+' '+esc(m.name||m.id)+'</button>'}).join('');
 }
 async function openWithdraw(){
   setPageState('withdraw');
@@ -397,8 +402,10 @@ async function openWithdraw(){
   v.innerHTML='<div class="screenTop"><button class="screenBack" onclick="screenBack()">‹</button><div class="screenTitle">💸 Withdraw</div></div><div class="screenBody"><div id="wdNotice" class="homeNotice" style="margin:0 0 12px;background:#e8f8ef;border:1px solid #b7e6c9;color:#123"><b style="color:#0a7a45">নোটিশ</b><div id="wdNoticeText" style="margin-top:6px;font-size:14px;line-height:1.45">Loading...</div></div><div class="withdrawPanel"><b>Payment Method</b><div class="paymentChoices" id="wdMethods" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div><div class="field"><label>Withdraw From</label><div class="withdrawBalance"><button type="button" id="wdWinning" class="active" onclick="selectWithdrawBalance(\'winning\')">🏆 Winning Balance<br><span id="wdWinningBal">৳ 0.00</span></button><button type="button" id="wdGaming" onclick="selectWithdrawBalance(\'gaming\')">🎮 Gaming Balance<br><span id="wdGamingBal">৳ 0.00</span></button></div></div><div class="field"><label>Account Holder Name *</label><input id="wdName" maxlength="80" placeholder="নাম লিখুন" autocomplete="name"></div><div class="field"><label>Mobile Number *</label><input id="wdAccount" inputmode="numeric" maxlength="14" placeholder="01XXXXXXXXX" autocomplete="tel"></div><div class="field"><label>Withdraw Amount (৳) *</label><input id="wdAmount" type="number" min="100" max="10000" step="1" placeholder="যেমন 500"></div><div class="smallText" id="wdLimitText">সর্বনিম্ন ৳100 — সর্বোচ্চ ৳10,000</div><button type="button" class="btn" style="width:100%;margin-top:12px" id="wdSubmitBtn" onclick="submitWithdrawal()">Withdrawal Submit</button><div id="wdErr" class="err"></div></div><div class="withdrawHistory"><h3 style="color:#202522;font-size:19px">📜 Withdrawal History</h3><div id="wdHistory">Loading...</div></div></div>';
   try{
     try{
-      const j=await api('/api/withdraw/config');
-      if(j&&j.config)withdrawConfig=j.config;
+      if(!withdrawConfig || !withdrawConfig.methods){
+        const j=await api('/api/withdraw/config');
+        if(j&&j.config)withdrawConfig=j.config;
+      }
     }catch(cfgErr){console.warn('withdraw config',cfgErr.message)}
     renderWithdrawMethods();
     const nt=document.getElementById('wdNoticeText');

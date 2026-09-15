@@ -46,7 +46,7 @@ function acquireOtpLock(email){const k=String(email||'').toLowerCase();if(otpSen
 function releaseOtpLock(email){otpSendLocks.delete(String(email||'').toLowerCase())}
 function clearOtpRequests(key){otpRequestAttempts.delete(key)}
 function issueAdminToken(){const jti=crypto.randomBytes(24).toString('hex'),e=Date.now()+ADMIN_TOKEN_TTL_MS;adminSessions.set(jti,{expiresAt:e,role:ADMIN_ROLE});return signToken({u:'admin',e,jti,role:ADMIN_ROLE},SECRET)}
-function permissionForPath(method,p){if(p==='/api/admin/data'||p.startsWith('/api/admin/main-options'))return 'website';if(p.startsWith('/api/admin/payment-methods'))return 'deposits';if(p.startsWith('/api/admin/deposits'))return 'deposits';if(p.startsWith('/api/admin/withdrawals')||p.startsWith('/api/admin/withdraw-config'))return 'withdrawals';if(p.startsWith('/api/admin/users'))return 'users';if(p.startsWith('/api/admin/matches')||p==='/api/admin/match-players')return 'matches';if(p.startsWith('/api/admin/transactions'))return 'transactions';if(p.startsWith('/api/admin/support'))return 'support';if(p.startsWith('/api/admin/reports'))return 'reports';if(p.startsWith('/api/admin/audit-log'))return 'audit';if(p.startsWith('/api/admin/roles'))return 'roles';if(p.startsWith('/api/admin/banners')||p.startsWith('/api/admin/faqs')||p.startsWith('/api/admin/pages')||p.startsWith('/api/admin/referral')||p.startsWith('/api/admin/tournaments'))return 'website';if(p.startsWith('/api/admin/system')||p.startsWith('/api/admin/notice'))return 'settings';return null}
+function permissionForPath(method,p){if(p==='/api/admin/data'||p.startsWith('/api/admin/main-options'))return 'website';if(p.startsWith('/api/admin/payment-methods'))return 'deposits';if(p.startsWith('/api/admin/deposits'))return 'deposits';if(p.startsWith('/api/admin/withdrawals')||p.startsWith('/api/admin/withdraw-config')||p.startsWith('/api/admin/wallet-ui'))return 'withdrawals';if(p.startsWith('/api/admin/users'))return 'users';if(p.startsWith('/api/admin/matches')||p==='/api/admin/match-players')return 'matches';if(p.startsWith('/api/admin/transactions'))return 'transactions';if(p.startsWith('/api/admin/support'))return 'support';if(p.startsWith('/api/admin/reports'))return 'reports';if(p.startsWith('/api/admin/audit-log'))return 'audit';if(p.startsWith('/api/admin/roles'))return 'roles';if(p.startsWith('/api/admin/banners')||p.startsWith('/api/admin/faqs')||p.startsWith('/api/admin/pages')||p.startsWith('/api/admin/referral')||p.startsWith('/api/admin/tournaments'))return 'website';if(p.startsWith('/api/admin/system')||p.startsWith('/api/admin/notice'))return 'settings';return null}
 async function auth(req,res){const raw=String(req.headers.authorization||'').replace(/^Bearer\s+/i,''),x=verifyToken(raw,SECRET);if(!x||x.u!=='admin'||!x.jti){send(res,401,{error:'Unauthorized'});return null}const session=adminSessions.get(x.jti);if(!session||session.expiresAt<=Date.now()){adminSessions.delete(x.jti);send(res,401,{error:'Session expired'});return null}if(session.role!==ADMIN_ROLE||x.role!==ADMIN_ROLE){adminSessions.delete(x.jti);send(res,403,{error:'Admin role is not permitted'});return null}const d=await read(),roles=Array.isArray(d.adminRoles)?d.adminRoles:[],role=roles.find(r=>String(r.id)===ADMIN_ROLE);if(!role){send(res,403,{error:'Configured admin role does not exist'});return null}const perm=permissionForPath(req.method,req.url.split('?')[0]);const permissions=Array.isArray(role.permissions)?role.permissions:[];if(perm&&!(permissions.includes('*')||permissions.includes(perm))){send(res,403,{error:'Permission denied'});return null}return x}
 function revokeAdminToken(req){const raw=String(req.headers.authorization||'').replace(/^Bearer\s+/i,''),x=verifyToken(raw,SECRET);if(x?.jti)adminSessions.delete(x.jti);}
 async function userAuth(req,res){const x=verifyToken((req.headers.authorization||'').replace(/^Bearer\s+/i,''),USER_SECRET);if(!x||x.typ!=='user'){send(res,401,{ok:false,error:'Login required'});return null}const u=await db.getUserById(x.id);if(!u){send(res,401,{ok:false,error:'Account not found'});return null}if(u.status!=='active'){send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});return null}return x}
@@ -413,6 +413,15 @@ const server=http.createServer(async(req,res)=>{try{
      ]
    };
  }
+ function getWalletUi(d){
+   const base={deposit_logo:'',withdraw_logo:'',statement_logo:'',deposit_quick_logo:'',withdraw_quick_logo:'',statement_quick_logo:''};
+   const cfg=(d&&d.walletUi&&typeof d.walletUi==='object')?d.walletUi:{};
+   const out={};
+   for(const k of Object.keys(base)){
+     out[k]=String(cfg[k]!=null?cfg[k]:base[k]||'').slice(0,600000);
+   }
+   return out;
+ }
  function getWithdrawConfig(d){
    const base=defaultWithdrawConfig();
    const cfg=(d&&d.withdrawConfig&&typeof d.withdrawConfig==='object')?d.withdrawConfig:{};
@@ -449,6 +458,24 @@ const server=http.createServer(async(req,res)=>{try{
    d.withdrawConfig=getWithdrawConfig({withdrawConfig:next});
    await write(d);await addAudit('withdraw_config_update','withdrawConfig',d.withdrawConfig);
    return send(res,200,{ok:true,config:d.withdrawConfig,message:'Withdraw settings saved'});
+ if(req.method==='GET'&&p==='/api/admin/wallet-ui'){
+   const a=await auth(req,res);if(!a)return;const d=await read();return send(res,200,{ok:true,walletUi:getWalletUi(d)});
+ }
+ if(req.method==='PUT'&&p==='/api/admin/wallet-ui'){
+   const a=await auth(req,res);if(!a)return;const b=await body(req),d=await read();
+   const cur=getWalletUi(d);
+   const next={};
+   for(const k of Object.keys(cur)){
+     next[k]=String(b[k]!=null?b[k]:cur[k]||'').slice(0,600000);
+   }
+   d.walletUi=next;
+   await write(d);await addAudit('wallet_ui_update','walletUi',{keys:Object.keys(next)});
+   return send(res,200,{ok:true,walletUi:next,message:'Wallet logos saved'});
+ }
+ if(req.method==='GET'&&p==='/api/wallet-ui'){
+   const d=await read();return send(res,200,{ok:true,walletUi:getWalletUi(d)});
+ }
+
  }
  if(req.method==='POST'&&p==='/api/user/withdrawals'){
    const x=await userAuth(req,res);if(!x)return;
@@ -572,7 +599,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='PUT'&&p==='/api/admin/support-widget'){const b=await body(req);const d=await read();d.supportWidget={enabled:b.enabled!==false,title:String(b.title||'Live Support 🔴').trim(),image:String(b.image||d.supportWidget?.image||'support-bot.png').trim(),whatsapp:String(b.whatsapp||'').replace(/[^0-9]/g,''),message:String(b.message||'Hello').trim()};await write(d);return send(res,200,{ok:true,supportWidget:d.supportWidget})}
 if(req.method==='GET'&&p==='/api/admin/help-links'){const d=await read();const links=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];return send(res,200,{ok:true,helpLinks:links})}
  if(req.method==='PUT'&&p==='/api/admin/help-links'){const b=await body(req);const d=await read();if(!Array.isArray(b.helpLinks))return send(res,400,{ok:false,error:'helpLinks array required'});d.helpLinks=b.helpLinks.map((x,i)=>({id:String(x.id||'').trim(),name:String(x.name||x.id||'Link').trim(),visible:x.visible!==false,order:Number(x.order)||(i+1)})).filter(x=>x.id);await write(d);return send(res,200,{ok:true,helpLinks:d.helpLinks})}
-if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};nd.withdrawConfig=getWithdrawConfig(d);nd.supportWidget=d.supportWidget||{enabled:true,image:'support-bot.png',whatsapp:'',message:'Hello'};nd.helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];nd.matches=Array.isArray(d.matches)?d.matches.filter(m=>String(m.status||'').toLowerCase()!=='cancelled').map(m=>({id:m.id,match_code:m.match_code,title:m.title,entry_fee:m.entry_fee,winning_amount:m.winning_amount,max_players:2,status:m.status,scheduled_at:m.scheduled_at,rules:m.rules,players:Array.isArray(m.players)?m.players.map(p=>({slot:p.slot,status:p.status})): [],created_at:m.created_at,room_id:'',room_password:''})):[];nd.system=d.system||{};if(!nd.system.maintenance)nd.system.maintenance={enabled:false};delete nd.pushConfig;delete nd.pushSubscriptions;return send(res,200,nd)}
+if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOptions(d).data;nd.banners=Array.isArray(d.banners)?d.banners:[];nd.faqs=Array.isArray(d.faqs)?d.faqs:[];nd.pages=d.pages||{};nd.referral=d.referral||{};nd.withdrawConfig=getWithdrawConfig(d);nd.walletUi=getWalletUi(d);nd.supportWidget=d.supportWidget||{enabled:true,image:'support-bot.png',whatsapp:'',message:'Hello'};nd.helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:[{id:'faq',name:'FAQ',visible:true,order:1},{id:'rules',name:'Rules',visible:true,order:2},{id:'terms',name:'Terms',visible:true,order:3},{id:'privacy',name:'Privacy',visible:true,order:4},{id:'deposit_rules',name:'Deposit',visible:true,order:5},{id:'withdrawal_rules',name:'Withdraw',visible:true,order:6},{id:'refund_rules',name:'Refund',visible:true,order:7}];nd.matches=Array.isArray(d.matches)?d.matches.filter(m=>String(m.status||'').toLowerCase()!=='cancelled').map(m=>({id:m.id,match_code:m.match_code,title:m.title,entry_fee:m.entry_fee,winning_amount:m.winning_amount,max_players:2,status:m.status,scheduled_at:m.scheduled_at,rules:m.rules,players:Array.isArray(m.players)?m.players.map(p=>({slot:p.slot,status:p.status})): [],created_at:m.created_at,room_id:'',room_password:''})):[];nd.system=d.system||{};if(!nd.system.maintenance)nd.system.maintenance={enabled:false};delete nd.pushConfig;delete nd.pushSubscriptions;return send(res,200,nd)}
  if(p.startsWith('/api/admin')){const d=await read();
   if(req.method==='GET'&&p==='/api/admin/data'){normalizeMainOptions(d);d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];d.paymentMethods.forEach(m=>{m.provider=m.provider||(/nagad/i.test(String(m.id)+' '+String(m.name))?'Nagad':'bKash');m.account_type=m.account_type||(/merchant/i.test(String(m.name))?'Merchant':/agent/i.test(String(m.name))?'Agent':/debit/i.test(String(m.name))?'Debit':'Personal');m.enabled=m.enabled!==false;m.order=Number(m.order||0)});return send(res,200,{ok:true,data:d});}
   if(req.method==='GET'&&p==='/api/admin/transactions'){
