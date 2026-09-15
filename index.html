@@ -326,7 +326,24 @@ function pageState(){return decodeURIComponent(location.hash.replace(/^#/,'')||'
 function setPageState(id, forceReplace){const key=id||'home';const target=key==='home'?'':('#'+encodeURIComponent(key));if(location.hash===target&&!forceReplace)return;const url=target||(location.pathname+location.search);if(forceReplace||key==='home'){history.replaceState({app:1,screen:key},'',url)}else{history.pushState({app:1,screen:key},'',url)}}
 function isScreenOpen(){return document.body.classList.contains('screen-open')}
 function forceCloseAllScreens(){try{clearInterval(window._ludoUserTimer)}catch(e){}document.body.classList.remove('screen-open');const v=document.getElementById('view');if(v){v.classList.remove('show');v.innerHTML=''}selectedId=null;window.scrollTo(0,0);try{renderQuick()}catch(e){}try{if(typeof refreshDashboard==='function')refreshDashboard()}catch(e){}}
-async function restorePageState(){const state=pageState();if((!authToken()&&!(!loginOtpEnabled))||state==='home'||state==='')return;if(state==='profile'){loadProfile();return}if(state==='deposit'){openDeposit();return}if(state.indexOf('deposit-')===0){await openDeposit();openPaymentDetail(state.slice(8));return}if(state==='withdraw'){openWithdraw();return}if(state==='statement'){openStatement();return}if(state==='match'||state==='matches'){if(typeof showMatches==='function')showMatches();return}if(state==='mymatch'||state==='my-matches'){if(typeof showMyMatches==='function')showMyMatches();return}const found=optionFor(state);if(found){show(found);}}
+async async function restorePageState(){
+  const state=pageState();
+  if((!authToken()&&loginOtpEnabled)||state==='home'||state==='')return;
+  try{
+    if(state==='profile'){if(typeof openProfileSkin==='function')openProfileSkin();else if(typeof loadProfile==='function')loadProfile();return}
+    if(state==='wallet'){if(typeof openWalletSkin==='function')openWalletSkin();return}
+    if(state==='deposit'){openDeposit();return}
+    if(state.indexOf('deposit-')===0){await openDeposit();openPaymentDetail(state.slice(8));return}
+    if(state==='withdraw'){openWithdraw();return}
+    if(state==='statement'){openStatement();return}
+    if(state==='match'||state==='matches'){if(typeof showMatches==='function')showMatches();return}
+    if(state==='mymatch'||state==='my-matches'){if(typeof showMyMatches==='function')showMyMatches();return}
+    if(state==='notifications'){if(typeof showNotifications==='function')showNotifications();return}
+    if(state==='referral'){if(typeof showReferral==='function')showReferral();return}
+    if(state==='leaderboard'){if(typeof showLeaderboard==='function')showLeaderboard();return}
+    const found=optionFor(state);if(found){show(found);}
+  }catch(e){console.warn('restorePageState',e)}
+}
 function enterScreen(id){selectedId=id;setPageState(id);document.body.classList.add('screen-open');const v=document.getElementById('view');v.classList.add('show');window.scrollTo(0,0)}
 function closeScreen(fromPop){forceCloseAllScreens();if(!fromPop)setPageState('home',true)}
 function screenBack(){if(document.body.classList.contains('lb-skin')&&typeof lbBack==='function'&&window._lbStack&&window._lbStack.length){lbBack();return}forceCloseAllScreens();setPageState('home',true)}

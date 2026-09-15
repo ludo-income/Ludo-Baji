@@ -106,6 +106,11 @@
     }
   }
 
+  
+  window.lbSyncMainOptions=function(){
+    try{ fillOthersBox(); }catch(e){}
+  };
+
   window.goHomeTab=function(){
     try{
       if(typeof closeLudoScreen==='function') closeLudoScreen();
@@ -165,13 +170,25 @@
       }catch(e){}
     }
     const g=Number(window._gamingBal||0), w=Number(window._winningBal||0), tot=g+w;
+    // Admin Main Page Options logos first, then walletUi, then default
+    function optLogo(id){
+      try{
+        const list=window.all||(window._siteCache&&window._siteCache.mainOptions)||[];
+        const o=(list||[]).find(x=>String(x.id)===String(id));
+        if(o&&o.logo) return o.logo;
+      }catch(e){}
+      return '';
+    }
     const wu=window._walletUi||{};
-    const dIco=lbWalletIcon(wu.deposit_logo,'↓');
-    const wIco=lbWalletIcon(wu.withdraw_logo,'↑');
-    const sIco=lbWalletIcon(wu.statement_logo,'≡');
-    const dQ=lbActionIcon(wu.deposit_quick_logo||wu.deposit_logo,'＋','dep');
-    const wQ=lbActionIcon(wu.withdraw_quick_logo||wu.withdraw_logo,'↑','wd');
-    const sQ=lbActionIcon(wu.statement_quick_logo||wu.statement_logo,'☰','st');
+    const dLogo=optLogo('deposit')||wu.deposit_logo||'';
+    const wLogo=optLogo('withdraw')||wu.withdraw_logo||'';
+    const sLogo=optLogo('statement')||wu.statement_logo||'';
+    const dIco=lbWalletIcon(dLogo,'↓');
+    const wIco=lbWalletIcon(wLogo,'↑');
+    const sIco=lbWalletIcon(sLogo,'≡');
+    const dQ=lbActionIcon(wu.deposit_quick_logo||dLogo,'＋','dep');
+    const wQ=lbActionIcon(wu.withdraw_quick_logo||wLogo,'↑','wd');
+    const sQ=lbActionIcon(wu.statement_quick_logo||sLogo,'☰','st');
     v.innerHTML=
       '<div class="ftPage">'+
         '<div class="ftTop"><button type="button" class="ftBack" onclick="lbBack()">‹</button><div class="ftTitle">Wallet</div><div style="width:40px"></div></div>'+
