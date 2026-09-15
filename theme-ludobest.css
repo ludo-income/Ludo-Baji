@@ -33,32 +33,32 @@ body.lb-skin .lb-ico-btn{width:42px;height:42px;border-radius:50%;border:1px sol
 body.lb-skin .lb-wallet-chip{display:flex;align-items:center;gap:6px;border-radius:999px;border:1px solid #1c3d5a;background:#0d2238;padding:8px 14px;color:#fff;font-weight:800;font-size:14px;cursor:pointer}
 body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;color:#fff;border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;font-weight:800}
 
-/* ===== HOME — bigger mobile sizes ===== */
-#lbHero{padding-bottom:6px}
-.heroBox{text-align:center;padding:6px 14px 0}
-.heroLogo{width:128px;height:128px;object-fit:contain;border-radius:20px;display:block;margin:6px auto 8px;filter:drop-shadow(0 10px 24px #000a)}
+/* ===== HOME — LARGE mobile sizes ===== */
+#lbHero{padding-bottom:8px}
+.heroBox{text-align:center;padding:8px 12px 0}
+.heroLogo{width:150px;height:150px;object-fit:contain;border-radius:22px;display:block;margin:8px auto 10px;filter:drop-shadow(0 12px 28px #000a)}
 .heroArt{display:none!important}
-.heroTitle{font-size:24px;font-weight:800;margin:0;color:#fff}
-.heroSub{color:#9bb3c9;margin:4px 0 12px;font-size:13px}
+.heroTitle{font-size:28px;font-weight:800;margin:0;color:#fff}
+.heroSub{color:#9bb3c9;margin:6px 0 14px;font-size:14px}
 
 .playNow{
-  width:calc(100% - 28px);margin:0 14px 14px;border:0;border-radius:999px;
-  background:#f5c400;color:#1a1400;font-weight:900;font-size:18px;padding:16px;
-  cursor:pointer;box-shadow:0 8px 22px #f5c40055
+  width:calc(100% - 24px);margin:0 12px 16px;border:0;border-radius:999px;
+  background:#f5c400;color:#1a1400;font-weight:900;font-size:20px;padding:18px;
+  cursor:pointer;box-shadow:0 10px 26px #f5c40055
 }
-.seg{margin:0 14px 14px;background:#122033;border-radius:999px;padding:4px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:12px;font-weight:800;cursor:pointer;font-size:15px}
+.seg{margin:0 12px 16px;background:#122033;border-radius:999px;padding:5px;display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:14px;font-weight:800;cursor:pointer;font-size:16px}
 .seg button.on{background:#14b8c4;color:#042226}
 
 .gameCard{
   display:flex;align-items:center;gap:14px;
   background:linear-gradient(90deg,#16324a,#0d1e30);border:1px solid #234864;
-  border-radius:16px;padding:14px;margin:0 14px 12px;cursor:pointer;position:relative
+  border-radius:18px;padding:16px;margin:0 12px 14px;cursor:pointer;position:relative
 }
-.gameCard .gcArt{width:72px;height:56px;border-radius:12px;background:#102338;display:grid;place-items:center;font-size:28px;flex-shrink:0}
-.gameCard b{display:block;font-size:16px;color:#fff}
-.gameCard small{color:#9bb3c9;font-size:12px}
-.gcCount{position:absolute;right:12px;top:12px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:12px;font-weight:800;padding:3px 9px}
+.gameCard .gcArt{width:80px;height:64px;border-radius:14px;background:#102338;display:grid;place-items:center;font-size:32px;flex-shrink:0}
+.gameCard b{display:block;font-size:18px;color:#fff}
+.gameCard small{color:#9bb3c9;font-size:13px}
+.gcCount{position:absolute;right:14px;top:14px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:13px;font-weight:800;padding:4px 10px}
 
 #lbOthersBox{padding:0 14px 10px}
 #lbOthersBox .quickBtn{
@@ -73,14 +73,14 @@ body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;
 #lbOthersBox .quickName{flex:1;font-weight:700;font-size:16px}
 #lbOthersBox .quickArrow{color:#9bb3c9;font-size:20px}
 
-.tgCard{margin:0 14px 12px;background:#0e2a46;border:1px solid #1d4e78;border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px}
-.tgCard b{display:block;color:#fff;font-size:15px}
-.tgCard small{color:#9bb3c9;font-size:12px}
-.tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:10px 14px;cursor:pointer;white-space:nowrap;font-size:13px}
+.tgCard{margin:0 12px 14px;background:#0e2a46;border:1px solid #1d4e78;border-radius:18px;padding:16px;display:flex;align-items:center;gap:12px}
+.tgCard b{display:block;color:#fff;font-size:17px}
+.tgCard small{color:#9bb3c9;font-size:13px}
+.tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:12px 16px;cursor:pointer;white-space:nowrap;font-size:14px}
 
-.safeBox{margin:8px 14px 16px;text-align:center;color:#9bb3c9}
-.safeBox .tick{width:48px;height:48px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 8px;font-size:22px;font-weight:800}
-.safeBox b{display:block;color:#eaf4ff;font-size:15px}
+.safeBox{margin:10px 12px 20px;text-align:center;color:#9bb3c9}
+.safeBox .tick{width:56px;height:56px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 10px;font-size:26px;font-weight:800}
+.safeBox b{display:block;color:#eaf4ff;font-size:17px}
 
 /* Bottom nav — full width mobile */
 .bottomNav{
@@ -172,19 +172,21 @@ body.lb-skin.screen-open .screenTitle{color:#fff;font-size:17px;font-weight:800}
 body.lb-skin.screen-open .screenBody{color:#eaf4ff;padding:14px 16px 48px}
 body.lb-skin.screen-open .screenCard{background:#102338;border-color:#1c3d5a;color:#fff}
 
-/* Profile — bigger */
-.profilePage{padding:16px 16px 48px;min-height:100vh;background:#07111d}
-.pUser{display:flex;gap:14px;align-items:center;margin-bottom:16px}
-.pAv{width:64px;height:64px;border-radius:50%;background:#16324a;display:grid;place-items:center;font-size:30px;flex-shrink:0}
-.pBal{background:linear-gradient(180deg,#12324a,#0c2236);border:1px solid #234864;border-radius:16px;padding:16px;margin-bottom:14px}
-.pBal strong{font-size:30px;color:#fff}
-.addBtn{float:right;border:0;background:#22c55e;color:#04210d;font-weight:800;border-radius:12px;padding:10px 14px;cursor:pointer;font-size:14px}
-.stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;text-align:center}
-.stats3 div{background:#0b1c2c;border-radius:12px;padding:12px;color:#fff}
+/* Profile — LARGE */
+.profilePage{padding:18px 14px 56px;min-height:100vh;background:#07111d}
+.pUser{display:flex;gap:14px;align-items:center;margin-bottom:18px}
+.pAv{width:72px;height:72px;border-radius:50%;background:#16324a;display:grid;place-items:center;font-size:34px;flex-shrink:0}
+.pUser b{font-size:18px}
+.pUser .smallText{font-size:13px}
+.pBal{background:linear-gradient(180deg,#12324a,#0c2236);border:1px solid #234864;border-radius:18px;padding:18px;margin-bottom:16px}
+.pBal strong{font-size:34px;color:#fff}
+.addBtn{float:right;border:0;background:#22c55e;color:#04210d;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer;font-size:15px}
+.stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;text-align:center}
+.stats3 div{background:#0b1c2c;border-radius:14px;padding:14px;color:#fff;font-size:15px}
 .menuRow{
   display:flex;align-items:center;justify-content:space-between;
-  background:#0d1d2e;border:1px solid #1c3d5a;border-radius:14px;
-  padding:16px;margin-top:10px;cursor:pointer;color:#fff;font-size:16px
+  background:#0d1d2e;border:1px solid #1c3d5a;border-radius:16px;
+  padding:18px 16px;margin-top:12px;cursor:pointer;color:#fff;font-size:17px
 }
 .menuRow.danger{color:#f87171;border-color:#5b2430}
 
