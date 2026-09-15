@@ -28,7 +28,7 @@
 }
 /* Pre-login landing: all user features stay hidden until authentication succeeds. */
 body.logged-out .wallet,body.logged-out .quick,body.logged-out .viewer{display:none!important}body.logged-out.preview-mode .wallet,body.logged-out.preview-mode .quick{display:block!important}body.logged-out.preview-mode .viewer{display:none!important}
-body.logged-out:not(.preview-mode) #authModal{display:flex!important}
+html.has-session body #authModal{display:none!important;visibility:hidden!important}body.logged-out:not(.preview-mode) #authModal.show{display:flex!important}
 body.logged-out.preview-mode #authModal{display:none!important}
 body.preview-mode .quick,body.preview-mode .viewer{display:block!important}
 body.preview-mode .wallet{display:block!important}
@@ -206,7 +206,7 @@ body.screen-open #dlAppBtn{display:none!important}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ludo Baji">
 <link rel="apple-touch-icon" href="/icon-512.png">
-<link rel="stylesheet" href="theme-ludobest.css?v=20260915-v4fix"></head><body class="logged-out"><div id="appSplash"><div class="sp-inner"><img class="sp-logo" src="icon-512.png" alt="Ludo Baji"><div class="sp-name">Ludo Baji</div><div class="sp-tag">Play & Win</div><div class="sp-spin"></div><div class="sp-msg">Connecting to server...</div></div></div><button type="button" id="dlAppBtn" aria-label="Download App"><span class="dl-ico">⬇</span><span>Download App</span></button><div class="maintenance-screen" id="maintenanceScreen"><div class="maintenance-wrap"><div class="maintenance-glow"></div><div class="maintenance-shimmer"></div><img class="maintenance-banner" id="maintenanceBanner" src="maintenance-banner.jpg" alt="Ludo Baji Website & App Update"><img class="maintenance-logo" id="maintenanceLogo" src="logo-ludo-baji.jpg" alt="" hidden><div class="maintenance-art" hidden></div><div class="maintenance-card" hidden><h1 id="maintenanceTitle"></h1><div class="main-msg" id="maintenanceMessage"></div><div class="detail" id="maintenanceDetail"></div><div class="maintenance-status"><b id="maintenanceStatus"></b><span id="maintenanceSubtext"></span></div><div class="maintenance-footer" id="maintenanceFooter"></div></div></div></div><div class="app"><header><div class="head"><div class="headSpacer"></div><div class="brandWrap"><img class="logo" id="mainLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="name" id="siteName">Ludo Baji</div></div><button class="profile" id="profileBtn" aria-label="Profile">👤</button></div></header><div class="wallet"><div class="balanceSingle"><div class="balTop"><span class="walletLogo" aria-hidden="true">👛</span><small>Balance</small><span class="balEye">👁</span></div><strong id="totalBalance">৳ 0.00</strong></div><div class="loginHint" id="walletHint">Login করলে আপনার Balance এখানে দেখা যাবে</div></div><div class="promoStrip" id="promoStrip"><div class="promoText">🎁 স্বাগতম লুডো বাজিতে — ডিপোজিট করুন এবং বোনাস উপভোগ করুন।</div><button type="button" class="promoBtn" onclick="if(typeof openDeposit==='function')openDeposit();else if(typeof quickOpen==='function')quickOpen('deposit','Deposit','💳')">এখনই জয়েন করুন ›</button></div><div id="homeExtras" class="homeExtras"></div><div class="quick"><div class="quickHead"><div><h3>Quick Access</h3><div class="quickSub">আপনার প্রয়োজনীয় সব Option এক জায়গায়</div><div class="preview-badge">🔎 Preview Mode — Login OFF</div></div></div><div class="quickGrid" id="quickGrid"></div></div><div id="footerHelp" class="footerHelp"></div><div class="viewer" id="view"></div><button type="button" id="supportFloat" class="hidden" aria-label="Live Support"><span class="sfLabel">Live Support 🔴</span><img src="support-bot.png" alt="Live Support"></button></div>
+<link rel="stylesheet" href="theme-ludobest.css?v=20260915-v5back"></head><body class="logged-out"><script>(function(){try{var t=localStorage.getItem('ludo_user_token');if(t){document.body.classList.remove('logged-out');document.documentElement.classList.add('has-session');}}catch(e){}})();</script><div id="appSplash"><div class="sp-inner"><img class="sp-logo" src="icon-512.png" alt="Ludo Baji"><div class="sp-name">Ludo Baji</div><div class="sp-tag">Play & Win</div><div class="sp-spin"></div><div class="sp-msg">Connecting to server...</div></div></div><button type="button" id="dlAppBtn" aria-label="Download App"><span class="dl-ico">⬇</span><span>Download App</span></button><div class="maintenance-screen" id="maintenanceScreen"><div class="maintenance-wrap"><div class="maintenance-glow"></div><div class="maintenance-shimmer"></div><img class="maintenance-banner" id="maintenanceBanner" src="maintenance-banner.jpg" alt="Ludo Baji Website & App Update"><img class="maintenance-logo" id="maintenanceLogo" src="logo-ludo-baji.jpg" alt="" hidden><div class="maintenance-art" hidden></div><div class="maintenance-card" hidden><h1 id="maintenanceTitle"></h1><div class="main-msg" id="maintenanceMessage"></div><div class="detail" id="maintenanceDetail"></div><div class="maintenance-status"><b id="maintenanceStatus"></b><span id="maintenanceSubtext"></span></div><div class="maintenance-footer" id="maintenanceFooter"></div></div></div></div><div class="app"><header><div class="head"><div class="headSpacer"></div><div class="brandWrap"><img class="logo" id="mainLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="name" id="siteName">Ludo Baji</div></div><button class="profile" id="profileBtn" aria-label="Profile">👤</button></div></header><div class="wallet"><div class="balanceSingle"><div class="balTop"><span class="walletLogo" aria-hidden="true">👛</span><small>Balance</small><span class="balEye">👁</span></div><strong id="totalBalance">৳ 0.00</strong></div><div class="loginHint" id="walletHint">Login করলে আপনার Balance এখানে দেখা যাবে</div></div><div class="promoStrip" id="promoStrip"><div class="promoText">🎁 স্বাগতম লুডো বাজিতে — ডিপোজিট করুন এবং বোনাস উপভোগ করুন।</div><button type="button" class="promoBtn" onclick="if(typeof openDeposit==='function')openDeposit();else if(typeof quickOpen==='function')quickOpen('deposit','Deposit','💳')">এখনই জয়েন করুন ›</button></div><div id="homeExtras" class="homeExtras"></div><div class="quick"><div class="quickHead"><div><h3>Quick Access</h3><div class="quickSub">আপনার প্রয়োজনীয় সব Option এক জায়গায়</div><div class="preview-badge">🔎 Preview Mode — Login OFF</div></div></div><div class="quickGrid" id="quickGrid"></div></div><div id="footerHelp" class="footerHelp"></div><div class="viewer" id="view"></div><button type="button" id="supportFloat" class="hidden" aria-label="Live Support"><span class="sfLabel">Live Support 🔴</span><img src="support-bot.png" alt="Live Support"></button></div>
 <div class="modal authModalPre" id="authModal" style="display:none"><div class="card"><img class="authHeroLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="authHeroTitle">Ludo Baji</div><div class="authHeroTag">Play & Win</div><div class="authHeroArt">🎲 🏆 🎯</div><button class="close" id="closeAuth">×</button><h2 id="authTitle">Login / Sign Up</h2><p class="muted">Email / Gmail দিয়ে ৬ সংখ্যার OTP-এর মাধ্যমে প্রবেশ করুন</p><div id="emailStep"><div class="field"><label>Email / Gmail</label><input id="email" type="email" autocomplete="email" placeholder="example@gmail.com" maxlength="254"></div><button class="btn" id="sendOtp" style="width:100%">Continue with Email</button></div><div id="otpStep" class="hidden"><div class="field"><label>৬ সংখ্যার OTP</label><input id="otp" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code"></div><button class="btn" id="verifyOtp" style="width:100%">Verify & Login</button><div class="row" style="margin-top:10px"><button class="btn" id="backEmail" style="background:#68736d">Email বদলান</button><button class="btn" id="resendOtp">আবার OTP</button></div></div><div id="authErr" class="err"></div></div></div>
 <div class="modal" id="profileModal"><div class="card"><button class="close" id="closeProfile">×</button><h2>👤 Profile</h2><div id="profileContent"></div><div class="field"><label>নাম</label><input id="profileName" maxlength="60" placeholder="আপনার নাম"></div><button class="btn" id="saveProfile" style="width:100%">Save Profile</button><button class="btn" id="logoutUser" style="width:100%;margin-top:10px;background:#d84a4a">Logout</button><div id="profileErr" class="err"></div></div></div>
 <script>
@@ -270,7 +270,15 @@ async function load(){
     window._helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:null;window._supportWidget=d.supportWidget||null;renderHomeExtras(d);renderPublicLinks();setupSupportFloat(d);
     // Logged-in: never show Login modal on refresh
     if(logged){
-      try{authModal.classList.remove('show');authModal.style.display='none';document.body.classList.remove('auth-open','logged-out');}catch(e){}
+      try{
+        authModal.classList.remove('show');
+        authModal.style.display='none';
+        authModal.style.visibility='hidden';
+        document.body.classList.remove('auth-open','logged-out');
+        document.documentElement.classList.add('has-session');
+      }catch(e){}
+    }else{
+      try{document.documentElement.classList.remove('has-session');}catch(e){}
     }
     // Restore page BEFORE dashboard so refresh stays on Wallet/Deposit (no Home flash)
     if(logged||!loginOtpEnabled){
@@ -380,7 +388,35 @@ window.addEventListener('popstate',function(){
 async function refreshDashboard(){const tb=document.getElementById('totalBalance');const wh=document.getElementById('walletHint');if(!authToken()){if(tb)tb.textContent='৳ 0.00';if(wh)wh.textContent='Login করলে আপনার Balance এখানে দেখা যাবে';return}try{const j=await api('/api/user/dashboard');currentUser=j.user;const total=Number(j.dashboard.gaming_balance||0)+Number(j.dashboard.winning_balance||0);if(tb)tb.textContent='৳ '+total.toFixed(2);if(wh)wh.textContent='User ID: '+(j.user.user_code||'');window._gamingBal=Number(j.dashboard.gaming_balance||0);window._winningBal=Number(j.dashboard.winning_balance||0)}catch(e){localStorage.removeItem('ludo_user_token');currentUser=null;if(wh)wh.textContent='Login করলে আপনার Balance এখানে দেখা যাবে'}}
 function render(){renderQuick()}
 function show(s,b){if(s.id==='deposit'){openDeposit();return}if(s.id==='withdraw'){openWithdraw();return}enterScreen(s.id);const v=document.getElementById('view');const visual=s.logo?'<img src="'+esc(s.logo)+'" style="width:42px;height:42px;object-fit:cover;border-radius:11px" alt="">':esc(s.icon||'📌');const bg=s.background||'',tc=s.text_color||'',br=Math.max(0,Math.min(60,Number(s.border_radius||12)));const btn=s.button_text||'Continue';v.innerHTML='<div class="screenTop"><button class="screenBack" onclick="screenBack()">‹</button><div class="screenTitle">'+visual+' '+esc(s.name||'Option')+'</div></div><div class="screenBody"><p class="screenIntro">'+esc(s.content||'')+'</p><div class="screenCard" style="'+(bg?'background:'+esc(bg)+';':'')+(tc?'color:'+esc(tc)+';':'')+'border-radius:'+br+'px">'+esc(s.content||'System content')+(s.action==='url'&&s.url?'<button class="btn" style="margin-top:12px" onclick="location.href=\''+esc(s.url)+'\'">'+esc(btn)+'</button>':'')+'</div></div>'}
-function openAuth(action=''){if(document.body.classList.contains('maintenance-active'))return;pendingAction=action||'';const logged=!!authToken();document.body.classList.toggle('logged-out',!logged);if(!loginOtpEnabled&&!logged){close(authModal);document.body.classList.add('preview-mode');if(pendingAction==='deposit')openDeposit();else if(pendingAction==='withdraw')openWithdraw();else if(pendingAction==='statement')openStatement();return;}authModal.style.display='flex';authModal.style.visibility='visible';authModal.classList.add('show');document.getElementById('emailStep').classList.remove('hidden');document.getElementById('otpStep').classList.add('hidden');document.getElementById('authErr').textContent='';if(logged){if(pendingAction==='deposit')openDeposit();else if(pendingAction==='withdraw')openWithdraw();else loadProfile();}}
+function openAuth(action=''){
+  if(document.body.classList.contains('maintenance-active'))return;
+  pendingAction=action||'';
+  const logged=!!authToken();
+  document.body.classList.toggle('logged-out',!logged);
+  // Already logged in → NEVER show Login modal (refresh / back safe)
+  if(logged){
+    try{authModal.classList.remove('show');authModal.style.display='none';authModal.style.visibility='hidden';document.body.classList.remove('auth-open','logged-out');}catch(e){}
+    if(pendingAction==='deposit'){openDeposit();return}
+    if(pendingAction==='withdraw'){openWithdraw();return}
+    if(pendingAction==='statement'){openStatement();return}
+    if(pendingAction==='wallet'&&typeof openWalletSkin==='function'){openWalletSkin();return}
+    if(typeof openProfileSkin==='function'){openProfileSkin();return}
+    if(typeof loadProfile==='function')loadProfile();
+    return;
+  }
+  if(!loginOtpEnabled&&!logged){
+    close(authModal);document.body.classList.add('preview-mode');
+    if(pendingAction==='deposit')openDeposit();
+    else if(pendingAction==='withdraw')openWithdraw();
+    else if(pendingAction==='statement')openStatement();
+    return;
+  }
+  authModal.style.display='flex';authModal.style.visibility='visible';authModal.classList.add('show');
+  document.body.classList.add('auth-open');
+  document.getElementById('emailStep').classList.remove('hidden');
+  document.getElementById('otpStep').classList.add('hidden');
+  document.getElementById('authErr').textContent='';
+}
 function close(m){if(!m)return;m.classList.remove('show');if(m.id==='authModal'||m.id==='profileModal'){m.style.display='none'}}
 
 let depositMethod='bkash',depositInfo=[];
@@ -521,4 +557,4 @@ document.getElementById('logoutUser').onclick=()=>{localStorage.removeItem('ludo
 load();
 // Keep Admin changes live without reopening/resetting the current page.
 setInterval(async()=>{try{const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const d=await r.json();if(d.system?.maintenance?.enabled===true){if(!window._maintShown)showMaintenance(d.system.maintenance,d.site);return}else{if(window._maintShown)hideMaintenance()}const next=(d.mainOptions||[]).filter(x=>x.visible);const oldSig=JSON.stringify(all.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));const newSig=JSON.stringify(next.map(x=>[x.id,x.name,x.logo,x.icon,x.order]));if(oldSig!==newSig){all=next;renderQuick();}if(d.helpLinks){window._helpLinks=d.helpLinks;renderPublicLinks()}if(d.supportWidget){window._supportWidget=d.supportWidget;setupSupportFloat(d)}loginOtpEnabled=d.system?.user_login_otp!==false;document.body.classList.toggle('preview-mode',!authToken()&&!loginOtpEnabled);}catch{}} ,8000);
-</script><script src="theme-ludobest.js?v=20260915-v4fix"></script><script src="features-ui.js?v=20260915-v4fix"></script></body></html>
+</script><script src="theme-ludobest.js?v=20260915-v5back"></script><script src="features-ui.js?v=20260915-v5back"></script></body></html>

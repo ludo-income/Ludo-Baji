@@ -481,6 +481,16 @@
     if(!fromPop){
       try{ history.replaceState({lb:0, n:'home'}, '', location.pathname + location.search); }catch(e){}
     }
+    // Never show Login when going home via Back — keep session
+    try{
+      const am=$('authModal');
+      if(am){ am.classList.remove('show'); am.style.display='none'; am.style.visibility='hidden'; }
+      document.body.classList.remove('auth-open');
+      if(typeof authToken==='function' && authToken()){
+        document.body.classList.remove('logged-out');
+        document.documentElement.classList.add('has-session');
+      }
+    }catch(e){}
     document.body.classList.remove('screen-open');
     const v=$('view'); if(v){ v.classList.remove('show'); v.innerHTML=''; }
     try{ if(typeof setPageState==='function') setPageState('home', true); }catch(e){}
@@ -520,13 +530,20 @@
 
   window.addEventListener('popstate', function(ev){
     if(window._lbNavLock) return;
-    // Auth modal first
+    // Auth modal first — just close it, do NOT logout
     const am=$('authModal');
-    if(am && am.classList.contains('show')){
-      try{ am.classList.remove('show'); am.style.display='none'; }catch(e){}
+    if(am && (am.classList.contains('show') || (am.style.display && am.style.display!=='none'))){
+      try{ am.classList.remove('show'); am.style.display='none'; am.style.visibility='hidden'; }catch(e){}
       document.body.classList.remove('auth-open');
-      // re-push so another back closes screen not app
-      try{ history.pushState({lb:1,n:'auth',i:window._lbStack.length},'',location.pathname+location.search); }catch(e){}
+      try{
+        if(typeof authToken==='function' && authToken()){
+          document.body.classList.remove('logged-out');
+          document.documentElement.classList.add('has-session');
+        }
+      }catch(e){}
+      // stay in app on home
+      try{ history.pushState({lb:1,n:'home',i:0},'',location.pathname+location.search); }catch(e){}
+      lbGoHome(true);
       return;
     }
 
@@ -575,6 +592,12 @@
     const _oa=window.openAuth;
     if(typeof _oa==='function'){
       window.openAuth=function(){
+        try{
+          if(typeof authToken==='function' && authToken()){
+            // logged in — do not mark auth-open
+            return _oa.apply(this, arguments);
+          }
+        }catch(e){}
         document.body.classList.add('auth-open');
         const r=_oa.apply(this, arguments);
         setTimeout(syncAuthClass, 50);
