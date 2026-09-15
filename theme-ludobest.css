@@ -224,3 +224,133 @@ body.lb-skin.screen-open,
 body.screen-open.lb-skin{
   background:#07111d!important;color:#eaf4ff!important
 }
+
+/* ========== Fintech-style Wallet / Profile / Deposit look ========== */
+:root{
+  --ft-primary:#3B2FB0;
+  --ft-primary-2:#5B4FE0;
+  --ft-surface:#12101c;
+  --ft-card:#1c1830;
+  --ft-card-2:#241f3d;
+  --ft-text:#f4f2ff;
+  --ft-muted:#a39ec4;
+  --ft-line:#342e55;
+}
+.ftPage{min-height:100vh;background:linear-gradient(180deg,#0f0c1d 0%,#12101c 40%,#0b0914 100%);color:var(--ft-text);padding:0 0 40px}
+.ftTop{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:sticky;top:0;z-index:6;background:rgba(15,12,29,.92);backdrop-filter:blur(8px)}
+.ftTitle{font-size:18px;font-weight:800}
+.ftBack{width:42px;height:42px;border-radius:14px;border:1px solid var(--ft-line);background:var(--ft-card);color:#fff;font-size:24px;cursor:pointer;line-height:1}
+.ftBack.light{background:rgba(255,255,255,.15);border-color:transparent;color:#fff}
+
+.ftBalanceCard{
+  margin:12px 16px 16px;padding:22px 18px 18px;border-radius:24px;
+  background:linear-gradient(135deg,var(--ft-primary) 0%,#6d28d9 55%,#4c1d95 100%);
+  box-shadow:0 16px 40px rgba(59,47,176,.35);color:#fff
+}
+.ftBalanceCard.sm{margin-top:0}
+.ftBalLabel{font-size:13px;opacity:.9;font-weight:600;letter-spacing:.3px}
+.ftBalAmount{font-size:40px;font-weight:800;margin:6px 0 4px;line-height:1.1}
+.ftBalSub{font-size:13px;opacity:.85;margin-bottom:16px}
+.ftQuick{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ftQBtn{
+  border:0;border-radius:16px;padding:12px 8px;cursor:pointer;
+  background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:13px;
+  display:flex;flex-direction:column;align-items:center;gap:4px
+}
+.ftQBtn:active{transform:scale(.98)}
+.ftQIco{font-size:18px;font-weight:900}
+.ftStats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.ftStats div{background:rgba(0,0,0,.2);border-radius:14px;padding:10px 6px;text-align:center}
+.ftStats b{display:block;font-size:18px}
+.ftStats span{font-size:11px;opacity:.85}
+
+.ftSection{margin:8px 16px 14px}
+.ftSecTitle{font-size:13px;font-weight:800;color:var(--ft-muted);margin:0 4px 10px;text-transform:uppercase;letter-spacing:.4px}
+.ftActionRow{
+  display:flex;align-items:center;gap:12px;padding:14px 14px;
+  background:var(--ft-card);border:1px solid var(--ft-line);margin-bottom:10px;
+  border-radius:18px;cursor:pointer
+}
+.ftActionRow:active{background:var(--ft-card-2)}
+.ftActionRow.danger .ftATxt b{color:#f87171}
+.ftAIco{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+  background:#2a2450;font-size:18px;flex-shrink:0;font-weight:800
+}
+.ftAIco.dep{background:#065f46;color:#6ee7b7}
+.ftAIco.wd{background:#7f1d1d;color:#fca5a5}
+.ftAIco.st{background:#1e3a5f;color:#93c5fd}
+.ftAIco.wal{background:#3b2fb0;color:#ddd6fe}
+.ftAIco.top{background:#713f12;color:#fde68a}
+.ftAIco.share{background:#164e63;color:#a5f3fc}
+.ftAIco.info{background:#334155;color:#e2e8f0}
+.ftAIco.out{background:#450a0a;color:#fca5a5}
+.ftATxt{flex:1;min-width:0}
+.ftATxt b{display:block;font-size:15px;color:var(--ft-text)}
+.ftATxt small{display:block;font-size:12px;color:var(--ft-muted);margin-top:2px}
+.ftChevron{color:var(--ft-muted);font-size:22px}
+
+.ftTxList{display:flex;flex-direction:column;gap:8px}
+.ftTx{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--ft-card);border:1px solid var(--ft-line);border-radius:16px;padding:14px
+}
+.ftTx b{display:block;font-size:14px;text-transform:capitalize}
+.ftTx small{display:block;font-size:11px;color:var(--ft-muted);margin-top:3px}
+.ftTx span{font-weight:800;font-size:15px}
+.ftEmpty{text-align:center;color:var(--ft-muted);padding:20px 8px}
+
+.ftPrimaryBtn{
+  width:100%;margin-top:12px;border:0;border-radius:14px;padding:14px;
+  background:var(--ft-primary);color:#fff;font-weight:800;font-size:15px;cursor:pointer;
+  min-height:52px
+}
+.ftGhostBtn{
+  width:100%;border:1px solid var(--ft-line);border-radius:14px;padding:14px;
+  background:transparent;color:var(--ft-text);font-weight:700;font-size:15px;cursor:pointer;min-height:52px
+}
+
+/* Profile hero */
+.ftProfileHero{
+  background:linear-gradient(135deg,var(--ft-primary),#6d28d9 50%,#4c1d95);
+  padding:18px 16px 28px;border-radius:0 0 28px 28px;text-align:center;position:relative
+}
+.ftProfileHero .ftBack{position:absolute;left:14px;top:14px}
+.ftHeroAv{
+  width:76px;height:76px;border-radius:50%;margin:8px auto 10px;
+  background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:34px;
+  border:2px solid rgba(255,255,255,.25)
+}
+.ftHeroName{font-size:22px;font-weight:800;color:#fff}
+.ftHeroMail{font-size:13px;color:rgba(255,255,255,.85);margin-top:4px}
+.ftHeroUid{display:inline-block;margin-top:8px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:700;color:#fff}
+.ftEditPill{
+  margin-top:12px;border:0;border-radius:999px;padding:8px 16px;cursor:pointer;
+  background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:13px
+}
+.ftEditBox{
+  margin:12px 16px;padding:14px;border-radius:18px;background:var(--ft-card);border:1px solid var(--ft-line)
+}
+.ftEditBox label{display:block;color:var(--ft-muted);font-size:12px;margin-bottom:6px;font-weight:700}
+.ftEditBox input{
+  width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--ft-line);
+  background:#0f0c1d;color:#fff;font-size:15px;margin-bottom:12px
+}
+.ftEditActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ftMsg{margin-top:8px;font-size:13px}
+.ftVersion{text-align:center;color:var(--ft-muted);font-size:12px;padding:8px 0 20px}
+
+/* Deposit / Withdraw screens inside viewer */
+body.lb-skin.screen-open .screenBody input,
+body.lb-skin.screen-open .screenBody select,
+body.lb-skin.screen-open .screenBody textarea{
+  border-radius:14px!important;border:1px solid var(--ft-line)!important;
+  background:var(--ft-card)!important;color:#fff!important;padding:14px!important;font-size:15px!important
+}
+body.lb-skin.screen-open .screenBody .btn,
+body.lb-skin.screen-open .screenBody button.btn{
+  min-height:52px!important;border-radius:14px!important;font-size:16px!important;font-weight:800!important
+}
+body.lb-skin.screen-open .screenCard{
+  border-radius:20px!important;background:var(--ft-card)!important;border-color:var(--ft-line)!important
+}

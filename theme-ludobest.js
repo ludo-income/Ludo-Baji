@@ -138,33 +138,40 @@
     if(!window._lbNavLock){ try{ lbPush('wallet'); }catch(e){} }
     const g=Number(window._gamingBal||0), w=Number(window._winningBal||0), tot=g+w;
     v.innerHTML=
-      '<div class="screenTop"><button class="screenBack" onclick="lbBack()">‹</button><div class="screenTitle">Wallet</div></div>'+
-      '<div class="walletHead">'+
-        '<div style="color:#68736d;font-size:12px;letter-spacing:1px">AVAILABLE BALANCE</div>'+
-        '<div style="font-size:40px;font-weight:800;color:#111">'+tot.toFixed(0)+'</div>'+
-        '<div style="display:inline-block;background:#111;color:#fff;border-radius:999px;padding:4px 10px;font-size:12px;margin-top:6px">Winning Balance '+w.toFixed(0)+'</div>'+
-        '<div class="wActs">'+
-          '<button class="wDep" onclick="openDeposit()">＋ DEPOSIT</button>'+
-          '<button class="wWd" onclick="openWithdraw()">📷 WITHDRAW</button>'+
-          '<button class="wGift" onclick="alert(\'Gift পরে চালু হবে\')">🎁 GIFT</button>'+
+      '<div class="ftPage">'+
+        '<div class="ftTop"><button type="button" class="ftBack" onclick="lbBack()">‹</button><div class="ftTitle">Wallet</div><div style="width:40px"></div></div>'+
+        '<div class="ftBalanceCard">'+
+          '<div class="ftBalLabel">Available balance</div>'+
+          '<div class="ftBalAmount">৳ '+tot.toFixed(0)+'</div>'+
+          '<div class="ftBalSub">Gaming ৳'+g.toFixed(0)+'  ·  Winning ৳'+w.toFixed(0)+'</div>'+
+          '<div class="ftQuick">'+
+            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">↓</span>Deposit</button>'+
+            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">↑</span>Withdraw</button>'+
+            '<button type="button" class="ftQBtn" onclick="openStatement()"><span class="ftQIco">≡</span>Statement</button>'+
+          '</div>'+
         '</div>'+
-      '</div>'+
-      '<div class="screenBody">'+
-        '<div class="helpRow"><span>কিভাবে টাকা ডিপোজিট করবেন?</span><button type="button" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'deposit_rules\')">ভিডিও দেখুন</button></div>'+
-        '<div class="helpRow"><span>কিভাবে বন্ধুকে গিফট পাঠাবেন?</span><button type="button" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'faq\')">ভিডিও দেখুন</button></div>'+
-        '<h3 style="margin:16px 0 8px;color:#fff">Mini Statements</h3><div id="miniSt">Loading...</div>'+
+        '<div class="ftSection">'+
+          '<div class="ftSecTitle">Quick actions</div>'+
+          '<div class="ftActionRow" onclick="openDeposit()"><div class="ftAIco dep">＋</div><div class="ftATxt"><b>Deposit</b><small>bKash / Nagad</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openWithdraw()"><div class="ftAIco wd">↑</div><div class="ftATxt"><b>Withdraw</b><small>Winning balance</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openStatement()"><div class="ftAIco st">☰</div><div class="ftATxt"><b>All Statements</b><small>Transaction history</small></div><span class="ftChevron">›</span></div>'+
+        '</div>'+
+        '<div class="ftSection">'+
+          '<div class="ftSecTitle">Recent</div>'+
+          '<div id="miniSt" class="ftTxList">Loading...</div>'+
+        '</div>'+
       '</div>';
     try{
       const j=await api('/api/user/transactions');
       const rows=(j.transactions||[]).slice(0,8);
       const box=$('miniSt');
-      if(!rows.length){ box.innerHTML='<div class="smallText">কোনো স্টেটমেন্ট নেই</div>'; return; }
+      if(!rows.length){ box.innerHTML='<div class="ftEmpty">কোনো স্টেটমেন্ট নেই</div>'; return; }
       box.innerHTML=rows.map(function(t){
         const ch=Number(t.balance_change||0);
         const sign=ch>=0?'+':'';
-        const col=ch>=0?'#16a34a':'#dc2626';
-        return '<div class="txRow" style="background:#102338;color:#fff;border-color:#1c3d5a"><div class="txTop"><b>'+esc(String(t.type||'').replace(/_/g,' '))+'</b><span style="color:'+col+'">'+sign+Number(ch).toFixed(0)+'</span></div><div class="txMeta">'+(t.note?esc(t.note)+' • ':'')+esc(new Date(t.created_at).toLocaleString())+'</div></div>';
-      }).join('')+'<button class="btn" style="width:100%;margin-top:10px" onclick="openStatement()">See all...</button>';
+        const col=ch>=0?'#16a34a':'#ef4444';
+        return '<div class="ftTx"><div><b>'+esc(String(t.type||'').replace(/_/g,' '))+'</b><small>'+esc(new Date(t.created_at).toLocaleString())+'</small></div><span style="color:'+col+'">'+sign+'৳'+Math.abs(Number(ch)).toFixed(0)+'</span></div>';
+      }).join('')+'<button type="button" class="ftPrimaryBtn" onclick="openStatement()">See all statements</button>';
     }catch(e){ const box=$('miniSt'); if(box) box.textContent=e.message; }
   };
 
@@ -181,33 +188,53 @@
     const v=$('view'); if(v) v.classList.add('show');
     if(!window._lbNavLock){ try{ lbPush('profile'); }catch(e){} }
     v.innerHTML=
-      '<div class="profilePage">'+
-        '<div class="pUser">'+
-          '<div class="pAv">👤</div>'+
-          '<div style="flex:1"><b id="pfName">User</b><div class="smallText" id="pfPhone"></div><div class="smallText" id="pfEmail"></div><div class="smallText" id="pfUid"></div></div>'+
-          '<button type="button" class="btn" id="pfEditBtn" style="background:#1d4ed8;padding:8px 10px">✎ Edit</button>'+
+      '<div class="ftPage">'+
+        '<div class="ftProfileHero">'+
+          '<button type="button" class="ftBack light" onclick="lbBack()">‹</button>'+
+          '<div class="ftHeroAv">👤</div>'+
+          '<div class="ftHeroName" id="pfName">User</div>'+
+          '<div class="ftHeroMail" id="pfEmail"></div>'+
+          '<div class="ftHeroUid" id="pfUid"></div>'+
+          '<button type="button" class="ftEditPill" id="pfEditBtn">✎ Edit</button>'+
         '</div>'+
-        '<div id="pfEditBox" style="display:none;background:#102338;border:1px solid #1c3d5a;border-radius:14px;padding:12px;margin-bottom:12px">'+
-          '<label style="display:block;color:#9bb3c9;font-size:12px;margin-bottom:6px">নাম</label>'+
-          '<input id="pfEditName" maxlength="60" placeholder="আপনার নাম" style="width:100%;padding:10px;border-radius:10px;border:1px solid #1c3d5a;background:#0b1726;color:#fff;margin-bottom:10px">'+
-          '<div style="display:flex;gap:8px">'+
-            '<button type="button" class="btn" id="pfSaveBtn" style="flex:1;background:#16a34a">Save</button>'+
-            '<button type="button" class="btn" id="pfCancelBtn" style="flex:1;background:#374151">Cancel</button>'+
+        '<div id="pfEditBox" class="ftEditBox" style="display:none">'+
+          '<label>নাম</label>'+
+          '<input id="pfEditName" maxlength="60" placeholder="আপনার নাম">'+
+          '<div class="ftEditActions">'+
+            '<button type="button" class="ftPrimaryBtn" id="pfSaveBtn">Save</button>'+
+            '<button type="button" class="ftGhostBtn" id="pfCancelBtn">Cancel</button>'+
           '</div>'+
-          '<div id="pfEditMsg" style="margin-top:8px;font-size:13px"></div>'+
+          '<div id="pfEditMsg" class="ftMsg"></div>'+
         '</div>'+
-        '<div class="pBal"><button class="addBtn" onclick="openDeposit()">＋ ADD</button>'+
-        '<div style="color:#9bb3c9;font-size:12px">AVAILABLE BALANCE</div><strong id="pfBal">BDT 0</strong>'+
-        '<div style="color:#f5c400;margin-top:4px">🏆 Winning: <span id="pfWin">0</span></div>'+
-        '<div class="stats3"><div><b id="pfMatches">0</b><div class="smallText">MATCHES</div></div><div><b id="pfRefers">0</b><div class="smallText">REFERS</div></div><div><b id="pfWins">0</b><div class="smallText">WINNINGS</div></div></div>'+
+        '<div class="ftBalanceCard sm">'+
+          '<div class="ftBalLabel">Available balance</div>'+
+          '<div class="ftBalAmount" id="pfBal">৳ 0</div>'+
+          '<div class="ftBalSub">Winning <span id="pfWin">0</span></div>'+
+          '<div class="ftQuick">'+
+            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">↓</span>Deposit</button>'+
+            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">↑</span>Withdraw</button>'+
+            '<button type="button" class="ftQBtn" onclick="openWalletSkin()"><span class="ftQIco">👛</span>Wallet</button>'+
+          '</div>'+
+          '<div class="ftStats">'+
+            '<div><b id="pfMatches">0</b><span>Matches</span></div>'+
+            '<div><b id="pfRefers">0</b><span>Refers</span></div>'+
+            '<div><b id="pfWins">0</b><span>Wins</span></div>'+
+          '</div>'+
         '</div>'+
-        '<div class="menuRow" onclick="openWalletSkin()">👛 My Wallet <span>›</span></div>'+
-        '<div class="menuRow" onclick="openStatement()">📑 All Statements <span>›</span></div>'+
-        '<div class="menuRow" onclick="if(typeof showLeaderboard===\'function\')showLeaderboard()">🏆 Top Players <span>›</span></div>'+
-        '<div class="menuRow" onclick="shareApp()">📤 Share App <span>›</span></div>'+
-        '<div class="menuRow" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'terms\')">ℹ️ Terms & Conditions <span>›</span></div>'+
-        '<div class="menuRow danger" id="pfLogoutBtn">Logout <span>›</span></div>'+
-        '<div style="text-align:center;color:#7f97ad;margin-top:16px;font-size:12px">Version 1.0.6</div>'+
+        '<div class="ftSection">'+
+          '<div class="ftSecTitle">Account</div>'+
+          '<div class="ftActionRow" onclick="openWalletSkin()"><div class="ftAIco wal">👛</div><div class="ftATxt"><b>My Wallet</b><small>Balance & history</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="openStatement()"><div class="ftAIco st">☰</div><div class="ftATxt"><b>All Statements</b><small>Transactions</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="if(typeof showLeaderboard===\'function\')showLeaderboard()"><div class="ftAIco top">🏆</div><div class="ftATxt"><b>Top Players</b><small>Leaderboard</small></div><span class="ftChevron">›</span></div>'+
+        '</div>'+
+        '<div class="ftSection">'+
+          '<div class="ftSecTitle">More</div>'+
+          '<div class="ftActionRow" onclick="shareApp()"><div class="ftAIco share">↗</div><div class="ftATxt"><b>Share App</b><small>Invite friends</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'terms\')"><div class="ftAIco info">ℹ</div><div class="ftATxt"><b>Terms & Conditions</b><small>Rules</small></div><span class="ftChevron">›</span></div>'+
+          '<div class="ftActionRow danger" id="pfLogoutBtn"><div class="ftAIco out">⎋</div><div class="ftATxt"><b>Logout</b><small>Sign out</small></div><span class="ftChevron">›</span></div>'+
+        '</div>'+
+        '<div class="ftVersion">Version 1.0.6</div>'+
+        '<div class="smallText" id="pfPhone" style="display:none"></div>'+
       '</div>';
 
     // Edit toggle (inline — no old modal)
@@ -263,7 +290,7 @@
     try{
       const d=await api('/api/user/dashboard');
       const g=Number(d.dashboard.gaming_balance||0), w=Number(d.dashboard.winning_balance||0);
-      if($('pfBal')) $('pfBal').textContent='BDT '+(g+w).toFixed(0);
+      if($('pfBal')) $('pfBal').textContent='৳ '+(g+w).toFixed(0);
       if($('pfWin')) $('pfWin').textContent=w.toFixed(0);
     }catch(e){}
     try{
