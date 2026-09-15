@@ -155,27 +155,40 @@
   }
 
   window.openWalletSkin=async function(){
-    if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth(); return; }
+    if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth('wallet'); return; }
+    // Close auth modal if still open while logged in
+    try{ const am=$('authModal'); if(am){ am.classList.remove('show'); am.style.display='none'; } document.body.classList.remove('auth-open'); }catch(e){}
     document.body.classList.add('screen-open');
     const v=$('view'); if(v) v.classList.add('show');
+    try{ if(typeof setPageState==='function') setPageState('wallet'); }catch(e){}
     if(!window._lbNavLock){ try{ lbPush('wallet'); }catch(e){} }
+    // Ensure mainOptions logos available (Admin Main Page Options)
+    if(!(window.all&&window.all.length) && !(window._siteCache&&window._siteCache.mainOptions)){
+      try{
+        const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});
+        const d=await r.json();
+        window._siteCache=d;
+        window.all=(d.mainOptions||[]).filter(x=>x.visible!==false);
+        if(d.walletUi) window._walletUi=d.walletUi;
+      }catch(e){}
+    }
     if(!window._walletUi){
       try{
         if(window._siteCache && window._siteCache.walletUi){ window._walletUi=window._siteCache.walletUi; }
         else {
           const r=await fetch('/api/wallet-ui');
-          const j=await r.json().catch(()=>({}));
-          if(j&&j.walletUi) window._walletUi=j.walletUi;
+          if(r.ok){ const j=await r.json().catch(()=>({})); if(j&&j.walletUi) window._walletUi=j.walletUi; }
         }
       }catch(e){}
     }
     const g=Number(window._gamingBal||0), w=Number(window._winningBal||0), tot=g+w;
-    // Admin Main Page Options logos first, then walletUi, then default
     function optLogo(id){
       try{
-        const list=window.all||(window._siteCache&&window._siteCache.mainOptions)||[];
+        const list=(window._siteCache&&window._siteCache.mainOptions)||window.all||[];
         const o=(list||[]).find(x=>String(x.id)===String(id));
-        if(o&&o.logo) return o.logo;
+        if(o&&o.logo) return String(o.logo);
+        // also check icon if looks like image
+        if(o&&o.icon&&(String(o.icon).startsWith('data:')||String(o.icon).startsWith('http'))) return String(o.icon);
       }catch(e){}
       return '';
     }
@@ -239,6 +252,19 @@
     document.body.classList.add('screen-open');
     const v=$('view'); if(v) v.classList.add('show');
     if(!window._lbNavLock){ try{ lbPush('profile'); }catch(e){} }
+    try{ if(typeof setPageState==='function') setPageState('profile'); }catch(e){}
+    try{ const am=$('authModal'); if(am){ am.classList.remove('show'); am.style.display='none'; } document.body.classList.remove('auth-open'); }catch(e){}
+    function pfOptLogo(id, fb){
+      try{
+        const list=(window._siteCache&&window._siteCache.mainOptions)||window.all||[];
+        const o=(list||[]).find(x=>String(x.id)===String(id));
+        const lg=o&&o.logo?String(o.logo):'';
+        if(lg) return lbWalletIcon(lg, fb);
+      }catch(e){}
+      return fb;
+    }
+    const pfDep=pfOptLogo('deposit','↓');
+    const pfWd=pfOptLogo('withdraw','↑');
     v.innerHTML=
       '<div class="ftPage">'+
         '<div class="ftProfileHero">'+
@@ -263,8 +289,8 @@
           '<div class="ftBalAmount" id="pfBal">৳ 0</div>'+
           '<div class="ftBalSub">Winning <span id="pfWin">0</span></div>'+
           '<div class="ftQuick">'+
-            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">↓</span>Deposit</button>'+
-            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">↑</span>Withdraw</button>'+
+            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">'+pfDep+'</span>Deposit</button>'+
+            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">'+pfWd+'</span>Withdraw</button>'+
             '<button type="button" class="ftQBtn" onclick="openWalletSkin()"><span class="ftQIco">👛</span>Wallet</button>'+
           '</div>'+
           '<div class="ftStats">'+
