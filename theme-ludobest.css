@@ -9,7 +9,8 @@ body.lb-skin .app{
   background:linear-gradient(#0b1a2e,#07111d 42%,#06101a)!important;
   padding-bottom:96px!important
 }
-@media(min-width:431px){
+/* phone: full width; tablet/desktop only cap */
+@media(min-width:600px){
   body.lb-skin .app{max-width:430px!important}
 }
 
@@ -139,17 +140,22 @@ body.lb-skin .viewer.show{
   inset:0!important;
   left:0!important;right:0!important;top:0!important;bottom:0!important;
   transform:none!important;
-  width:100%!important;max-width:100%!important;
+  width:100vw!important;max-width:100vw!important;
   height:100%!important;min-height:100vh!important;
   margin:0!important;padding:0!important;
   border:0!important;border-radius:0!important;
-  background:#07111d!important;color:#eaf4ff!important;
+  background:#0f0c1d!important;color:#eaf4ff!important;
   box-shadow:none!important;
   z-index:5000!important;
+  overflow-x:hidden!important;
   overflow-y:auto!important;
   -webkit-overflow-scrolling:touch
 }
-@media(min-width:431px){
+body.lb-skin.screen-open .viewer > .ftPage,
+body.lb-skin .viewer.show > .ftPage{
+  width:100%!important;max-width:100%!important;margin:0!important;padding-left:0!important;padding-right:0!important
+}
+@media(min-width:600px){
   body.lb-skin.screen-open .viewer,
   body.lb-skin.screen-open .viewer.show,
   body.lb-skin .viewer.show{
@@ -236,16 +242,16 @@ body.screen-open.lb-skin{
   --ft-muted:#a39ec4;
   --ft-line:#342e55;
 }
-.ftPage{min-height:100vh;background:linear-gradient(180deg,#0f0c1d 0%,#12101c 40%,#0b0914 100%);color:var(--ft-text);padding:0 0 40px}
-.ftTop{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:sticky;top:0;z-index:6;background:rgba(15,12,29,.92);backdrop-filter:blur(8px)}
+.ftPage{min-height:100vh;width:100%!important;max-width:100%!important;box-sizing:border-box;background:linear-gradient(180deg,#0f0c1d 0%,#12101c 40%,#0b0914 100%);color:var(--ft-text);padding:0 0 40px}
+.ftTop{display:flex;align-items:center;justify-content:space-between;padding:12px 10px;position:sticky;top:0;z-index:6;background:rgba(15,12,29,.92);backdrop-filter:blur(8px)}
 .ftTitle{font-size:18px;font-weight:800}
 .ftBack{width:42px;height:42px;border-radius:14px;border:1px solid var(--ft-line);background:var(--ft-card);color:#fff;font-size:24px;cursor:pointer;line-height:1}
 .ftBack.light{background:rgba(255,255,255,.15);border-color:transparent;color:#fff}
 
 .ftBalanceCard{
-  margin:12px 16px 16px;padding:22px 18px 18px;border-radius:24px;
+  margin:0;padding:20px 14px 16px;border-radius:0;
   background:linear-gradient(135deg,var(--ft-primary) 0%,#6d28d9 55%,#4c1d95 100%);
-  box-shadow:0 16px 40px rgba(59,47,176,.35);color:#fff
+  box-shadow:none;color:#fff;width:100%;box-sizing:border-box
 }
 .ftBalanceCard.sm{margin-top:0}
 .ftBalLabel{font-size:13px;opacity:.9;font-weight:600;letter-spacing:.3px}
@@ -264,12 +270,12 @@ body.screen-open.lb-skin{
 .ftStats b{display:block;font-size:18px}
 .ftStats span{font-size:11px;opacity:.85}
 
-.ftSection{margin:8px 16px 14px}
-.ftSecTitle{font-size:13px;font-weight:800;color:var(--ft-muted);margin:0 4px 10px;text-transform:uppercase;letter-spacing:.4px}
+.ftSection{margin:10px 0 8px;padding:0;width:100%;box-sizing:border-box}
+.ftSecTitle{font-size:13px;font-weight:800;color:var(--ft-muted);margin:0 12px 8px;text-transform:uppercase;letter-spacing:.4px}
 .ftActionRow{
-  display:flex;align-items:center;gap:12px;padding:14px 14px;
-  background:var(--ft-card);border:1px solid var(--ft-line);margin-bottom:10px;
-  border-radius:18px;cursor:pointer
+  display:flex;align-items:center;gap:12px;padding:16px 14px;
+  background:var(--ft-card);border:0;border-bottom:1px solid var(--ft-line);margin-bottom:0;
+  border-radius:0;cursor:pointer;width:100%;box-sizing:border-box
 }
 .ftActionRow:active{background:var(--ft-card-2)}
 .ftActionRow.danger .ftATxt b{color:#f87171}
@@ -310,12 +316,13 @@ body.screen-open.lb-skin{
   background:transparent;color:var(--ft-text);font-weight:700;font-size:15px;cursor:pointer;min-height:52px
 }
 
-/* Profile hero */
+/* Profile hero — edge to edge */
 .ftProfileHero{
   background:linear-gradient(135deg,var(--ft-primary),#6d28d9 50%,#4c1d95);
-  padding:18px 16px 28px;border-radius:0 0 28px 28px;text-align:center;position:relative
+  padding:16px 12px 22px;border-radius:0;text-align:center;position:relative;
+  width:100%;box-sizing:border-box;margin:0
 }
-.ftProfileHero .ftBack{position:absolute;left:14px;top:14px}
+.ftProfileHero .ftBack{position:absolute;left:10px;top:12px}
 .ftHeroAv{
   width:76px;height:76px;border-radius:50%;margin:8px auto 10px;
   background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:34px;
@@ -329,7 +336,7 @@ body.screen-open.lb-skin{
   background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:13px
 }
 .ftEditBox{
-  margin:12px 16px;padding:14px;border-radius:18px;background:var(--ft-card);border:1px solid var(--ft-line)
+  margin:0;padding:14px 12px;border-radius:0;background:var(--ft-card);border:0;border-bottom:1px solid var(--ft-line);width:100%;box-sizing:border-box
 }
 .ftEditBox label{display:block;color:var(--ft-muted);font-size:12px;margin-bottom:6px;font-weight:700}
 .ftEditBox input{
