@@ -326,7 +326,7 @@ function pageState(){return decodeURIComponent(location.hash.replace(/^#/,'')||'
 function setPageState(id, forceReplace){const key=id||'home';const target=key==='home'?'':('#'+encodeURIComponent(key));if(location.hash===target&&!forceReplace)return;const url=target||(location.pathname+location.search);if(forceReplace||key==='home'){history.replaceState({app:1,screen:key},'',url)}else{history.pushState({app:1,screen:key},'',url)}}
 function isScreenOpen(){return document.body.classList.contains('screen-open')}
 function forceCloseAllScreens(){try{clearInterval(window._ludoUserTimer)}catch(e){}document.body.classList.remove('screen-open');const v=document.getElementById('view');if(v){v.classList.remove('show');v.innerHTML=''}selectedId=null;window.scrollTo(0,0);try{renderQuick()}catch(e){}try{if(typeof refreshDashboard==='function')refreshDashboard()}catch(e){}}
-async async function restorePageState(){
+async function restorePageState(){
   const state=pageState();
   if((!authToken()&&loginOtpEnabled)||state==='home'||state==='')return;
   try{
