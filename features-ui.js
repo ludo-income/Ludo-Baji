@@ -71,9 +71,7 @@ try{window.connectMatchSocket()}catch{}
 (function registerSWEarly(){
   if(!('serviceWorker' in navigator)) return;
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('/service-worker.js?v=8stable').then(function(reg){
-      try{ reg.update(); }catch(e){}
-    }).catch(function(e){
+    navigator.serviceWorker.register('/service-worker.js').catch(function(e){
       console.warn('SW register failed:', e && e.message);
     });
   });

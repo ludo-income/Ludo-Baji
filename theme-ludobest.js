@@ -2,15 +2,6 @@
 (function(){
   document.body.classList.add('lb-skin');
   window._lbReady=true;
-  // Force SW update so JS/CSS fixes apply
-  try{
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        regs.forEach(function(r){ try{ r.update(); }catch(e){} });
-      });
-    }
-  }catch(e){}
-
   const $ = (id)=>document.getElementById(id);
 
   function injectHome(){
@@ -355,7 +346,7 @@
     if(logoutBtn) logoutBtn.onclick=function(){
       try{ localStorage.removeItem('ludo_user_token'); }catch(e){}
       currentUser=null;
-      try{ if(typeof setSessionUI==='function') setSessionUI(false); else document.body.classList.add('logged-out'); }catch(e){}
+      try{ document.body.classList.add('logged-out'); }catch(e){}
       try{ if(typeof setPageState==='function') setPageState('home'); }catch(e){}
       try{ if(typeof renderQuick==='function') renderQuick(); }catch(e){}
       try{
