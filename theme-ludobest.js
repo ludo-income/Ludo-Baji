@@ -133,12 +133,12 @@
 
   window.openWalletSkin=async function(){
     if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth(); return; }
-    if(typeof enterScreen==='function') enterScreen('wallet');
-    else { document.body.classList.add('screen-open'); $('view').classList.add('show'); }
-    const v=$('view');
+    document.body.classList.add('screen-open');
+    const v=$('view'); if(v) v.classList.add('show');
+    if(!window._lbNavLock){ try{ lbPush('wallet'); }catch(e){} }
     const g=Number(window._gamingBal||0), w=Number(window._winningBal||0), tot=g+w;
     v.innerHTML=
-      '<div class="screenTop"><button class="screenBack" onclick="goHomeTab()">‹</button><div class="screenTitle">Wallet</div></div>'+
+      '<div class="screenTop"><button class="screenBack" onclick="lbBack()">‹</button><div class="screenTitle">Wallet</div></div>'+
       '<div class="walletHead">'+
         '<div style="color:#68736d;font-size:12px;letter-spacing:1px">AVAILABLE BALANCE</div>'+
         '<div style="font-size:40px;font-weight:800;color:#111">'+tot.toFixed(0)+'</div>'+
@@ -177,9 +177,9 @@
       const pm=document.getElementById('profileModal');
       if(pm){ pm.classList.remove('show'); pm.style.display='none'; }
     }catch(e){}
-    if(typeof enterScreen==='function') enterScreen('profile');
-    else { document.body.classList.add('screen-open'); $('view').classList.add('show'); }
-    const v=$('view');
+    document.body.classList.add('screen-open');
+    const v=$('view'); if(v) v.classList.add('show');
+    if(!window._lbNavLock){ try{ lbPush('profile'); }catch(e){} }
     v.innerHTML=
       '<div class="profilePage">'+
         '<div class="pUser">'+
@@ -313,61 +313,121 @@
 
   window.loadProfile=function(){ return openProfileSkin(); };
 
-  /* ---- Screen stack + mobile back ---- */
-  window._lbStack = window._lbStack || [];
-  function lbPush(name){
-    try{
-      window._lbStack.push(name||'screen');
-      history.pushState({lb:1, n:name}, '', location.pathname + location.search + '#' + encodeURIComponent(name||'screen'));
-    }catch(e){}
-  }
+  /* ---- Screen stack + step-by-step mobile back ---- */
+  window._lbStack = [];
+  window._lbNavLock = false;
+
   function lbOpenScreen(){
     document.body.classList.add('screen-open');
     const v=$('view'); if(v){ v.classList.add('show'); }
   }
-  // wrap enterScreen if exists
-  const _oldEnter = window.enterScreen;
-  window.enterScreen = function(name){
-    lbOpenScreen();
-    lbPush(name||'screen');
-    if(typeof _oldEnter==='function') return _oldEnter(name);
-  };
-  // improve goHomeTab to clear stack
-  const _oldGoHome = window.goHomeTab;
-  window.goHomeTab = function(){
+
+  function lbPush(name){
+    if(window._lbNavLock) return;
+    const n = name || 'screen';
+    // avoid duplicate top
+    if(window._lbStack.length && window._lbStack[window._lbStack.length-1] === n) return;
+    window._lbStack.push(n);
+    try{
+      history.pushState({lb:1, n:n, i:window._lbStack.length}, '', location.pathname + location.search + '#' + encodeURIComponent(n));
+    }catch(e){}
+  }
+
+  function lbRestore(name){
+    window._lbNavLock = true;
+    try{
+      if(name === 'profile' && typeof openProfileSkin === 'function') openProfileSkin();
+      else if(name === 'wallet' && typeof openWalletSkin === 'function') openWalletSkin();
+      else if(name === 'showMatches' || name === 'match' || name === 'matches'){
+        if(typeof showMatches === 'function') showMatches();
+      }
+      else if(name === 'showMyMatches' || name === 'mymatch'){
+        if(typeof showMyMatches === 'function') showMyMatches();
+      }
+      else if(name === 'showNotifications' || name === 'notifications'){
+        if(typeof showNotifications === 'function') showNotifications();
+      }
+      else if(name === 'showReferral' || name === 'referral'){
+        if(typeof showReferral === 'function') showReferral();
+      }
+      else if(name === 'showLeaderboard' || name === 'leaderboard'){
+        if(typeof showLeaderboard === 'function') showLeaderboard();
+      }
+      else if(name === 'openDeposit' || name === 'deposit'){
+        if(typeof openDeposit === 'function') openDeposit();
+      }
+      else if(name === 'openWithdraw' || name === 'withdraw'){
+        if(typeof openWithdraw === 'function') openWithdraw();
+      }
+      else if(name === 'openStatement' || name === 'statement'){
+        if(typeof openStatement === 'function') openStatement();
+      }
+      else {
+        // unknown → home
+        lbGoHome(true);
+      }
+    }finally{
+      setTimeout(function(){ window._lbNavLock = false; }, 80);
+    }
+  }
+
+  function lbGoHome(fromPop){
     window._lbStack = [];
-    try{ history.replaceState(null,'', location.pathname + location.search); }catch(e){}
+    if(!fromPop){
+      try{ history.replaceState({lb:0, n:'home'}, '', location.pathname + location.search); }catch(e){}
+    }
     document.body.classList.remove('screen-open');
     const v=$('view'); if(v){ v.classList.remove('show'); v.innerHTML=''; }
-    if(typeof _oldGoHome==='function') _oldGoHome();
-    else {
-      try{ if(typeof setPageState==='function') setPageState('home', true); }catch(e){}
-      document.querySelectorAll('#lbBottom button').forEach(function(b){ b.classList.remove('on'); });
-      const h=$('navHome'); if(h) h.classList.add('on');
-      try{ setHomeSeg('games'); }catch(e){}
-      window.scrollTo(0,0);
-    }
-  };
+    try{ if(typeof setPageState==='function') setPageState('home', true); }catch(e){}
+    document.querySelectorAll('#lbBottom button').forEach(function(b){ b.classList.remove('on'); });
+    const h=$('navHome'); if(h) h.classList.add('on');
+    try{ setHomeSeg('games'); }catch(e){}
+    window.scrollTo(0,0);
+  }
 
-  window.addEventListener('popstate', function(){
-    // step back one screen
-    if(document.body.classList.contains('screen-open')){
-      // if stack has more than one, just close current to previous home-like
-      window._lbStack.pop();
-      if(window._lbStack.length > 0){
-        // still in a nested screen conceptually → go home for simplicity
-        goHomeTab();
-      } else {
-        goHomeTab();
+  // Step back one screen (for on-screen ‹ buttons)
+  window.lbBack = function(){
+    if(window._lbStack.length >= 1){
+      try{ history.back(); }catch(e){
+        window._lbStack.pop();
+        if(window._lbStack.length === 0) lbGoHome(true);
+        else lbRestore(window._lbStack[window._lbStack.length-1]);
       }
       return;
     }
-    // if auth open, close auth
+    lbGoHome(false);
+  };
+
+  // Bottom nav Home = always full home
+  window.goHomeTab = function(){
+    lbGoHome(false);
+  };
+
+  window.addEventListener('popstate', function(ev){
+    // Auth modal first
     const am=$('authModal');
-    if(am && (am.classList.contains('show') || am.style.display==='flex' || am.style.display==='block')){
+    if(am && am.classList.contains('show')){
       try{ am.classList.remove('show'); am.style.display='none'; }catch(e){}
       document.body.classList.remove('auth-open');
+      return;
     }
+
+    if(window._lbStack.length === 0){
+      lbGoHome(true);
+      return;
+    }
+
+    // step back one level
+    window._lbStack.pop();
+
+    if(window._lbStack.length === 0){
+      lbGoHome(true);
+      return;
+    }
+
+    // restore previous screen
+    const prev = window._lbStack[window._lbStack.length - 1];
+    lbRestore(prev);
   });
 
   /* Auth open → hide bottom nav */
@@ -408,27 +468,32 @@
     }
   }
 
-  // Push history when opening common screens
+  // Push history when opening common screens (once, no double)
   const wrapPush = function(fnName){
     const old=window[fnName];
-    if(typeof old!=='function') return;
-    window[fnName]=function(){
-      lbOpenScreen();
-      lbPush(fnName);
+    if(typeof old!=='function' || old._lbWrapped) return;
+    const wrapped=function(){
+      if(!window._lbNavLock){
+        lbOpenScreen();
+        lbPush(fnName);
+      } else {
+        lbOpenScreen();
+      }
       return old.apply(this, arguments);
     };
+    wrapped._lbWrapped = true;
+    window[fnName]=wrapped;
   };
-  // delay wrap until functions exist
   setTimeout(function(){
     ['showMatches','showMyMatches','showNotifications','showReferral','showLeaderboard','openDeposit','openWithdraw','openStatement'].forEach(wrapPush);
-    // wallet/profile already call enterScreen-ish
-    const _ow=window.openWalletSkin;
-    if(typeof _ow==='function'){
-      window.openWalletSkin=function(){ lbOpenScreen(); lbPush('wallet'); return _ow.apply(this,arguments); };
-    }
-    const _op=window.openProfileSkin;
-    if(typeof _op==='function'){
-      window.openProfileSkin=function(){ lbOpenScreen(); lbPush('profile'); return _op.apply(this,arguments); };
+    // Also hook closeLudoScreen ‹ buttons in match pages to step back
+    const _cls = window.closeLudoScreen;
+    if(typeof _cls==='function' && !_cls._lbWrapped){
+      window.closeLudoScreen = function(){
+        if(window._lbStack.length >= 1){ window.lbBack(); return; }
+        return _cls.apply(this, arguments);
+      };
+      window.closeLudoScreen._lbWrapped = true;
     }
     watchAuth();
     syncAuthClass();

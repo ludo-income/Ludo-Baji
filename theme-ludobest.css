@@ -1,6 +1,17 @@
-/* Ludo Best style — fixes: double screen, login nav, support, back */
-body.lb-skin{background:#07111d!important;color:#eaf4ff!important}
-body.lb-skin .app{max-width:430px!important;margin:0 auto!important;min-height:100vh!important;background:linear-gradient(#0b1a2e,#07111d 42%,#06101a)!important;padding-bottom:92px!important}
+/* Ludo Baji mobile skin — big size + no double screen */
+html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+body.lb-skin{background:#07111d!important;color:#eaf4ff!important;font-size:16px!important}
+body.lb-skin .app{
+  max-width:100%!important;
+  width:100%!important;
+  margin:0 auto!important;
+  min-height:100vh!important;
+  background:linear-gradient(#0b1a2e,#07111d 42%,#06101a)!important;
+  padding-bottom:96px!important
+}
+@media(min-width:431px){
+  body.lb-skin .app{max-width:430px!important}
+}
 
 /* Hide old home pieces */
 body.lb-skin .wallet,
@@ -10,157 +21,204 @@ body.lb-skin .footerHelp,
 body.lb-skin #homeExtras,
 body.lb-skin header #profileBtn,
 body.lb-skin .headSpacer{display:none!important}
-
-/* Hide OLD option grid on home */
 body.lb-skin .quick,
 body.lb-skin #quickGrid{display:none!important}
 
 body.lb-skin header{padding:12px 14px 0!important;background:transparent!important;border:0!important;box-shadow:none!important}
 body.lb-skin header .brandWrap .name{display:none!important}
-body.lb-skin #mainLogo,body.lb-skin .logo{width:40px!important;height:40px!important;border-radius:10px!important;object-fit:contain!important}
+body.lb-skin #mainLogo,body.lb-skin .logo{width:42px!important;height:42px!important;border-radius:10px!important;object-fit:contain!important}
 body.lb-skin .head{justify-content:space-between!important}
 body.lb-skin .lb-top-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
-body.lb-skin .lb-ico-btn{width:38px;height:38px;border-radius:50%;border:1px solid #1c3d5a;background:#0d2238;color:#fff;display:grid;place-items:center;cursor:pointer;position:relative;font-size:16px}
-body.lb-skin .lb-wallet-chip{display:flex;align-items:center;gap:6px;border-radius:999px;border:1px solid #1c3d5a;background:#0d2238;padding:6px 12px;color:#fff;font-weight:800;font-size:13px;cursor:pointer}
-body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;display:grid;place-items:center;font-weight:800}
+body.lb-skin .lb-ico-btn{width:42px;height:42px;border-radius:50%;border:1px solid #1c3d5a;background:#0d2238;color:#fff;display:grid;place-items:center;cursor:pointer;position:relative;font-size:18px}
+body.lb-skin .lb-wallet-chip{display:flex;align-items:center;gap:6px;border-radius:999px;border:1px solid #1c3d5a;background:#0d2238;padding:8px 14px;color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;color:#fff;border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;font-weight:800}
 
-#lbHero{padding-bottom:4px}
-.heroBox{text-align:center;padding:4px 14px 0}
-.heroLogo{width:110px;height:110px;object-fit:contain;border-radius:18px;display:block;margin:4px auto 6px;filter:drop-shadow(0 10px 24px #000a)}
+/* ===== HOME — bigger mobile sizes ===== */
+#lbHero{padding-bottom:6px}
+.heroBox{text-align:center;padding:6px 14px 0}
+.heroLogo{width:128px;height:128px;object-fit:contain;border-radius:20px;display:block;margin:6px auto 8px;filter:drop-shadow(0 10px 24px #000a)}
 .heroArt{display:none!important}
-.heroTitle{font-size:22px;font-weight:800;margin:0;color:#fff}
-.heroSub{color:#9bb3c9;margin:3px 0 10px;font-size:12px}
-.playNow{width:calc(100% - 28px);margin:0 14px 12px;border:0;border-radius:999px;background:#f5c400;color:#1a1400;font-weight:900;font-size:16px;padding:13px;cursor:pointer;box-shadow:0 8px 20px #f5c40055}
-.seg{margin:0 14px 12px;background:#122033;border-radius:999px;padding:3px;display:grid;grid-template-columns:1fr 1fr;gap:3px}
-.seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:9px;font-weight:800;cursor:pointer;font-size:13px}
+.heroTitle{font-size:24px;font-weight:800;margin:0;color:#fff}
+.heroSub{color:#9bb3c9;margin:4px 0 12px;font-size:13px}
+
+.playNow{
+  width:calc(100% - 28px);margin:0 14px 14px;border:0;border-radius:999px;
+  background:#f5c400;color:#1a1400;font-weight:900;font-size:18px;padding:16px;
+  cursor:pointer;box-shadow:0 8px 22px #f5c40055
+}
+.seg{margin:0 14px 14px;background:#122033;border-radius:999px;padding:4px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:12px;font-weight:800;cursor:pointer;font-size:15px}
 .seg button.on{background:#14b8c4;color:#042226}
 
-.gameCard{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#16324a,#0d1e30);border:1px solid #234864;border-radius:14px;padding:11px;margin:0 14px 10px;cursor:pointer;position:relative}
-.gameCard .gcArt{width:64px;height:48px;border-radius:11px;background:#102338;display:grid;place-items:center;font-size:26px;flex-shrink:0}
-.gameCard b{display:block;font-size:14px;color:#fff}
-.gameCard small{color:#9bb3c9;font-size:11px}
-.gcCount{position:absolute;right:11px;top:9px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:11px;font-weight:800;padding:2px 7px}
+.gameCard{
+  display:flex;align-items:center;gap:14px;
+  background:linear-gradient(90deg,#16324a,#0d1e30);border:1px solid #234864;
+  border-radius:16px;padding:14px;margin:0 14px 12px;cursor:pointer;position:relative
+}
+.gameCard .gcArt{width:72px;height:56px;border-radius:12px;background:#102338;display:grid;place-items:center;font-size:28px;flex-shrink:0}
+.gameCard b{display:block;font-size:16px;color:#fff}
+.gameCard small{color:#9bb3c9;font-size:12px}
+.gcCount{position:absolute;right:12px;top:12px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:12px;font-weight:800;padding:3px 9px}
 
-#lbOthersBox{padding:0 16px 8px}
+#lbOthersBox{padding:0 14px 10px}
 #lbOthersBox .quickBtn{
-  width:100%!important;min-height:auto!important;margin:0 0 12px!important;
+  width:100%!important;margin:0 0 12px!important;
   border-radius:16px!important;border:1px solid #1c3d5a!important;
   background:linear-gradient(145deg,#0f2a40,#0c1f32)!important;color:#fff!important;
-  display:flex!important;align-items:center!important;gap:12px!important;
-  padding:16px 14px!important;text-align:left!important;cursor:pointer;font-size:15px
+  display:flex!important;align-items:center!important;gap:14px!important;
+  padding:18px 14px!important;text-align:left!important;cursor:pointer;font-size:16px
 }
-#lbOthersBox .quickIcon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#14324a;font-size:22px;flex-shrink:0;overflow:hidden}
+#lbOthersBox .quickIcon{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#14324a;font-size:24px;flex-shrink:0;overflow:hidden}
 #lbOthersBox .quickIcon img{width:100%;height:100%;object-fit:cover}
-#lbOthersBox .quickName{flex:1;font-weight:700;font-size:15px}
-#lbOthersBox .quickArrow{color:#9bb3c9;font-size:18px}
+#lbOthersBox .quickName{flex:1;font-weight:700;font-size:16px}
+#lbOthersBox .quickArrow{color:#9bb3c9;font-size:20px}
 
-.tgCard{margin:0 14px 10px;background:#0e2a46;border:1px solid #1d4e78;border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:10px}
-.tgCard b{display:block;color:#fff;font-size:14px}
-.tgCard small{color:#9bb3c9;font-size:11px}
-.tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:7px 11px;cursor:pointer;white-space:nowrap;font-size:12px}
+.tgCard{margin:0 14px 12px;background:#0e2a46;border:1px solid #1d4e78;border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px}
+.tgCard b{display:block;color:#fff;font-size:15px}
+.tgCard small{color:#9bb3c9;font-size:12px}
+.tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:10px 14px;cursor:pointer;white-space:nowrap;font-size:13px}
 
-.safeBox{margin:6px 14px 12px;text-align:center;color:#9bb3c9}
-.safeBox .tick{width:44px;height:44px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 6px;font-size:20px;font-weight:800}
-.safeBox b{display:block;color:#eaf4ff;font-size:14px}
+.safeBox{margin:8px 14px 16px;text-align:center;color:#9bb3c9}
+.safeBox .tick{width:48px;height:48px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 8px;font-size:22px;font-weight:800}
+.safeBox b{display:block;color:#eaf4ff;font-size:15px}
 
-/* Bottom nav */
-.bottomNav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:430px;background:#0b1726;border-top:1px solid #1c3d5a;display:grid;grid-template-columns:1fr 1fr 1fr;z-index:3600;padding:8px 6px calc(10px + env(safe-area-inset-bottom))}
-.bottomNav button{border:0;background:transparent;color:#7f97ad;font-weight:800;padding:8px 4px;cursor:pointer;font-size:12px}
+/* Bottom nav — full width mobile */
+.bottomNav{
+  position:fixed;left:0;right:0;bottom:0;
+  width:100%;max-width:100%;
+  background:#0b1726;border-top:1px solid #1c3d5a;
+  display:grid;grid-template-columns:1fr 1fr 1fr;
+  z-index:3600;padding:10px 6px calc(12px + env(safe-area-inset-bottom))
+}
+@media(min-width:431px){
+  .bottomNav{left:50%;right:auto;transform:translateX(-50%);max-width:430px}
+}
+.bottomNav button{border:0;background:transparent;color:#7f97ad;font-weight:800;padding:10px 4px;cursor:pointer;font-size:13px}
 .bottomNav button.on{color:#fff}
-.bottomNav button .ico{display:block;font-size:18px;margin-bottom:2px}
+.bottomNav button .ico{display:block;font-size:20px;margin-bottom:2px}
 
-/* Hide bottom nav: login, auth modal, any inner screen */
+/* ========== NO DOUBLE SCREEN ========== */
 body.lb-skin.logged-out .bottomNav,
 body.lb-skin.screen-open .bottomNav,
 body.lb-skin.auth-open .bottomNav{display:none!important}
 
-/* CRITICAL: hide home hero when any screen is open → no double screen */
 body.lb-skin.screen-open #lbHero,
 body.lb-skin.screen-open header,
+body.lb-skin.screen-open .lb-top-actions,
 body.lb-skin.screen-open .wallet,
 body.lb-skin.screen-open .promoStrip,
 body.lb-skin.screen-open .quick,
+body.lb-skin.screen-open #quickGrid,
 body.lb-skin.screen-open #homeExtras,
-body.lb-skin.screen-open .footerHelp{display:none!important}
+body.lb-skin.screen-open .footerHelp,
+body.lb-skin.screen-open #supportFloat,
+body.lb-skin.screen-open #dlAppBtn{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  height:0!important;overflow:hidden!important
+}
 
-/* Full-screen viewer — no white bar */
-body.lb-skin.screen-open{background:#07111d!important}
-body.lb-skin.screen-open .app{background:#07111d!important;padding:0!important;min-height:100vh!important}
+body.lb-skin.screen-open{
+  background:#07111d!important;
+  overflow:hidden!important
+}
+body.lb-skin.screen-open .app{
+  background:#07111d!important;
+  padding:0!important;
+  min-height:100vh!important;
+  max-width:100%!important
+}
+
+/* Viewer covers ENTIRE screen — only one layer */
 body.lb-skin.screen-open .viewer,
-body.lb-skin.screen-open .viewer.show{
+body.lb-skin.screen-open .viewer.show,
+body.lb-skin .viewer.show{
   display:block!important;
   position:fixed!important;
-  top:0!important;left:50%!important;transform:translateX(-50%)!important;
-  width:100%!important;max-width:430px!important;
+  inset:0!important;
+  left:0!important;right:0!important;top:0!important;bottom:0!important;
+  transform:none!important;
+  width:100%!important;max-width:100%!important;
   height:100%!important;min-height:100vh!important;
   margin:0!important;padding:0!important;
   border:0!important;border-radius:0!important;
   background:#07111d!important;color:#eaf4ff!important;
-  box-shadow:none!important;z-index:3000!important;
-  overflow-y:auto!important;-webkit-overflow-scrolling:touch
+  box-shadow:none!important;
+  z-index:5000!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch
+}
+@media(min-width:431px){
+  body.lb-skin.screen-open .viewer,
+  body.lb-skin.screen-open .viewer.show,
+  body.lb-skin .viewer.show{
+    left:50%!important;right:auto!important;
+    transform:translateX(-50%)!important;
+    max-width:430px!important
+  }
 }
 
-body.lb-skin.screen-open .screenTop{background:#0b1726;border-bottom:1px solid #1c3d5a;color:#fff;position:sticky;top:0;z-index:5}
-body.lb-skin.screen-open .screenBack{background:#122033;color:#fff;border-color:#1c3d5a}
-body.lb-skin.screen-open .screenTitle{color:#fff}
-body.lb-skin.screen-open .screenBody{color:#eaf4ff;padding:12px 16px 40px}
+body.lb-skin.screen-open .screenTop{
+  background:#0b1726;border-bottom:1px solid #1c3d5a;color:#fff;
+  position:sticky;top:0;z-index:5;
+  display:flex;align-items:center;gap:10px;padding:12px 14px;min-height:52px
+}
+body.lb-skin.screen-open .screenBack{
+  background:#122033;color:#fff;border:1px solid #1c3d5a;
+  width:40px;height:40px;border-radius:12px;font-size:22px;cursor:pointer
+}
+body.lb-skin.screen-open .screenTitle{color:#fff;font-size:17px;font-weight:800}
+body.lb-skin.screen-open .screenBody{color:#eaf4ff;padding:14px 16px 48px}
 body.lb-skin.screen-open .screenCard{background:#102338;border-color:#1c3d5a;color:#fff}
 
-/* Live Support — fixed corner, full image, no extra label clutter */
+/* Profile — bigger */
+.profilePage{padding:16px 16px 48px;min-height:100vh;background:#07111d}
+.pUser{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.pAv{width:64px;height:64px;border-radius:50%;background:#16324a;display:grid;place-items:center;font-size:30px;flex-shrink:0}
+.pBal{background:linear-gradient(180deg,#12324a,#0c2236);border:1px solid #234864;border-radius:16px;padding:16px;margin-bottom:14px}
+.pBal strong{font-size:30px;color:#fff}
+.addBtn{float:right;border:0;background:#22c55e;color:#04210d;font-weight:800;border-radius:12px;padding:10px 14px;cursor:pointer;font-size:14px}
+.stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;text-align:center}
+.stats3 div{background:#0b1c2c;border-radius:12px;padding:12px;color:#fff}
+.menuRow{
+  display:flex;align-items:center;justify-content:space-between;
+  background:#0d1d2e;border:1px solid #1c3d5a;border-radius:14px;
+  padding:16px;margin-top:10px;cursor:pointer;color:#fff;font-size:16px
+}
+.menuRow.danger{color:#f87171;border-color:#5b2430}
+
+/* Wallet */
+.walletHead{background:#fff;color:#111;border-radius:0 0 18px 18px;padding:20px 16px 18px;text-align:center}
+.wActs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px}
+.wActs button{border:0;border-radius:12px;padding:14px 6px;font-weight:800;color:#fff;cursor:pointer;font-size:13px}
+.wDep{background:#16a34a}.wWd{background:#dc2626}.wGift{background:#2563eb}
+.helpRow{display:flex;justify-content:space-between;align-items:center;margin:12px 0;color:#cfe0ef;font-size:14px}
+.helpRow button{border:0;background:#dc2626;color:#fff;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}
+
+/* Matches */
+body.lb-skin .lm-head{background:#0b1726;padding:12px;position:sticky;top:0;z-index:5}
+body.lb-skin .ludo-match-list{padding:0 12px 48px}
+body.lb-skin .ludo-match-card{background:#fff!important;color:#151515!important}
+
+/* Support bot */
 body.lb-skin #supportFloat{
-  right:14px!important;
-  bottom:100px!important;
-  width:64px!important;
-  height:64px!important;
-  padding:0!important;
-  border:0!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  overflow:hidden!important;
-  border-radius:16px!important
+  right:14px!important;bottom:100px!important;
+  width:64px!important;height:64px!important;padding:0!important;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  overflow:hidden!important;border-radius:16px!important;z-index:3500!important
 }
-body.lb-skin #supportFloat img{
-  width:64px!important;
-  height:64px!important;
-  object-fit:cover!important;
-  border-radius:16px!important;
-  display:block!important
-}
+body.lb-skin #supportFloat img{width:64px!important;height:64px!important;object-fit:cover!important;border-radius:16px!important;display:block!important}
 body.lb-skin #supportFloat .sfLabel{display:none!important}
-body.lb-skin.screen-open #supportFloat,
 body.lb-skin.logged-out #supportFloat,
 body.lb-skin.auth-open #supportFloat{display:none!important}
 
 body.lb-skin #appSplash{background:#07111d}
 body.lb-skin .sp-tag{color:#9bb3c9}
 
-/* Profile */
-.profilePage{padding:16px 16px 40px;min-height:100vh;background:#07111d}
-.pUser{display:flex;gap:12px;align-items:center;margin-bottom:14px}
-.pAv{width:56px;height:56px;border-radius:50%;background:#16324a;display:grid;place-items:center;font-size:28px;flex-shrink:0}
-.pBal{background:linear-gradient(180deg,#12324a,#0c2236);border:1px solid #234864;border-radius:16px;padding:14px;margin-bottom:12px}
-.pBal strong{font-size:28px;color:#fff}
-.addBtn{float:right;border:0;background:#22c55e;color:#04210d;font-weight:800;border-radius:12px;padding:8px 12px;cursor:pointer}
-.stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;text-align:center}
-.stats3 div{background:#0b1c2c;border-radius:12px;padding:10px;color:#fff}
-.menuRow{display:flex;align-items:center;justify-content:space-between;background:#0d1d2e;border:1px solid #1c3d5a;border-radius:14px;padding:14px;margin-top:10px;cursor:pointer;color:#fff;font-size:15px}
-.menuRow.danger{color:#f87171;border-color:#5b2430}
-
-/* Wallet */
-.walletHead{background:#fff;color:#111;border-radius:0 0 18px 18px;padding:18px 16px 16px;text-align:center}
-.wActs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
-.wActs button{border:0;border-radius:10px;padding:11px 6px;font-weight:800;color:#fff;cursor:pointer}
-.wDep{background:#16a34a}.wWd{background:#dc2626}.wGift{background:#2563eb}
-.helpRow{display:flex;justify-content:space-between;align-items:center;margin:10px 0;color:#cfe0ef;font-size:13px}
-.helpRow button{border:0;background:#dc2626;color:#fff;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
-
-body.lb-skin .lm-head{background:#0b1726;padding:8px;position:sticky;top:0;z-index:5}
-body.lb-skin .ludo-match-list{padding:0 10px 40px}
-body.lb-skin .ludo-match-card{background:#fff!important;color:#151515!important}
-
-/* Auth modal open: no bottom nav / support */
-body.lb-skin #authModal.show ~ * .bottomNav,
-body.lb-skin:has(#authModal.show) .bottomNav{display:none!important}
+/* Override old light screen-open theme from index */
+body.lb-skin.screen-open,
+body.screen-open.lb-skin{
+  background:#07111d!important;color:#eaf4ff!important
+}
