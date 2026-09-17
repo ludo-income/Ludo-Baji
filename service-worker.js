@@ -1,5 +1,5 @@
 /* Ludo Baji Service Worker - PWA Install + Push */
-const CACHE_NAME = 'ludo-baji-v8-refresh-fix';
+const CACHE_NAME = 'ludo-baji-v9-stay-screen';
 const PRECACHE = ['/', '/index.html', '/admin', '/admin.html', '/manifest.webmanifest', '/admin-manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/7543.jpg', '/logo-ludo-baji.jpg', '/maintenance-banner.jpg'];
 
 self.addEventListener('install', (event) => {
