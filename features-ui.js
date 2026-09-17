@@ -54,6 +54,10 @@ window.refreshLudoMatchesLive=async function(){
     const active=document.querySelector('.lm-tabs button.active');
     const type=active&&active.textContent.includes('MY')?'my':active&&active.textContent.includes('SMALL')?'small':active&&active.textContent.includes('BIG')?'big':'all';
     filterLudoMatches(type,active);
+    const openN=(matches||[]).filter(m=>String(m.status||'').toLowerCase()!=='cancelled').length;
+    try{sessionStorage.setItem('lb_match_count',String(openN))}catch{}
+    try{sessionStorage.setItem('lb_match_cache',JSON.stringify({at:Date.now(),matches:matches||[]}))}catch{}
+    const c=document.getElementById('lbMatchCount'); if(c) c.textContent=String(openN);
   }catch{}
 };
 window.refreshMyMatchesLive=async function(){
@@ -106,17 +110,30 @@ function ludoMatchCard(m, mine){
  return '<div class="ludo-match-card"><div class="lm-top"><div class="lm-dice">🎲</div><div class="lm-info"><div class="lm-title">'+E(m.title||'Special Match')+'</div><div class="lm-time">◷ '+(m.scheduled_at?'No Fixed Time':'No Fixed Time')+'</div><div class="lm-tags"><span>Game: Ludo King</span><span>Type: CLASSIC</span></div><div class="lm-note">'+E(m.rules||'সিট ফুল হলে রুম আইডি দেওয়া হবে')+'</div></div></div><div class="lm-values"><div><small>WINNING PRIZE</small><strong>'+Number(m.winning_amount||0).toFixed(0)+'</strong></div><div><small>ENTRY FEE</small><strong>'+Number(m.entry_fee||0).toFixed(0)+'</strong></div></div><div class="lm-bottom"><div class="lm-progress"><div class="lm-bar"><i style="width:'+pct+'%;background:'+bar+'"></i></div><div class="lm-count" style="color:'+(count>=2?'#e53935':'#aaa')+'"><span>'+need+' Players Need</span><b>'+count+'/2</b></div></div>'+btn+'</div>'+room+upload+'</div>';
 }
 window.currentUserId=function(){try{const p=JSON.parse(localStorage.getItem('ludo_user_profile')||'{}');return p.id||p.user_id||''}catch{return ''}};
-window.closeLudoScreen=function(){clearInterval(window._ludoUserTimer);document.body.classList.remove('screen-open');const v=document.getElementById('view');if(v){v.classList.remove('show');v.innerHTML=''}try{if(typeof selectedId!=='undefined')selectedId=null}catch{}try{if(typeof setPageState==='function')setPageState('home',true)}catch{}window.scrollTo(0,0);try{if(typeof renderQuick==='function')renderQuick()}catch{}try{if(typeof refreshDashboard==='function')refreshDashboard()}catch{}};
+window.closeLudoScreen=function(){try{sessionStorage.setItem('lb_last_screen','home')}catch{}clearInterval(window._ludoUserTimer);document.body.classList.remove('screen-open');const v=document.getElementById('view');if(v){v.classList.remove('show');v.innerHTML=''}try{if(typeof selectedId!=='undefined')selectedId=null}catch{}try{if(typeof setPageState==='function')setPageState('home',true)}catch{}window.scrollTo(0,0);try{if(typeof renderQuick==='function')renderQuick()}catch{}try{if(typeof refreshDashboard==='function')refreshDashboard()}catch{}};
 window.copyRoomCode=async function(code){try{await navigator.clipboard.writeText(code);alert('রুম কোড কপি হয়েছে')}catch{const t=document.createElement('textarea');t.value=code;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();alert('রুম কোড কপি হয়েছে')}};
 window.showMatches=async function(){
  setupPhonePush();try{connectMatchSocket()}catch{};
  clearInterval(window._ludoUserTimer);
  try{if(typeof setPageState==='function')setPageState('match')}catch{}
+ try{sessionStorage.setItem('lb_last_screen','match')}catch{}
  const v=document.getElementById('view');
  document.body.classList.add('screen-open');
  v.classList.add('show');
  window.scrollTo(0,0);
  v.innerHTML='<div class="lm-head"><button onclick="closeLudoScreen()">‹</button><h3> Ludo Matches</h3><span>▶</span></div><div class="lm-tabs"><button class="active" onclick="filterLudoMatches(\'all\',this)">✓ ALL</button><button onclick="filterLudoMatches(\'my\',this)">MY</button><button onclick="filterLudoMatches(\'small\',this)">SMALL</button><button onclick="filterLudoMatches(\'big\',this)">BIG</button></div><div id="matchList" class="ludo-match-list">Loading...</div>';
+ // Instant paint from session cache so refresh does not stay on Loading...
+ try{
+  const raw=sessionStorage.getItem('lb_match_cache');
+  if(raw){
+   const cached=JSON.parse(raw);
+   if(cached&&Array.isArray(cached.matches)&&cached.matches.length){
+    const myIds=window._myMatchIds||[];
+    window._ludoMatches=cached.matches.map(m=>({...m,_joined:myIds.map(String).includes(String(m.id))}));
+    filterLudoMatches('all',v.querySelector('.lm-tabs button'));
+   }
+  }
+ }catch{}
  try{
   let matches=[], myIds=[];
   if(typeof authToken==='function' && authToken()){
@@ -135,8 +152,12 @@ window.showMatches=async function(){
   window._myMatchIds=myIds;
   window._ludoMatches=(matches||[]).map(m=>({...m,_joined:myIds.map(String).includes(String(m.id))}));
   filterLudoMatches('all',v.querySelector('.lm-tabs button'));
+  const openN=(matches||[]).filter(m=>String(m.status||'').toLowerCase()!=='cancelled').length;
+  try{sessionStorage.setItem('lb_match_count',String(openN))}catch{}
+  try{sessionStorage.setItem('lb_match_cache',JSON.stringify({at:Date.now(),matches:matches||[]}))}catch{}
+  const c=document.getElementById('lbMatchCount'); if(c) c.textContent=String(openN);
   startLudoUserAutoRefresh();
- }catch(e){v.querySelector('#matchList').innerHTML='<div class="err">'+E(e.message||'Match load failed')+'</div>'}
+ }catch(e){const box=v.querySelector('#matchList'); if(box&&!box.querySelector('.lm-card')&&!box.querySelector('.item')) box.innerHTML='<div class="err">'+E(e.message||'Match load failed')+'</div>'}
 };
 window.startLudoUserAutoRefresh=function(){clearInterval(window._ludoUserTimer);window._ludoUserTimer=setInterval(async()=>{if(!document.getElementById('matchList'))return;try{let matches=[],myIds=window._myMatchIds||[];if(typeof authToken==='function'&&authToken()){try{const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);matches=j.matches||[];window._myMatches=mj.matches||[];myIds=window._myMatches.map(m=>m.id)}catch{const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(r=>r.json());matches=pub.matches||[]}}else{const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(r=>r.json());matches=pub.matches||[]}window._myMatchIds=myIds;window._ludoMatches=(matches||[]).map(m=>({...m,_joined:myIds.map(String).includes(String(m.id))}));const active=document.querySelector('.lm-tabs button.active');const type=active&&active.textContent.includes('MY')?'my':active&&active.textContent.includes('SMALL')?'small':active&&active.textContent.includes('BIG')?'big':'all';filterLudoMatches(type,active)}catch{}},5000)};
 window.filterLudoMatches=function(type,el){document.querySelectorAll('.lm-tabs button').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');let a=(window._ludoMatches||[]).filter(m=>String(m.status||'').toLowerCase()!=='cancelled');if(type==='my'){const mineIds=new Set((window._myMatchIds||[]).map(String));a=a.filter(m=>mineIds.has(String(m.id)))}if(type==='small')a=a.filter(m=>Number(m.entry_fee||0)<=50);if(type==='big')a=a.filter(m=>Number(m.entry_fee||0)>50);a=a.slice().sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));const box=document.getElementById('matchList');if(box)box.innerHTML=a.map(m=>ludoMatchCard(m,false)).join('')||'<p class="muted">এখনো কোনো Match নেই। Admin নতুন Match তৈরি করলে এখানে দেখা যাবে।</p>'};

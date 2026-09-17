@@ -35,7 +35,7 @@
       '<div class="gameCard" id="lbGameCard">'+
         '<div class="gcArt">🎯</div>'+
         '<div><b>Ludo Matches</b><small>REGULAR 1 VS 1</small></div>'+
-        '<span class="gcCount" id="lbMatchCount">0</span>'+
+        '<span class="gcCount" id="lbMatchCount">'+(function(){try{var n=sessionStorage.getItem('lb_match_count');if(n!=null&&n!=='')return String(n)}catch(e){}return '0'}())+'</span>'+
       '</div>'+
       '<div id="lbOthersBox" style="display:none"></div>'+
       '<div class="tgCard" id="lbTgCard">'+
@@ -403,9 +403,14 @@
     const tot=Number(window._gamingBal||0)+Number(window._winningBal||0);
     if(chip) chip.textContent=String(Math.round(tot));
     try{
-      const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {};});
-      const n=(pub.matches||[]).filter(function(m){return String(m.status||'').toLowerCase()!=='cancelled';}).length;
-      const c=$('lbMatchCount'); if(c) c.textContent=String(n||0);
+      const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;});
+      if(pub && Array.isArray(pub.matches)){
+        const n=pub.matches.filter(function(m){return String(m.status||'').toLowerCase()!=='cancelled';}).length;
+        const c=$('lbMatchCount'); if(c) c.textContent=String(n);
+        try{sessionStorage.setItem('lb_match_count',String(n))}catch(e){}
+        try{sessionStorage.setItem('lb_match_cache',JSON.stringify({at:Date.now(),matches:pub.matches}))}catch(e){}
+      }
+      // on fetch fail keep previous badge — no flash to 0
     }catch(e){}
     try{
       if(typeof authToken==='function' && authToken()){
