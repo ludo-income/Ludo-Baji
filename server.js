@@ -306,6 +306,7 @@ function attachMatchWebSocket(server){
 
 const server=http.createServer(async(req,res)=>{try{
  const u=url.parse(req.url,true),p=u.pathname;
+ if(req.method==='GET'&&(p==='/health'||p==='/api/health')){return send(res,200,{ok:true,status:'healthy',service:'Ludo Baji',version:'9.1.0',time:new Date().toISOString()})}
  if(req.method==='OPTIONS'){const h={};if(CORS_ORIGIN){h['Access-Control-Allow-Origin']=CORS_ORIGIN;h['Access-Control-Allow-Headers']='Content-Type, Authorization';h['Access-Control-Allow-Methods']='GET,POST,PUT,DELETE,OPTIONS';h['Vary']='Origin'}res.writeHead(204,h);return res.end()}
  // === BUILD 20260914-ADMIN-UNLOCK-V2 ===
  // 1) Admin login — NEVER blocked by maintenance
@@ -315,7 +316,7 @@ const server=http.createServer(async(req,res)=>{try{
  // 3) Build check (confirm deploy worked)
  if(req.method==='GET'&&p==='/api/build'){return send(res,200,{ok:true,build:'20260914-ADMIN-UNLOCK-V2'})}
  // 4) Maintenance — ONLY public/user APIs. Admin login + /api/admin/* + emergency + build + site never blocked.
- if(p.startsWith('/api/')&&p!=='/api/login'&&p!=='/api/site'&&p!=='/api/build'&&p!=='/api/emergency-maintenance-off'&&!p.startsWith('/api/admin')){
+ if(p.startsWith('/api/')&&p!=='/api/login'&&p!=='/api/site'&&p!=='/api/build'&&p!=='/api/health'&&p!=='/api/emergency-maintenance-off'&&!p.startsWith('/api/admin')){
    if(String(process.env.FORCE_MAINTENANCE_OFF||'').toLowerCase()==='true'){/* skip */}
    else{const md=await read();if(md.system?.maintenance?.enabled===true)return send(res,503,{ok:false,error:'Ludo Baji Website & App Update চলছে। এখন প্রবেশ করা যাবে না।'});}
  }
