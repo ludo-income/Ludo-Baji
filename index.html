@@ -217,7 +217,38 @@ body.screen-open #dlAppBtn{display:none!important}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ludo Baji">
 <link rel="apple-touch-icon" href="/icon-512.png">
-<link rel="stylesheet" href="theme-ludobest.css?v=20260917-refresh2"></head><body class="logged-out"><script>(function(){try{var t=localStorage.getItem('ludo_user_token');if(t){document.body.classList.remove('logged-out');document.documentElement.classList.add('has-session');}}catch(e){}})();</script><div id="appSplash"><div class="sp-inner"><img class="sp-logo" src="icon-512.png" alt="Ludo Baji"><div class="sp-name">Ludo Baji</div><div class="sp-tag">Play & Win</div><div class="sp-spin"></div><div class="sp-msg">Connecting to server...</div></div></div><button type="button" id="dlAppBtn" aria-label="Download App"><span class="dl-ico">⬇</span><span>Download App</span></button><div class="maintenance-screen" id="maintenanceScreen"><div class="maintenance-wrap"><div class="maintenance-glow"></div><div class="maintenance-shimmer"></div><img class="maintenance-banner" id="maintenanceBanner" src="maintenance-banner.jpg" alt="Ludo Baji Website & App Update"><img class="maintenance-logo" id="maintenanceLogo" src="logo-ludo-baji.jpg" alt="" hidden><div class="maintenance-art" hidden></div><div class="maintenance-card" hidden><h1 id="maintenanceTitle"></h1><div class="main-msg" id="maintenanceMessage"></div><div class="detail" id="maintenanceDetail"></div><div class="maintenance-status"><b id="maintenanceStatus"></b><span id="maintenanceSubtext"></span></div><div class="maintenance-footer" id="maintenanceFooter"></div></div></div></div><div class="app"><header><div class="head"><div class="headSpacer"></div><div class="brandWrap"><img class="logo" id="mainLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="name" id="siteName">Ludo Baji</div></div><button class="profile" id="profileBtn" aria-label="Profile">👤</button></div></header><div class="wallet"><div class="balanceSingle"><div class="balTop"><span class="walletLogo" aria-hidden="true">👛</span><small>Balance</small><span class="balEye">👁</span></div><strong id="totalBalance">৳ 0.00</strong></div><div class="loginHint" id="walletHint">Login করলে আপনার Balance এখানে দেখা যাবে</div></div><div class="promoStrip" id="promoStrip"><div class="promoText">🎁 স্বাগতম লুডো বাজিতে — ডিপোজিট করুন এবং বোনাস উপভোগ করুন।</div><button type="button" class="promoBtn" onclick="if(typeof openDeposit==='function')openDeposit();else if(typeof quickOpen==='function')quickOpen('deposit','Deposit','💳')">এখনই জয়েন করুন ›</button></div><div id="homeExtras" class="homeExtras"></div><div class="quick"><div class="quickHead"><div><h3>Quick Access</h3><div class="quickSub">আপনার প্রয়োজনীয় সব Option এক জায়গায়</div><div class="preview-badge">🔎 Preview Mode — Login OFF</div></div></div><div class="quickGrid" id="quickGrid"></div></div><div id="footerHelp" class="footerHelp"></div><div class="viewer" id="view"></div><button type="button" id="supportFloat" class="hidden" aria-label="Live Support"><span class="sfLabel">Live Support 🔴</span><img src="support-bot.png" alt="Live Support"></button></div>
+<link rel="stylesheet" href="theme-ludobest.css?v=20260917-stayfix"></head><body class="logged-out"><script>(function(){
+try{var t=localStorage.getItem('ludo_user_token');if(t){document.body.classList.remove('logged-out');document.documentElement.classList.add('has-session');}}catch(e){}
+// INSTANT restore intent — before any paint of Home
+var screen='';
+try{screen=decodeURIComponent((location.hash||'').replace(/^#/,''))||'';}catch(e){}
+if(!screen||screen==='home'){try{screen=sessionStorage.getItem('lb_last_screen')||'';}catch(e){}}
+if(screen&&screen!=='home'&&screen!==''){
+  document.body.classList.add('lb-restoring','screen-open');
+  document.documentElement.classList.add('lb-restoring');
+  try{sessionStorage.setItem('lb_last_screen',screen)}catch(e){}
+  window._lbRestoreScreen=screen;
+  // skip splash completely when restoring a screen
+  window._splashSkip=true;
+  try{sessionStorage.setItem('lb_splash_seen','1')}catch(e){}
+}
+})();</script>
+<style id="lbRestoreCss">
+html.lb-restoring #appSplash, body.lb-restoring #appSplash{display:none!important;visibility:hidden!important;opacity:0!important}
+body.lb-restoring .app > header,
+body.lb-restoring .app > .wallet,
+body.lb-restoring .app > .promoStrip,
+body.lb-restoring .app > .homeExtras,
+body.lb-restoring .app > .quick,
+body.lb-restoring .app > #lbHero,
+body.lb-restoring .bottomNav,
+body.lb-restoring #lbBottom,
+body.lb-restoring #dlAppBtn,
+body.lb-restoring .supportFloat,
+body.lb-restoring .chatBotFloat{visibility:hidden!important;pointer-events:none!important}
+body.lb-restoring #view{display:block!important;position:fixed!important;inset:0!important;z-index:50!important;background:#0b1220!important}
+body.lb-restoring #view:empty::before{content:'Loading...';display:block;color:#9fb3c8;padding:24px;text-align:center;font-family:system-ui,sans-serif}
+</style><div id="appSplash"><div class="sp-inner"><img class="sp-logo" src="icon-512.png" alt="Ludo Baji"><div class="sp-name">Ludo Baji</div><div class="sp-tag">Play & Win</div><div class="sp-spin"></div><div class="sp-msg">Connecting to server...</div></div></div><button type="button" id="dlAppBtn" aria-label="Download App"><span class="dl-ico">⬇</span><span>Download App</span></button><div class="maintenance-screen" id="maintenanceScreen"><div class="maintenance-wrap"><div class="maintenance-glow"></div><div class="maintenance-shimmer"></div><img class="maintenance-banner" id="maintenanceBanner" src="maintenance-banner.jpg" alt="Ludo Baji Website & App Update"><img class="maintenance-logo" id="maintenanceLogo" src="logo-ludo-baji.jpg" alt="" hidden><div class="maintenance-art" hidden></div><div class="maintenance-card" hidden><h1 id="maintenanceTitle"></h1><div class="main-msg" id="maintenanceMessage"></div><div class="detail" id="maintenanceDetail"></div><div class="maintenance-status"><b id="maintenanceStatus"></b><span id="maintenanceSubtext"></span></div><div class="maintenance-footer" id="maintenanceFooter"></div></div></div></div><div class="app"><header><div class="head"><div class="headSpacer"></div><div class="brandWrap"><img class="logo" id="mainLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="name" id="siteName">Ludo Baji</div></div><button class="profile" id="profileBtn" aria-label="Profile">👤</button></div></header><div class="wallet"><div class="balanceSingle"><div class="balTop"><span class="walletLogo" aria-hidden="true">👛</span><small>Balance</small><span class="balEye">👁</span></div><strong id="totalBalance">৳ 0.00</strong></div><div class="loginHint" id="walletHint">Login করলে আপনার Balance এখানে দেখা যাবে</div></div><div class="promoStrip" id="promoStrip"><div class="promoText">🎁 স্বাগতম লুডো বাজিতে — ডিপোজিট করুন এবং বোনাস উপভোগ করুন।</div><button type="button" class="promoBtn" onclick="if(typeof openDeposit==='function')openDeposit();else if(typeof quickOpen==='function')quickOpen('deposit','Deposit','💳')">এখনই জয়েন করুন ›</button></div><div id="homeExtras" class="homeExtras"></div><div class="quick"><div class="quickHead"><div><h3>Quick Access</h3><div class="quickSub">আপনার প্রয়োজনীয় সব Option এক জায়গায়</div><div class="preview-badge">🔎 Preview Mode — Login OFF</div></div></div><div class="quickGrid" id="quickGrid"></div></div><div id="footerHelp" class="footerHelp"></div><div class="viewer" id="view"></div><button type="button" id="supportFloat" class="hidden" aria-label="Live Support"><span class="sfLabel">Live Support 🔴</span><img src="support-bot.png" alt="Live Support"></button></div>
 <div class="modal authModalPre" id="authModal" style="display:none"><div class="card"><img class="authHeroLogo" src="logo-ludo-baji.jpg" alt="Ludo Baji"><div class="authHeroTitle">Ludo Baji</div><div class="authHeroTag">Play & Win</div><div class="authHeroArt">🎲 🏆 🎯</div><button class="close" id="closeAuth">×</button><h2 id="authTitle">Login / Sign Up</h2><p class="muted">Email / Gmail দিয়ে ৬ সংখ্যার OTP-এর মাধ্যমে প্রবেশ করুন</p><div id="emailStep"><div class="field"><label>Email / Gmail</label><input id="email" type="email" autocomplete="email" placeholder="example@gmail.com" maxlength="254"></div><button class="btn" id="sendOtp" style="width:100%">Continue with Email</button></div><div id="otpStep" class="hidden"><div class="field"><label>৬ সংখ্যার OTP</label><input id="otp" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code"></div><button class="btn" id="verifyOtp" style="width:100%">Verify & Login</button><div class="row" style="margin-top:10px"><button class="btn" id="backEmail" style="background:#68736d">Email বদলান</button><button class="btn" id="resendOtp">আবার OTP</button></div></div><div id="authErr" class="err"></div></div></div>
 <div class="modal" id="profileModal"><div class="card"><button class="close" id="closeProfile">×</button><h2>👤 Profile</h2><div id="profileContent"></div><div class="field"><label>নাম</label><input id="profileName" maxlength="60" placeholder="আপনার নাম"></div><button class="btn" id="saveProfile" style="width:100%">Save Profile</button><button class="btn" id="logoutUser" style="width:100%;margin-top:10px;background:#d84a4a">Logout</button><div id="profileErr" class="err"></div></div></div>
 <script>
@@ -232,14 +263,14 @@ async function api(path,opt={}){const headers={'Content-Type':'application/json'
   var nav=performance.getEntriesByType&&performance.getEntriesByType('navigation')[0];
   var isReload=(nav&&(nav.type==='reload'||nav.type==='back_forward'))||(performance.navigation&&(performance.navigation.type===1||performance.navigation.type===2));
   var seen=false;try{seen=sessionStorage.getItem('lb_splash_seen')==='1'}catch(e){}
-  // Refresh / same session / back-forward: never show splash
-  if(isReload||seen){
+  var restoring=!!window._lbRestoreScreen||document.body.classList.contains('lb-restoring');
+  // Refresh / same session / restoring screen: never show splash
+  if(isReload||seen||restoring||window._splashSkip){
     s.classList.add('skip');
     try{s.parentNode&&s.parentNode.removeChild(s)}catch(e){}
     window._splashSkip=true;
   }
   try{sessionStorage.setItem('lb_splash_seen','1')}catch(e){}
-  // bfcache restore also skip
   window.addEventListener('pageshow',function(ev){
     if(ev.persisted){
       window._splashSkip=true;
@@ -248,6 +279,33 @@ async function api(path,opt={}){const headers={'Content-Type':'application/json'
     }
   });
 })();
+
+function earlyRestoreShell(){
+  var state = window._lbRestoreScreen || '';
+  if(!state){try{state=decodeURIComponent((location.hash||'').replace(/^#/,''))||''}catch(e){}}
+  if(!state||state==='home'){try{state=sessionStorage.getItem('lb_last_screen')||''}catch(e){}}
+  if(!state||state==='home')return;
+  document.body.classList.add('screen-open','lb-restoring');
+  var v=document.getElementById('view');
+  if(v){
+    v.classList.add('show');
+    if(!v.innerHTML || !v.innerHTML.trim()){
+      v.innerHTML='<div class="lm-head"><button onclick="if(typeof closeLudoScreen===\'function\')closeLudoScreen();else location.hash=\'\'">‹</button><h3> Loading...</h3><span></span></div><div style="padding:16px;color:#9fb3c8;text-align:center">Loading...</div>';
+    }
+  }
+  // open real screen ASAP (may re-fetch data)
+  try{
+    if((state==='match'||state==='matches')&&typeof showMatches==='function'){showMatches();return}
+    if((state==='mymatch'||state==='my-matches')&&typeof showMyMatches==='function'){showMyMatches();return}
+    if(state==='wallet'&&typeof openWalletSkin==='function'){openWalletSkin();return}
+    if(state==='profile'&&typeof openProfileSkin==='function'){openProfileSkin();return}
+    if(state==='deposit'&&typeof openDeposit==='function'){openDeposit();return}
+    if(state==='withdraw'&&typeof openWithdraw==='function'){openWithdraw();return}
+    if(state==='statement'&&typeof openStatement==='function'){openStatement();return}
+    if(state==='notifications'&&typeof showNotifications==='function'){showNotifications();return}
+    if(state==='referral'&&typeof showReferral==='function'){showReferral();return}
+  }catch(e){console.warn('earlyRestore',e)}
+}
 window._splashShownAt=Date.now();
 function hideAppSplash(){
   const s=document.getElementById('appSplash');
@@ -307,7 +365,7 @@ async function load(){
       try{document.documentElement.classList.remove('has-session');}catch(e){}
     }
     // Restore page BEFORE dashboard so refresh stays on Wallet/Deposit (no Home flash)
-    try{await restorePageState();}catch(e){console.warn('restore',e)}
+    try{await restorePageState();}catch(e){console.warn('restore',e)}try{document.body.classList.remove('lb-restoring');document.documentElement.classList.remove('lb-restoring')}catch(e){}
     try{refreshDashboard();}catch(e){}
     if(!logged&&loginOtpEnabled){
       const st=(location.hash||'').replace(/^#/,'');
@@ -584,6 +642,7 @@ document.getElementById('verifyOtp').onclick=async()=>{try{const j=await api('/a
 document.getElementById('backEmail').onclick=()=>{document.getElementById('otpStep').classList.add('hidden');document.getElementById('emailStep').classList.remove('hidden');document.getElementById('authErr').textContent=''};
 document.getElementById('resendOtp').onclick=()=>document.getElementById('sendOtp').click();document.getElementById('saveProfile').onclick=async()=>{try{const j=await api('/api/auth/profile',{method:'PUT',body:JSON.stringify({name:document.getElementById('profileName').value.trim()})});currentUser=j.user;document.getElementById('profileErr').className='err success';document.getElementById('profileErr').textContent='Profile saved';}catch(e){document.getElementById('profileErr').className='err';document.getElementById('profileErr').textContent=e.message}};
 document.getElementById('logoutUser').onclick=()=>{localStorage.removeItem('ludo_user_token');currentUser=null;setPageState('home');document.body.classList.add('logged-out');document.documentElement.classList.remove('has-session');renderQuick();setupSupportFloat(window._supportWidget?{supportWidget:window._supportWidget}:{});close(profileModal);openAuth()};
+try{earlyRestoreShell()}catch(e){}
 load();
 // Keep Admin changes live without reopening/resetting the current page.
 setInterval(async()=>{try{
@@ -612,4 +671,4 @@ setInterval(async()=>{try{
     try{const am=document.getElementById('authModal');if(am){am.classList.remove('show');am.style.display='none';}}catch(e){}
   }
 }catch(e){}} ,5000);
-</script><script src="theme-ludobest.js?v=20260917-refresh2"></script><script src="features-ui.js?v=20260917-refresh2"></script></body></html>
+</script><script src="theme-ludobest.js?v=20260917-stayfix"></script><script src="features-ui.js?v=20260917-stayfix"></script></body></html>
