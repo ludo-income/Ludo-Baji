@@ -33,8 +33,8 @@
         '<button type="button" id="segOthers">▦ Others</button>'+
       '</div>'+
       '<div class="gameCard" id="lbGameCard">'+
-        '<div class="gcArt">🎯</div>'+
-        '<div><b>Ludo Matches</b><small>REGULAR 1 VS 1</small></div>'+
+        '<div class="gcArt" id="lbMatchArt">🎯</div>'+
+        '<div><b id="lbMatchTitle">Ludo Matches</b><small id="lbMatchSub">REGULAR 1 VS 1</small></div>'+
         '<span class="gcCount" id="lbMatchCount">'+(function(){try{var n=sessionStorage.getItem('lb_match_count');if(n!=null&&n!=='')return String(n)}catch(e){}return '0'}())+'</span>'+
       '</div>'+
       '<div id="lbOthersBox" style="display:none"></div>'+
@@ -60,6 +60,7 @@
     }
 
     bindHomeClicks();
+    try{ if(typeof window.applyMatchCardLogo==='function') window.applyMatchCardLogo(); }catch(e){}
   }
 
   function bindHomeClicks(){
@@ -72,6 +73,39 @@
     const nr=$('navRefer'); if(nr) nr.onclick=function(){ if(typeof showReferral==='function') showReferral(); };
     const np=$('navProfile'); if(np) np.onclick=function(){ openProfileSkin(); };
   }
+
+
+  // Apply Admin → Main Page Options → "Ludo Matches" logo/name to the home game card
+  window.applyMatchCardLogo = function(){
+    try{
+      const list = (window._siteCache && window._siteCache.mainOptions) || window.all || [];
+      const o = (list||[]).find(function(x){ return String(x.id)==='match' || String(x.id)==='matches'; });
+      if(!o) return;
+      const art = document.getElementById('lbMatchArt');
+      const title = document.getElementById('lbMatchTitle');
+      const sub = document.getElementById('lbMatchSub');
+      const logo = o.logo ? String(o.logo) : '';
+      const icon = o.icon ? String(o.icon) : '🎯';
+      if(art){
+        const isImg = logo && (logo.indexOf('data:')===0 || logo.indexOf('http')===0 || /\.(gif|png|jpe?g|webp|svg)(\?|$)/i.test(logo));
+        if(isImg){
+          art.innerHTML = '<img src="'+logo.replace(/"/g,'&quot;')+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.parentNode.textContent=\''+(icon.replace(/'/g,"\\'")||'🎯')+'\'">';
+        } else if(logo && logo.length <= 4){
+          art.textContent = logo;
+        } else if(icon){
+          art.textContent = icon;
+        }
+      }
+      if(title && o.name) title.textContent = o.name;
+      if(sub){
+        const s = o.short_name || o.content || 'REGULAR 1 VS 1';
+        sub.textContent = String(s).length > 40 ? 'REGULAR 1 VS 1' : String(s);
+      }
+      // Hide card if match option is OFF
+      const card = document.getElementById('lbGameCard');
+      if(card && o.visible === false) card.style.display = 'none';
+    }catch(e){ console.warn('applyMatchCardLogo', e); }
+  };
 
   window.setHomeSeg=function(which){
     const g=$('segGames'), o=$('segOthers'), ob=$('lbOthersBox'), gc=$('lbGameCard'), tg=$('lbTgCard'), safe=document.querySelector('.safeBox');

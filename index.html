@@ -348,7 +348,7 @@ async function load(){
     document.body.classList.toggle('preview-mode',!logged&&!loginOtpEnabled);
     document.getElementById('profileBtn').style.display=(loginOtpEnabled||logged)?'':'none';
     all=(d.mainOptions||[]).filter(x=>x.visible!==false);
-    try{window._siteCache=Object.assign(window._siteCache||{},d);window._siteCache.mainOptions=d.mainOptions||[];}catch(e){}
+    try{window._siteCache=Object.assign(window._siteCache||{},d);window._siteCache.mainOptions=d.mainOptions||[];}catch(e){}try{if(typeof window.applyMatchCardLogo==='function')window.applyMatchCardLogo()}catch(e){}
     renderQuick();
     try{if(typeof lbSyncMainOptions==='function')lbSyncMainOptions();}catch(e){}
     window._helpLinks=Array.isArray(d.helpLinks)?d.helpLinks:null;window._supportWidget=d.supportWidget||null;renderHomeExtras(d);renderPublicLinks();setupSupportFloat(d);
@@ -649,7 +649,7 @@ setInterval(async()=>{try{
   const r=await fetch('/api/site?t='+Date.now(),{cache:'no-store'});
   if(!r.ok)return;
   const d=await r.json();
-  try{window._siteCache=Object.assign(window._siteCache||{},d);if(d.mainOptions)window._siteCache.mainOptions=d.mainOptions;if(d.walletUi)window._walletUi=d.walletUi;}catch(e){}
+  try{window._siteCache=Object.assign(window._siteCache||{},d);if(d.mainOptions)window._siteCache.mainOptions=d.mainOptions;try{if(typeof window.applyMatchCardLogo==='function')window.applyMatchCardLogo()}catch(e){}if(d.walletUi)window._walletUi=d.walletUi;}catch(e){}
   if(d.system?.maintenance?.enabled===true){if(!window._maintShown)showMaintenance(d.system.maintenance,d.site);return;}
   else{if(window._maintShown)hideMaintenance();}
   const next=(d.mainOptions||[]).filter(x=>x.visible!==false);
@@ -671,4 +671,4 @@ setInterval(async()=>{try{
     try{const am=document.getElementById('authModal');if(am){am.classList.remove('show');am.style.display='none';}}catch(e){}
   }
 }catch(e){}} ,5000);
-</script><script src="theme-ludobest.js?v=20260917-stayfix"></script><script src="features-ui.js?v=20260917-stayfix"></script></body></html>
+</script><script src="theme-ludobest.js?v=20260918-LOGO20260917-stayfix"></script><script src="features-ui.js?v=20260917-stayfix"></script></body></html>
