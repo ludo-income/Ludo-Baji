@@ -279,7 +279,6 @@
     if(typeof authToken==='function' && !authToken()){ if(typeof openAuth==='function') openAuth(); return; }
     document.querySelectorAll('#lbBottom button').forEach(function(b){ b.classList.remove('on'); });
     const np=$('navProfile'); if(np) np.classList.add('on');
-    // close any old modal so it never stacks behind
     try{
       const pm=document.getElementById('profileModal');
       if(pm){ pm.classList.remove('show'); pm.style.display='none'; }
@@ -289,127 +288,162 @@
     if(!window._lbNavLock){ try{ lbPush('profile'); }catch(e){} }
     try{ if(typeof setPageState==='function') setPageState('profile'); }catch(e){}
     try{ const am=$('authModal'); if(am){ am.classList.remove('show'); am.style.display='none'; } document.body.classList.remove('auth-open'); }catch(e){}
-    function pfOptLogo(id, fb){
-      try{
-        const list=(window._siteCache&&window._siteCache.mainOptions)||window.all||[];
-        const o=(list||[]).find(x=>String(x.id)===String(id));
-        const lg=o&&o.logo?String(o.logo):'';
-        if(lg) return lbWalletIcon(lg, fb);
-      }catch(e){}
-      return fb;
-    }
-    const pfDep=pfOptLogo('deposit','↓');
-    const pfWd=pfOptLogo('withdraw','↑');
+
+    function money(n){ return '৳ '+Number(n||0).toFixed(2); }
+    function esc(s){ return String(s??'').replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+
     v.innerHTML=
-      '<div class="ftPage">'+
-        '<div class="ftProfileHero">'+
-          '<button type="button" class="ftBack light" onclick="lbBack()">‹</button>'+
-          '<div class="ftHeroAv">👤</div>'+
-          '<div class="ftHeroName" id="pfName">User</div>'+
-          '<div class="ftHeroMail" id="pfEmail"></div>'+
-          '<div class="ftHeroUid" id="pfUid"></div>'+
-          '<button type="button" class="ftEditPill" id="pfEditBtn">✎ Edit</button>'+
-        '</div>'+
-        '<div id="pfEditBox" class="ftEditBox" style="display:none">'+
-          '<label>নাম</label>'+
-          '<input id="pfEditName" maxlength="60" placeholder="আপনার নাম">'+
-          '<div class="ftEditActions">'+
-            '<button type="button" class="ftPrimaryBtn" id="pfSaveBtn">Save</button>'+
-            '<button type="button" class="ftGhostBtn" id="pfCancelBtn">Cancel</button>'+
-          '</div>'+
-          '<div id="pfEditMsg" class="ftMsg"></div>'+
-        '</div>'+
-        '<div class="ftBalanceCard sm">'+
-          '<div class="ftBalLabel">Available balance</div>'+
-          '<div class="ftBalAmount" id="pfBal">৳ 0</div>'+
-          '<div class="ftBalSub">Winning <span id="pfWin">0</span></div>'+
-          '<div class="ftQuick">'+
-            '<button type="button" class="ftQBtn" onclick="openDeposit()"><span class="ftQIco">'+pfDep+'</span>Deposit</button>'+
-            '<button type="button" class="ftQBtn" onclick="openWithdraw()"><span class="ftQIco">'+pfWd+'</span>Withdraw</button>'+
-            '<button type="button" class="ftQBtn" onclick="openWalletSkin()"><span class="ftQIco">👛</span>Wallet</button>'+
-          '</div>'+
-          '<div class="ftStats">'+
-            '<div><b id="pfMatches">0</b><span>Matches</span></div>'+
-            '<div><b id="pfRefers">0</b><span>Refers</span></div>'+
-            '<div><b id="pfWins">0</b><span>Wins</span></div>'+
+      '<div class="npPage">'+
+        '<div class="npTop">'+
+          '<button type="button" class="npBack" onclick="lbBack()">‹</button>'+
+          '<div class="npTitle">Profile</div>'+
+          '<div class="npTopRight">'+
+            '<button type="button" class="npIconBtn" onclick="typeof showNotifications===\'function\'&&showNotifications()">🔔</button>'+
           '</div>'+
         '</div>'+
-        '<div class="ftSection">'+
-          '<div class="ftSecTitle">Account</div>'+
-          '<div class="ftActionRow" onclick="openWalletSkin()"><div class="ftAIco wal">👛</div><div class="ftATxt"><b>My Wallet</b><small>Balance & history</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow" onclick="openStatement()"><div class="ftAIco st">☰</div><div class="ftATxt"><b>All Statements</b><small>Transactions</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow" onclick="if(typeof showLeaderboard===\'function\')showLeaderboard()"><div class="ftAIco top">🏆</div><div class="ftATxt"><b>Top Players</b><small>Leaderboard</small></div><span class="ftChevron">›</span></div>'+
+        '<div class="npHero">'+
+          '<div class="npAvWrap"><div class="npAv">👤</div></div>'+
+          '<div class="npHeroInfo">'+
+            '<div class="npNameRow"><span id="npName">User</span> <span class="npCrown">👑</span></div>'+
+            '<div class="npIdRow">ID: <b id="npUid">—</b> <span class="npVerified">✓ Verified</span></div>'+
+            '<div class="npPhoneRow" id="npPhoneRow">📱 <span id="npPhone">—</span></div>'+
+            '<div class="npMailRow" id="npMail">—</div>'+
+            '<div class="npTag">Play · Win · Be a Legend</div>'+
+          '</div>'+
+          '<button type="button" class="npEditBtn" id="npEditBtn">✎ Edit Profile</button>'+
         '</div>'+
-        '<div class="ftSection">'+
-          '<div class="ftSecTitle">More</div>'+
-          '<div class="ftActionRow" onclick="shareApp()"><div class="ftAIco share">↗</div><div class="ftATxt"><b>Share App</b><small>Invite friends</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow" onclick="if(typeof showPublicPage===\'function\')showPublicPage(\'terms\')"><div class="ftAIco info">ℹ</div><div class="ftATxt"><b>Terms & Conditions</b><small>Rules</small></div><span class="ftChevron">›</span></div>'+
-          '<div class="ftActionRow danger" id="pfLogoutBtn"><div class="ftAIco out">⎋</div><div class="ftATxt"><b>Logout</b><small>Sign out</small></div><span class="ftChevron">›</span></div>'+
+        '<div id="npEditBox" class="npEditBox" style="display:none">'+
+          '<label>নাম</label><input id="npEditName" maxlength="60" placeholder="আপনার নাম">'+
+          '<div class="npEditActions">'+
+            '<button type="button" class="npSave" id="npSaveBtn">Save</button>'+
+            '<button type="button" class="npCancel" id="npCancelBtn">Cancel</button>'+
+          '</div>'+
+          '<div id="npEditMsg" class="npMsg"></div>'+
         '</div>'+
-        '<div class="ftVersion">Version 1.0.6</div>'+
-        '<div class="smallText" id="pfPhone" style="display:none"></div>'+
+        '<div class="npStats">'+
+          '<div class="npStat"><div class="npStatIco blue">💰</div><small>Total Balance</small><b id="npBal">৳ 0.00</b></div>'+
+          '<div class="npStat"><div class="npStatIco green">⬇️</div><small>Total Deposit</small><b id="npDep">৳ 0.00</b></div>'+
+          '<div class="npStat"><div class="npStatIco purple">⬆️</div><small>Total Withdraw</small><b id="npWd">৳ 0.00</b></div>'+
+          '<div class="npStat"><div class="npStatIco orange">🎁</div><small>Winning</small><b id="npWin">৳ 0.00</b></div>'+
+        '</div>'+
+        '<div class="npMenu">'+
+          '<button type="button" class="npItem" id="npPersonal">'+
+            '<span class="npItemIco" style="background:#2563eb">👤</span>'+
+            '<span class="npItemTxt"><b>Personal Information</b><small>Name, Email, Phone, UID</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<div id="npPersonalBox" class="npSubBox" style="display:none">'+
+            '<div class="npSubRow"><span>নাম</span><b id="npPIName">—</b></div>'+
+            '<div class="npSubRow"><span>মোবাইল</span><b id="npPIPhone">—</b></div>'+
+            '<div class="npSubRow"><span>Gmail</span><b id="npPIEmail">—</b></div>'+
+            '<div class="npSubRow"><span>UID</span><b id="npPIUid">—</b></div>'+
+          '</div>'+
+          '<button type="button" class="npItem" onclick="typeof openDeposit===\'function\'&&openDeposit()">'+
+            '<span class="npItemIco" style="background:#16a34a">⬇️</span>'+
+            '<span class="npItemTxt"><b>Deposit</b><small>Add money to wallet</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof openWithdraw===\'function\'&&openWithdraw()">'+
+            '<span class="npItemIco" style="background:#7c3aed">⬆️</span>'+
+            '<span class="npItemTxt"><b>Withdraw / Bank Details</b><small>bKash, Nagad, Rocket</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof showNotifications===\'function\'&&showNotifications()">'+
+            '<span class="npItemIco" style="background:#ea580c">🔔</span>'+
+            '<span class="npItemTxt"><b>Notification Settings</b><small>Manage your notifications</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof shareApp===\'function\'&&shareApp()">'+
+            '<span class="npItemIco" style="background:#db2777">👥</span>'+
+            '<span class="npItemTxt"><b>Referral & Earn</b><small>Invite friends & get bonus</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof openSupport===\'function\'?openSupport():(typeof showSupport===\'function\'&&showSupport())">'+
+            '<span class="npItemIco" style="background:#0891b2">🎧</span>'+
+            '<span class="npItemTxt"><b>Help & Support</b><small>Get help from our support team</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof openHelpPage===\'function\'&&openHelpPage(\'terms\')">'+
+            '<span class="npItemIco" style="background:#2563eb">📄</span>'+
+            '<span class="npItemTxt"><b>Terms & Conditions</b><small>Read our terms and conditions</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem" onclick="typeof openHelpPage===\'function\'&&openHelpPage(\'privacy\')">'+
+            '<span class="npItemIco" style="background:#7c3aed">🛡️</span>'+
+            '<span class="npItemTxt"><b>Privacy Policy</b><small>Your data is safe with us</small></span><span class="npChev">›</span>'+
+          '</button>'+
+          '<button type="button" class="npItem danger" id="npLogout">'+
+            '<span class="npItemIco" style="background:#e11d48">⎋</span>'+
+            '<span class="npItemTxt"><b>Logout</b><small>Sign out from your account</small></span><span class="npChev">›</span>'+
+          '</button>'+
+        '</div>'+
+        '<div class="npVersion">Ludo Baji</div>'+
       '</div>';
 
-    // Edit toggle (inline — no old modal)
-    const editBtn=$('pfEditBtn'), editBox=$('pfEditBox'), editName=$('pfEditName');
-    if(editBtn) editBtn.onclick=function(){
-      if(!editBox) return;
-      const open=editBox.style.display!=='none';
-      editBox.style.display=open?'none':'block';
-      if(!open && editName) editName.value=($('pfName')&&$('pfName').textContent)||'';
-      const msg=$('pfEditMsg'); if(msg) msg.textContent='';
-    };
-    const cancelBtn=$('pfCancelBtn');
-    if(cancelBtn) cancelBtn.onclick=function(){ if(editBox) editBox.style.display='none'; };
-    const saveBtn=$('pfSaveBtn');
-    if(saveBtn) saveBtn.onclick=async function(){
-      const msg=$('pfEditMsg');
+    // Edit toggle
+    const editBox=$('npEditBox');
+    const editBtn=$('npEditBtn');
+    if(editBtn) editBtn.onclick=function(){ if(editBox) editBox.style.display=editBox.style.display==='none'?'block':'none'; };
+    if($('npCancelBtn')) $('npCancelBtn').onclick=function(){ if(editBox) editBox.style.display='none'; };
+    if($('npSaveBtn')) $('npSaveBtn').onclick=async function(){
+      const name=($('npEditName')&&$('npEditName').value||'').trim();
+      const msg=$('npEditMsg');
+      if(!name||name.length<2){ if(msg){ msg.style.color='#f87171'; msg.textContent='নাম লিখুন'; } return; }
       try{
-        const name=(editName&&editName.value||'').trim();
-        if(!name){ if(msg){ msg.style.color='#f87171'; msg.textContent='নাম লিখুন'; } return; }
         const j=await api('/api/auth/profile',{method:'PUT',body:JSON.stringify({name:name})});
-        currentUser=j.user;
-        if($('pfName')) $('pfName').textContent=j.user.name||name;
+        if(j.user){
+          if($('npName')) $('npName').textContent=j.user.name||'User';
+          if($('npPIName')) $('npPIName').textContent=j.user.name||'—';
+        }
         if(msg){ msg.style.color='#4ade80'; msg.textContent='Profile saved'; }
-        setTimeout(function(){ if(editBox) editBox.style.display='none'; }, 700);
-      }catch(e){
-        if(msg){ msg.style.color='#f87171'; msg.textContent=e.message||'Save failed'; }
-      }
+        if(editBox) setTimeout(function(){ editBox.style.display='none'; }, 600);
+      }catch(e){ if(msg){ msg.style.color='#f87171'; msg.textContent=e.message||'Failed'; } }
     };
-    const logoutBtn=$('pfLogoutBtn');
-    if(logoutBtn) logoutBtn.onclick=function(){
+    if($('npPersonal')) $('npPersonal').onclick=function(){
+      const box=$('npPersonalBox');
+      if(box) box.style.display=box.style.display==='none'?'block':'none';
+    };
+    if($('npLogout')) $('npLogout').onclick=function(){
       try{ localStorage.removeItem('ludo_user_token'); }catch(e){}
-      currentUser=null;
-      try{ document.body.classList.add('logged-out'); }catch(e){}
+      try{ localStorage.removeItem('ludo_user_profile'); }catch(e){}
+      window.currentUser=null;
+      document.body.classList.add('logged-out');
+      document.documentElement.classList.remove('has-session');
       try{ if(typeof setPageState==='function') setPageState('home'); }catch(e){}
       try{ if(typeof renderQuick==='function') renderQuick(); }catch(e){}
-      try{
-        const pm=document.getElementById('profileModal');
-        if(pm){ pm.classList.remove('show'); pm.style.display='none'; }
-      }catch(e){}
-      goHomeTab();
-      if(typeof openAuth==='function') openAuth();
+      try{ if(typeof openAuth==='function') openAuth(); }catch(e){}
     };
 
+    // Load user + balances
     try{
       const j=await api('/api/auth/me');
-      currentUser=j.user;
-      if($('pfName')) $('pfName').textContent=j.user.name||'User';
-      if($('pfEmail')) $('pfEmail').textContent=j.user.email||'';
-      if($('pfPhone')) $('pfPhone').textContent=j.user.phone||'';
-      if($('pfUid')) $('pfUid').textContent='UID: '+(j.user.user_code||j.user.id||'');
-      if(editName) editName.value=j.user.name||'';
+      const u=j.user||{};
+      try{ localStorage.setItem('ludo_user_profile', JSON.stringify(u)); }catch(e){}
+      const name=u.name||'User';
+      const phone=u.phone||'';
+      const email=u.email||'';
+      const uid=u.user_code||u.id||'—';
+      if($('npName')) $('npName').textContent=name;
+      if($('npUid')) $('npUid').textContent=uid;
+      if($('npPhone')) $('npPhone').textContent=phone||'মোবাইল নেই';
+      if($('npMail')) $('npMail').textContent=email||'';
+      if($('npEditName')) $('npEditName').value=u.name||'';
+      if($('npPIName')) $('npPIName').textContent=name;
+      if($('npPIPhone')) $('npPIPhone').textContent=phone||'—';
+      if($('npPIEmail')) $('npPIEmail').textContent=email||'—';
+      if($('npPIUid')) $('npPIUid').textContent=uid;
     }catch(e){}
     try{
       const d=await api('/api/user/dashboard');
-      const g=Number(d.dashboard.gaming_balance||0), w=Number(d.dashboard.winning_balance||0);
-      if($('pfBal')) $('pfBal').textContent='৳ '+(g+w).toFixed(0);
-      if($('pfWin')) $('pfWin').textContent=w.toFixed(0);
+      const g=Number(d.dashboard&&d.dashboard.gaming_balance||0);
+      const w=Number(d.dashboard&&d.dashboard.winning_balance||0);
+      if($('npBal')) $('npBal').textContent=money(g+w);
+      if($('npWin')) $('npWin').textContent=money(w);
     }catch(e){}
     try{
-      const mine=await api('/api/user/matches/mine');
-      const ms=mine.matches||[];
-      if($('pfMatches')) $('pfMatches').textContent=String(ms.length);
+      const dep=await api('/api/user/deposits');
+      const rows=(dep.deposits||[]).filter(function(x){ return String(x.status).toLowerCase()==='approved'||String(x.status).toLowerCase()==='completed'; });
+      const sum=rows.reduce(function(a,x){ return a+Number(x.amount||0); },0);
+      if($('npDep')) $('npDep').textContent=money(sum);
+    }catch(e){}
+    try{
+      const wd=await api('/api/user/withdrawals');
+      const rows=(wd.withdrawals||[]).filter(function(x){ return String(x.status).toLowerCase()==='approved'||String(x.status).toLowerCase()==='completed'; });
+      const sum=rows.reduce(function(a,x){ return a+Number(x.amount||0); },0);
+      if($('npWd')) $('npWd').textContent=money(sum);
     }catch(e){}
   };
 
