@@ -24,7 +24,7 @@ const ADMIN_LOGIN_WINDOW_MS=15*60*1000,ADMIN_LOGIN_MAX_ATTEMPTS=Math.max(3,Numbe
 const adminSessions=new Map(),adminLoginAttempts=new Map(),otpRequestAttempts=new Map();
 function requireSecurityEnv(){const missing=[];if(!ADMIN_USERNAME||ADMIN_USERNAME.length<3||ADMIN_USERNAME.length>100)missing.push('ADMIN_USERNAME (3-100 characters)');if(!ADMIN_PASSWORD||ADMIN_PASSWORD.length<12||ADMIN_PASSWORD.length>200)missing.push('ADMIN_PASSWORD (12-200 characters)');if(!SECRET||SECRET.length<32)missing.push('ADMIN_SECRET (minimum 32 characters)');if(!USER_SECRET||USER_SECRET.length<32)missing.push('USER_SECRET (minimum 32 characters)');if(SECRET&&USER_SECRET&&SECRET===USER_SECRET)missing.push('USER_SECRET must be different from ADMIN_SECRET');if(missing.length)throw new Error('Required security environment variables are missing/unsafe: '+missing.join(', '));}
 requireSecurityEnv();
-const OTP_TTL_MS=Math.max(60,Number(process.env.OTP_TTL_SECONDS||300))*1000;
+const OTP_TTL_MS=Math.max(60,Number(process.env.OTP_TTL_SECONDS||600))*1000;
 const OTP_COOLDOWN_MS=Math.max(30,Number(process.env.OTP_COOLDOWN_SECONDS||60))*1000;
 const OTP_MAX_ATTEMPTS=Math.max(3,Number(process.env.OTP_MAX_ATTEMPTS||5));
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
@@ -413,12 +413,13 @@ const server=http.createServer(async(req,res)=>{try{
    const vPhone=normalizeBdPhone(x.phone||x.mobile||'');
    if(!email||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'Email এবং ৬ সংখ্যার OTP দিন'});
    let user=await db.findUserByEmail(email);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
-   if(vName||vPhone){try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});user=await db.getUserById(user.id)||user}catch(e){console.error('profile save on verify',e.message)}}
+   // profile (name/phone) is saved AFTER successful OTP — getUserById omits otp fields
    // Supabase verify first when configured
    if(supabaseConfigured()){
      try{
        await supabaseVerifyOtp(email,otp);
        await db.clearUserOtpByEmail(email);
+       try{if((vName||vPhone)&&typeof db.updateUserProfile==='function'){await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});}}catch(e){console.error('profile save after otp',e.message)}
        const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);
        const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);
        return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
@@ -429,11 +430,13 @@ const server=http.createServer(async(req,res)=>{try{
        }
      }
    }
-   if(!user.otp_hash||!user.otp_expires_at)return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});
+   if(!user.otp_hash||!user.otp_expires_at)return send(res,400,{ok:false,error:'OTP পাওয়া যায়নি। আবার OTP পাঠান'});
    if(Date.now()>new Date(user.otp_expires_at).getTime()){await db.clearUserOtpByEmail(email);return send(res,400,{ok:false,error:'OTP-এর মেয়াদ শেষ। নতুন OTP নিন'});}
    if(Number(user.otp_attempts||0)>=OTP_MAX_ATTEMPTS){await db.clearUserOtpByEmail(email);return send(res,429,{ok:false,error:'অনেকবার ভুল OTP দেওয়া হয়েছে। নতুন OTP নিন'});}
    if(otpHash(email,otp)!==user.otp_hash){await db.updateOtpAttemptsByEmail(email,Number(user.otp_attempts||0)+1);return send(res,401,{ok:false,error:'OTP সঠিক নয়'});}
-   await db.clearUserOtpByEmail(email);const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
+   await db.clearUserOtpByEmail(email);
+   try{if((vName||vPhone)&&typeof db.updateUserProfile==='function'){await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});}}catch(e){console.error('profile save after otp',e.message)}
+   const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
  }
  if(req.method==='GET'&&p==='/api/auth/me'){const x=await userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/user/push/public-key'){return send(res,200,{ok:true,configured:pushConfigured(),public_key:pushConfigured()?VAPID_PUBLIC_KEY:''});}
