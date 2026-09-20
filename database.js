@@ -134,6 +134,9 @@ async function init() {
       CREATE TABLE IF NOT EXISTS withdrawals (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, method TEXT NOT NULL, account_number TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL, balance_type TEXT NOT NULL DEFAULT 'winning', status TEXT NOT NULL DEFAULT 'pending', note TEXT, reviewed_by BIGINT REFERENCES admins(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), reviewed_at TIMESTAMPTZ);
       ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_type TEXT NOT NULL DEFAULT 'winning';
       ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS note TEXT;
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT;
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_before NUMERIC(14,2);
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS balance_after NUMERIC(14,2);
       CREATE TABLE IF NOT EXISTS matches (id BIGSERIAL PRIMARY KEY, match_code TEXT UNIQUE, title TEXT NOT NULL, entry_fee NUMERIC(14,2) NOT NULL DEFAULT 0, winning_amount NUMERIC(14,2) NOT NULL DEFAULT 0, room_id TEXT, status TEXT NOT NULL DEFAULT 'open', scheduled_at TIMESTAMPTZ, winner_user_id BIGINT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, slot SMALLINT NOT NULL, status TEXT NOT NULL DEFAULT 'joined', joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (match_id, user_id), UNIQUE (match_id, slot));
       CREATE TABLE IF NOT EXISTS notifications (id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -436,11 +439,13 @@ async function createWithdrawal(userId, method, accountNumber, amount, balanceTy
 async function listUserWithdrawals(userId, limit=50) {
   if (!hasDatabase()) return fallbackWithdrawalsRead().filter(d=>String(d.user_id)===String(userId)).slice(0,limit);
   await init();
-  const r=await pool.query('SELECT id,method,account_number,account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);
+  try{await pool.query('ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT')}catch{}
+  const r=await pool.query('SELECT id,method,account_number,COALESCE(account_name,\'\') AS account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);
   return r.rows;
 }
 
 async function listAdminWithdrawals(status='all', limit=100) {
+  if (hasDatabase()) { try{await init();await pool.query('ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT')}catch{} }
   if (!hasDatabase()) {
     const users=fallbackUsersRead(); const map=new Map(users.map(u=>[String(u.id),u]));
     let rows=fallbackWithdrawalsRead().map(d=>({...d,user_code:d.user_code||map.get(String(d.user_id))?.user_code||'',phone:d.phone||map.get(String(d.user_id))?.phone||'',name:d.name||map.get(String(d.user_id))?.name||''}));
