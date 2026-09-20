@@ -122,6 +122,7 @@ window.showMatches=async function(){
  v.classList.add('show');
  window.scrollTo(0,0);
  v.innerHTML='<div class="lm-head"><button onclick="closeLudoScreen()">‹</button><h3> Ludo Matches</h3><span>▶</span></div><div class="lm-tabs"><button class="active" onclick="filterLudoMatches(\'all\',this)">✓ ALL</button><button onclick="filterLudoMatches(\'my\',this)">MY</button><button onclick="filterLudoMatches(\'small\',this)">SMALL</button><button onclick="filterLudoMatches(\'big\',this)">BIG</button></div><div id="matchList" class="ludo-match-list">Loading...</div>';
+ try{clearTimeout(window._matchLoadT);window._matchLoadT=setTimeout(function(){var b=document.getElementById('matchList');if(b&&/Loading/.test(b.textContent||''))b.innerHTML='<div class="err">লোড হচ্ছে না — Retry চাপুন</div><button class="btn" style="margin:12px" onclick="showMatches()">Retry</button>'},12000)}catch(e){};
  // Instant paint from session cache so refresh does not stay on Loading...
  try{
   const raw=sessionStorage.getItem('lb_match_cache');
