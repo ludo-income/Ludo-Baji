@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 function cryptoRandom(n){return crypto.randomBytes(Math.max(1,Number(n)||8)).toString('hex').slice(0,Math.max(1,Number(n)||8))}
+function makeSixDigitUid(){return String(100000+Math.floor(Math.random()*900000))}
 
 const DATA = path.join(__dirname, 'data.json');
 const USERS_DATA = path.join(__dirname, 'users.json');
@@ -185,13 +186,13 @@ async function findUserByEmail(email) {
   await init(); const r=await pool.query('SELECT id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at FROM users WHERE LOWER(email)=LOWER($1)',[email]); return r.rows[0]||null;
 }
 async function createUser(phone) {
-  if (!hasDatabase()) { const users=fallbackUsersRead(); const existing=users.find(u=>u.phone===phone); if(existing)return existing; const id=Date.now(); const user={id,user_code:'U'+String(id).slice(-8),phone,email:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()}; users.push(user); fallbackUsersWrite(users); return user; }
-  await init(); const r=await pool.query('INSERT INTO users(user_code,phone) VALUES($1,$2) ON CONFLICT(phone) DO UPDATE SET phone=EXCLUDED.phone,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',['U'+cryptoRandom(8),phone]); return r.rows[0];
+  if (!hasDatabase()) { const users=fallbackUsersRead(); const existing=users.find(u=>u.phone===phone); if(existing)return existing; const id=Date.now(); const user={id,user_code:makeSixDigitUid(),phone,email:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()}; users.push(user); fallbackUsersWrite(users); return user; }
+  await init(); const r=await pool.query('INSERT INTO users(user_code,phone) VALUES($1,$2) ON CONFLICT(phone) DO UPDATE SET phone=EXCLUDED.phone,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',[makeSixDigitUid(),phone]); return r.rows[0];
 }
 async function createUserByEmail(email) {
   email=String(email||'').trim().toLowerCase();
-  if(!hasDatabase()){const users=fallbackUsersRead();const existing=users.find(u=>String(u.email||'').toLowerCase()===email);if(existing)return existing;const id=Date.now();const user={id,user_code:'U'+String(id).slice(-8),email,phone:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()};users.push(user);fallbackUsersWrite(users);return user;}
-  await init(); const r=await pool.query('INSERT INTO users(user_code,email) VALUES($1,$2) ON CONFLICT(email) DO UPDATE SET email=EXCLUDED.email,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',['U'+cryptoRandom(8),email]); return r.rows[0];
+  if(!hasDatabase()){const users=fallbackUsersRead();const existing=users.find(u=>String(u.email||'').toLowerCase()===email);if(existing)return existing;const id=Date.now();const user={id,user_code:makeSixDigitUid(),email,phone:null,name:'',status:'active',otp_hash:null,otp_expires_at:null,otp_sent_at:null,otp_attempts:0,created_at:new Date().toISOString()};users.push(user);fallbackUsersWrite(users);return user;}
+  await init(); const r=await pool.query('INSERT INTO users(user_code,email) VALUES($1,$2) ON CONFLICT(email) DO UPDATE SET email=EXCLUDED.email,updated_at=NOW() RETURNING id,user_code,email,phone,name,status,otp_hash,otp_expires_at,otp_sent_at,otp_attempts,created_at',[makeSixDigitUid(),email]); return r.rows[0];
 }
 async function setUserOtp(phone, otpHash, expiresAt, sentAt) {
   if(!hasDatabase()){const users=fallbackUsersRead();const u=users.find(x=>x.phone===phone);if(!u)throw new Error('User not found');u.otp_hash=otpHash;u.otp_expires_at=expiresAt;u.otp_sent_at=sentAt;u.otp_attempts=0;fallbackUsersWrite(users);return u;}

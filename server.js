@@ -364,31 +364,49 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/auth/request-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
    const x=await body(req),email=normalizeEmail(x.email);
+   const mode=String(x.mode||'login').toLowerCase()==='signup'?'signup':'login';
    const name=String(x.name||'').trim();
    const phone=normalizeBdPhone(x.phone||x.mobile||'');
-   if(!name||name.length<2)return send(res,400,{ok:false,error:'আপনার নাম লিখুন (কমপক্ষে ২ অক্ষর)'});
-   if(!phone)return send(res,400,{ok:false,error:'সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)'});
    if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});
+   if(mode==='signup'){
+     if(!name||name.length<2)return send(res,400,{ok:false,error:'আপনার নাম লিখুন (কমপক্ষে ২ অক্ষর)'});
+     if(!phone)return send(res,400,{ok:false,error:'সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)'});
+   }
    const otpKey=clientKey(req)+'|'+email;if(otpBlocked(otpKey))return send(res,429,{ok:false,error:'এই Email-এর জন্য অনেকবার OTP চাওয়া হয়েছে। ১ মিনিট পরে আবার চেষ্টা করুন'});
-   let user=await db.findUserByEmail(email);if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   let user=await db.findUserByEmail(email);
+   if(mode==='login'){
+     if(!user)return send(res,404,{ok:false,error:'এই Gmail-এ অ্যাকাউন্ট নেই। Sign Up করুন'});
+     if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   }else{
+     // signup
+     if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+     if(user&&(user.phone||user.name)){
+       return send(res,409,{ok:false,error:'এই Gmail দিয়ে অ্যাকাউন্ট আগেই আছে। Login ট্যাব থেকে লগইন করুন'});
+     }
+   }
    const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন ('+Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)+' সেকেন্ড)',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
    if(!acquireOtpLock(email))return send(res,429,{ok:false,error:'OTP ইতিমধ্যে পাঠানো হচ্ছে। একটু অপেক্ষা করুন'});
    recordOtpRequest(otpKey);
-   try{
-     if(!user)user=await db.createUserByEmail(email);
-   }catch(ce){
-     releaseOtpLock(email);
-     return send(res,500,{ok:false,error:'অ্যাকাউন্ট তৈরি ব্যর্থ: '+(ce.message||ce)});
-   }
-   try{
-     if(typeof db.updateUserProfile==='function'){
-       await db.updateUserProfile(user.id,{name,phone});
-       user.name=name;user.phone=phone;
+   if(mode==='signup'){
+     try{
+       if(!user)user=await db.createUserByEmail(email);
+     }catch(ce){
+       releaseOtpLock(email);
+       return send(res,500,{ok:false,error:'অ্যাকাউন্ট তৈরি ব্যর্থ: '+(ce.message||ce)});
      }
-   }catch(pe){
-     console.error('profile save on otp request',pe.message);
-     // phone unique conflict — still allow OTP with name only
-     try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name})}catch{}
+     try{
+       if(typeof db.updateUserProfile==='function'){
+         await db.updateUserProfile(user.id,{name,phone});
+         user.name=name;user.phone=phone;
+       }
+     }catch(pe){
+       console.error('profile save on otp request',pe.message);
+       if(/মোবাইল|phone|unique|duplicate/i.test(String(pe.message||''))){
+         releaseOtpLock(email);
+         return send(res,409,{ok:false,error:pe.message||'এই মোবাইল নম্বর অন্য অ্যাকাউন্টে আছে'});
+       }
+       try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name})}catch{}
+     }
    }
    try{
      // 1) Supabase Email OTP (সবচেয়ে নির্ভরযোগ্য)
