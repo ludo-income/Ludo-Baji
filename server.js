@@ -157,8 +157,8 @@ async function sendOtpEmail(email,otp){
         textContent:textBody
       });
       const endpoints=[
-        'https://api.brevo.com/v3/smtp/emails',
-        'https://api.sendinblue.com/v3/smtp/emails'
+        'https://api.brevo.com/v3/smtp/email',
+        'https://api.sendinblue.com/v3/smtp/email'
       ];
       let ok=false, lastMsg='';
       for(const url of endpoints){
@@ -181,7 +181,7 @@ async function sendOtpEmail(email,otp){
             msg='Brevo IP block → https://app.brevo.com/security/authorised_ips (বা restriction OFF)';
           }
           if(/route not found/i.test(String(msg))){
-            msg='HTTP route not found — BREVO_API_KEY ভুল type হতে পারে। API Keys থেকে নতুন xkeysib- key বানিয়ে Render-এ দাও। Sender email verify আছে কিনা চেক করো।';
+            msg='Brevo API route error — BREVO_API_KEY (xkeysib-...) ও verified BREVO_SENDER চেক করো';
           }
         }catch{}
         lastMsg=msg;
@@ -219,20 +219,19 @@ async function sendOtpEmail(email,otp){
       const transporter=nodemailer.createTransport({
         host,port,secure,
         auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},
-        connectionTimeout:3000,greetingTimeout:3000,socketTimeout:4000,
+        connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000,
         tls:{rejectUnauthorized:false}
       });
       await Promise.race([
         transporter.sendMail(mail),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('SMTP timeout')),4000))
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('SMTP timeout')),10000))
       ]);
       return {sent:true,provider:'smtp'};
     }catch(e){
       lastErr=e;
       console.error('SMTP failed:',e.message);
-      if(!devMode){
-        throw new Error('Gmail SMTP কাজ করেনি (Render ব্লক করে)। RESEND_API_KEY + ডোমেইন অথবা BREVO_API_KEY দিন, অথবা টেস্টের জন্য OTP_DEV_MODE=true সেট করুন।');
-      }
+      // do not hard-throw here; fall through to final error with lastErr
+      lastErr=e;
     }
   }
 
