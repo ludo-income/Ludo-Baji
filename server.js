@@ -147,7 +147,18 @@ async function sendOtpEmail(email,otp){
         headers:{'api-key':String(process.env.BREVO_API_KEY).trim(),'Content-Type':'application/json','Accept':'application/json'},
         body:JSON.stringify({sender:{name:'Ludo Baji',email:sender},to:[{email}],subject,htmlContent:htmlBody,textContent:textBody})
       });
-      if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Brevo failed: '+(t||r.status));}
+      if(!r.ok){
+        const t=await r.text().catch(()=> '');
+        let msg=t||String(r.status);
+        try{
+          const j=JSON.parse(t);
+          msg=j.message||j.error||msg;
+          if(String(j.code||'').toLowerCase().includes('unauthor') || /unrecognised IP|unauthorized IP|authorised_ips/i.test(msg)){
+            msg='Brevo IP block: Render IP authorize করুন → https://app.brevo.com/security/authorised_ips (অথবা IP restriction OFF করুন)';
+          }
+        }catch{}
+        throw new Error('Brevo failed: '+msg);
+      }
       return {sent:true,provider:'brevo'};
     }catch(e){lastErr=e;console.error('Brevo failed:',e.message);if(!devMode)throw e;}
   }
@@ -335,8 +346,22 @@ const server=http.createServer(async(req,res)=>{try{
    const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন ('+Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)+' সেকেন্ড)',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
    if(!acquireOtpLock(email))return send(res,429,{ok:false,error:'OTP ইতিমধ্যে পাঠানো হচ্ছে। একটু অপেক্ষা করুন'});
    recordOtpRequest(otpKey);
-   if(!user)user=await db.createUserByEmail(email);
-   try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name,phone});user.name=name;user.phone=phone}catch(e){console.error('profile save on otp request',e.message)}
+   try{
+     if(!user)user=await db.createUserByEmail(email);
+   }catch(ce){
+     releaseOtpLock(email);
+     return send(res,500,{ok:false,error:'অ্যাকাউন্ট তৈরি ব্যর্থ: '+(ce.message||ce)});
+   }
+   try{
+     if(typeof db.updateUserProfile==='function'){
+       await db.updateUserProfile(user.id,{name,phone});
+       user.name=name;user.phone=phone;
+     }
+   }catch(pe){
+     console.error('profile save on otp request',pe.message);
+     // phone unique conflict — still allow OTP with name only
+     try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name})}catch{}
+   }
    try{
      // 1) Supabase Email OTP (সবচেয়ে নির্ভরযোগ্য)
      if(supabaseConfigured()){
@@ -642,5 +667,5 @@ if(req.method==='GET'&&p==='/api/site'){const d=await read(),nd=normalizeMainOpt
  }
  if(req.method==='GET'){let file=p==='/'?'index.html':p==='/admin'||p==='/admin/'?'admin.html':p.slice(1);if(file.includes('..'))return send(res,403,'Forbidden','text/plain');const fp=path.join(ROOT,file);if(fs.existsSync(fp)&&fs.statSync(fp).isFile()){res.writeHead(200,{'Content-Type':mime[path.extname(fp)]||'application/octet-stream','Cache-Control':path.extname(fp)==='.html'?'no-store':'public,max-age=3600'});return fs.createReadStream(fp).pipe(res)}}
  send(res,404,'Not found','text/plain; charset=utf-8');
-}catch(e){console.error(e);send(res,500,{error:'Server error'})}});
+}catch(e){console.error('REQ_ERROR',e&&e.stack||e);try{if(!res.headersSent)send(res,500,{ok:false,error:String((e&&e.message)||e||'Server error')});}catch(_e){}}});
 (async()=>{try{await db.init();await ensureVapidConfig();attachMatchWebSocket(server);server.listen(PORT,()=>console.log('Ludo Baji V9 listening on '+PORT+(db.hasDatabase()?' with PostgreSQL':' with local fallback')+' | WS /ws/matches'))}catch(e){console.error('Database initialization failed:',e.message);process.exit(1)}})();

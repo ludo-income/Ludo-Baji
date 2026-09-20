@@ -212,20 +212,31 @@ async function updateUserName(id, name) {
 }
 async function updateUserProfile(id, fields={}) {
   const name = fields.name!=null ? String(fields.name).trim() : undefined;
-  const phone = fields.phone!=null ? String(fields.phone).trim() : undefined;
+  let phone = fields.phone!=null ? String(fields.phone).trim() : undefined;
+  if(phone==='') phone=null;
   if (!hasDatabase()) {
     const users=fallbackUsersRead();
     const u=users.find(x=>String(x.id)===String(id));
     if(!u) return null;
     if(name!==undefined) u.name=name;
-    if(phone!==undefined) u.phone=phone||null;
+    if(phone!==undefined){
+      if(phone){
+        const taken=users.find(x=>String(x.phone||'')===phone && String(x.id)!==String(id));
+        if(taken) throw new Error('এই মোবাইল নম্বর অন্য অ্যাকাউন্টে ব্যবহার হচ্ছে');
+      }
+      u.phone=phone;
+    }
     fallbackUsersWrite(users);
     return u;
   }
   await init();
+  if(phone){
+    const taken=await pool.query('SELECT id FROM users WHERE phone=$1 AND id<>$2 LIMIT 1',[phone,id]);
+    if(taken.rows[0]) throw new Error('এই মোবাইল নম্বর অন্য অ্যাকাউন্টে ব্যবহার হচ্ছে');
+  }
   const sets=[]; const params=[];
   if(name!==undefined){ params.push(name); sets.push('name=$'+params.length); }
-  if(phone!==undefined){ params.push(phone||null); sets.push('phone=$'+params.length); }
+  if(phone!==undefined){ params.push(phone); sets.push('phone=$'+params.length); }
   if(!sets.length) return getUserById(id);
   params.push(id);
   const r=await pool.query('UPDATE users SET '+sets.join(',')+', updated_at=NOW() WHERE id=$'+params.length+' RETURNING id,user_code,email,phone,name,status,created_at', params);

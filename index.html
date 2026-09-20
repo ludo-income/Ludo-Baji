@@ -256,7 +256,7 @@ let selectedId=null,all=[],currentUser=null,pendingEmail='',pendingName='',pendi
 const quickItems=[];const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const authModal=document.getElementById('authModal'),profileModal=document.getElementById('profileModal');
 function authToken(){return localStorage.getItem('ludo_user_token')||''}
-async function api(path,opt={}){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(authToken())headers.Authorization='Bearer '+authToken();const r=await fetch(path,{...opt,headers});const j=await r.json().catch(()=>({error:'Server error'}));if(!r.ok)throw new Error(j.error||'Request failed');return j}
+async function api(path,opt={}){const headers={'Content-Type':'application/json',...(opt.headers||{})};if(authToken())headers.Authorization='Bearer '+authToken();const r=await fetch(path,{...opt,headers});const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{j={error:raw&&raw.slice(0,180)||('Server error '+r.status)}}if(!r.ok)throw new Error(j.error||j.message||('Request failed '+r.status));return j}
 (function(){
   var s=document.getElementById('appSplash');
   if(!s)return;
