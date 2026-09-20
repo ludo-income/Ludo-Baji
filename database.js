@@ -829,7 +829,7 @@ async function getUserAdminDetail(userId, limit=200){
   const [transactions,deposits,withdrawals,matches,notifications,support]=await Promise.all([
     listUserTransactions(userId,limit),
     hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,amount,transaction_id,screenshot,status,created_at,reviewed_at FROM deposits WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackDepositsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
-    hasDatabase()? (async()=>{await init();const r=await pool.query('SELECT id,method,account_number,account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackWithdrawalsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
+    hasDatabase()? (async()=>{await init();try{await pool.query('ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT')}catch{}const r=await pool.query('SELECT id,method,account_number,COALESCE(account_name,\'\') AS account_name,amount,balance_type,status,note,created_at,reviewed_at FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[userId,limit]);return r.rows})():Promise.resolve(fallbackWithdrawalsRead().filter(x=>String(x.user_id)===String(userId)).slice(0,limit)),
     listUserFeatureMatches(userId),
     listNotifications(userId,limit),
     supportList(userId)

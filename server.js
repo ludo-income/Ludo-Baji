@@ -654,7 +654,25 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/admin/support'){const b=await body(req);try{return send(res,200,{ok:true,message:await db.supportSend(b.user_id,'admin',b.message)})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='GET'&&p==='/api/admin/finance'){try{const fin=await db.getAdminFinance();return send(res,200,{ok:true,finance:fin})}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='POST'&&p==='/api/admin/finance/withdraw'){const b=await body(req);try{const row=await db.adminWithdraw(b.method,b.account_number,b.amount,b.note);await addAudit('admin_withdraw',row.id,{method:row.method,amount:row.amount,account:row.account_number});return send(res,201,{ok:true,withdrawal:row,message:'Admin Withdraw সম্পন্ন হয়েছে। Admin Account থেকে কেটে নেওয়া হয়েছে।'})}catch(e){return send(res,400,{ok:false,error:e.message})}}
- if(req.method==='GET'&&p==='/api/admin/reports'){const d=await read(),tx=await db.listAdminTransactions(10000),users=await db.listUsers(10000);const fin=await db.getAdminFinance();return send(res,200,{ok:true,summary:{users:users.length,active_users:users.filter(x=>x.status==='active').length,blocked_users:users.filter(x=>x.status==='blocked').length,deposit:Number(tx.filter(x=>x.type==='deposit'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),withdrawal:Number(tx.filter(x=>x.type==='withdrawal'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),matches:(d.matches||[]).length,admin_commission:Number(fin.commission_balance||0),total_commission_earned:Number(fin.total_commission_earned||0)},finance:fin,transactions:tx});}
+ if(req.method==='GET'&&p==='/api/admin/reports'){
+   try{
+     const d=await read();
+     let tx=[],users=[],fin={};
+     try{tx=await db.listAdminTransactions(2000)}catch(e){console.error('reports tx',e.message)}
+     try{users=await db.listUsers(2000)}catch(e){console.error('reports users',e.message)}
+     try{fin=await db.getAdminFinance()}catch(e){console.error('reports fin',e.message);fin={}}
+     return send(res,200,{ok:true,summary:{
+       users:users.length,
+       active_users:users.filter(x=>x.status==='active').length,
+       blocked_users:users.filter(x=>x.status==='blocked').length,
+       deposit:Number(tx.filter(x=>x.type==='deposit'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),
+       withdrawal:Number(tx.filter(x=>x.type==='withdrawal'&&x.status==='completed').reduce((a,x)=>a+Number(x.amount||0),0)),
+       matches:(d.matches||[]).length,
+       admin_commission:Number(fin.commission_balance||0),
+       total_commission_earned:Number(fin.total_commission_earned||0)
+     },finance:fin,transactions:tx});
+   }catch(e){return send(res,500,{ok:false,error:e.message||'Reports failed'})}
+ }
  if(req.method==='GET'&&p==='/api/admin/audit-log'){const d=await read();return send(res,200,{ok:true,logs:d.auditLogs||[]});}
  if(req.method==='GET'&&p==='/api/admin/roles'){const d=await read();return send(res,200,{ok:true,roles:d.adminRoles||[]});}
  if(req.method==='PUT'&&p==='/api/admin/roles'){const b=await body(req),d=await read();d.adminRoles=Array.isArray(b.roles)?b.roles:[];await write(d);return send(res,200,{ok:true,roles:d.adminRoles});}
