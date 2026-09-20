@@ -137,30 +137,59 @@ async function sendOtpEmail(email,otp){
     return {sent:false,dev:true,otp,provider:'dev'};
   }
 
-  // 1) Brevo
+  // 1) Brevo transactional API (try current + legacy host; never abort other providers on failure)
   if(hasBrevo){
     try{
+      const apiKey=String(process.env.BREVO_API_KEY||'').trim();
       const sender=String(process.env.BREVO_SENDER||fromAddr||'').trim();
-      if(!sender) throw new Error('BREVO_SENDER সেট করুন');
-      const r=await fetch('https://api.brevo.com/v3/smtp/emails',{
-        method:'POST',
-        headers:{'api-key':String(process.env.BREVO_API_KEY).trim(),'Content-Type':'application/json','Accept':'application/json'},
-        body:JSON.stringify({sender:{name:'Ludo Baji',email:sender},to:[{email}],subject,htmlContent:htmlBody,textContent:textBody})
+      if(!sender) throw new Error('BREVO_SENDER সেট করুন (verified sender email)');
+      if(apiKey.startsWith('xsmtpsib-') || apiKey.startsWith('bskibn')){
+        throw new Error('BREVO_API_KEY-এ SMTP key দিয়েছ। API Keys পেজ থেকে xkeysib- দিয়ে শুরু হওয়া key দাও');
+      }
+      if(apiKey.startsWith('eyJ')){
+        throw new Error('এটা MCP key। সাধারণ API key লাগবে (xkeysib-...)');
+      }
+      const payload=JSON.stringify({
+        sender:{name:'Ludo Baji',email:sender},
+        to:[{email:String(email)}],
+        subject,
+        htmlContent:htmlBody,
+        textContent:textBody
       });
-      if(!r.ok){
-        const t=await r.text().catch(()=> '');
-        let msg=t||String(r.status);
+      const endpoints=[
+        'https://api.brevo.com/v3/smtp/emails',
+        'https://api.sendinblue.com/v3/smtp/emails'
+      ];
+      let ok=false, lastMsg='';
+      for(const url of endpoints){
+        const r=await fetch(url,{
+          method:'POST',
+          headers:{
+            'api-key':apiKey,
+            'accept':'application/json',
+            'content-type':'application/json'
+          },
+          body:payload
+        });
+        const bodyTxt=await r.text().catch(()=> '');
+        if(r.ok){ok=true;break;}
+        let msg=bodyTxt||String(r.status);
         try{
-          const j=JSON.parse(t);
-          msg=j.message||j.error||msg;
-          if(String(j.code||'').toLowerCase().includes('unauthor') || /unrecognised IP|unauthorized IP|authorised_ips/i.test(msg)){
-            msg='Brevo IP block: Render IP authorize করুন → https://app.brevo.com/security/authorised_ips (অথবা IP restriction OFF করুন)';
+          const j=JSON.parse(bodyTxt);
+          msg=j.message||j.error||(Array.isArray(j.message)?j.message.join(', '):msg);
+          if(String(j.code||'').toLowerCase().includes('unauthor') || /unrecognised IP|unauthorized IP|authorised_ips/i.test(String(msg))){
+            msg='Brevo IP block → https://app.brevo.com/security/authorised_ips (বা restriction OFF)';
+          }
+          if(/route not found/i.test(String(msg))){
+            msg='HTTP route not found — BREVO_API_KEY ভুল type হতে পারে। API Keys থেকে নতুন xkeysib- key বানিয়ে Render-এ দাও। Sender email verify আছে কিনা চেক করো।';
           }
         }catch{}
-        throw new Error('Brevo failed: '+msg);
+        lastMsg=msg;
+        console.error('Brevo try failed', url, r.status, msg);
       }
+      if(!ok) throw new Error('Brevo failed: '+lastMsg);
       return {sent:true,provider:'brevo'};
-    }catch(e){lastErr=e;console.error('Brevo failed:',e.message);if(!devMode)throw e;}
+    }catch(e){lastErr=e;console.error('Brevo failed:',e.message); /* fall through to Resend/SMTP */ }
   }
 
   // 2) Resend
@@ -175,7 +204,7 @@ async function sendOtpEmail(email,otp){
       });
       if(!r.ok){const t=await r.text().catch(()=> '');throw new Error('Resend failed: '+(t||r.status));}
       return {sent:true,provider:'resend'};
-    }catch(e){lastErr=e;console.error('Resend failed:',e.message);if(!devMode)throw e;}
+    }catch(e){lastErr=e;console.error('Resend failed:',e.message); /* fall through */ }
   }
 
   // 3) SMTP — ONE quick attempt only (Render usually blocks; max ~4s)
@@ -213,7 +242,7 @@ async function sendOtpEmail(email,otp){
     return {sent:false,dev:true,otp,provider:'dev'};
   }
 
-  throw new Error((lastErr&&lastErr.message)||'ইমেইল সেট নেই। OTP_DEV_MODE=true (টেস্ট) অথবা RESEND/BREVO API Key দিন।');
+  throw new Error((lastErr&&lastErr.message)||'ইমেইল সেট নেই। Render-এ BREVO_API_KEY (xkeysib-...) + BREVO_SENDER দাও।');
 }
 async function userLoginOtpEnabled(){const d=await read();return d.system?.user_login_otp!==false}
 const MAIN_PAGE_DEFAULTS=[
