@@ -74,6 +74,7 @@ async function sendPushToUsers(userIds,title,message,data={}){
 
 function otpHash(email,otp){return crypto.createHash('sha256').update(email+'|'+otp+'|'+USER_SECRET).digest('hex')}
 function makeOtp(){return String(crypto.randomInt(0,1000000)).padStart(6,'0')}
+function normalizeBdPhone(p){p=String(p||'').replace(/[^0-9]/g,'');if(p.startsWith('880')&&p.length===13)p=p.slice(2);if(p.startsWith('0')&&p.length===11&&/^01[3-9][0-9]{8}$/.test(p))return p;return ''}
 function normalizeEmail(input){const e=String(input||'').trim().toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254?e:null}
 function maskEmail(email){const [local,domain]=String(email).split('@');if(!domain)return '****';return (local.length<=2?(local[0]||'*'):local.slice(0,2))+'***@'+domain}
 async function addAudit(action,target,detail){try{const d=await read();d.auditLogs=Array.isArray(d.auditLogs)?d.auditLogs:[];d.auditLogs.unshift({id:'A-'+Date.now()+Math.random().toString(36).slice(2,5),action,target:String(target||''),detail,created_at:new Date().toISOString()});d.auditLogs=d.auditLogs.slice(0,2000);await write(d)}catch{}}
@@ -323,12 +324,19 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='POST'&&p==='/api/admin/logout'){const x=await auth(req,res);if(!x)return;revokeAdminToken(req);return send(res,200,{ok:true})}
  if(req.method==='POST'&&p==='/api/auth/request-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
-   const x=await body(req),email=normalizeEmail(x.email);if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});const otpKey=clientKey(req)+'|'+email;if(otpBlocked(otpKey))return send(res,429,{ok:false,error:'এই Email-এর জন্য অনেকবার OTP চাওয়া হয়েছে। ১ মিনিট পরে আবার চেষ্টা করুন'});
+   const x=await body(req),email=normalizeEmail(x.email);
+   const name=String(x.name||'').trim();
+   const phone=normalizeBdPhone(x.phone||x.mobile||'');
+   if(!name||name.length<2)return send(res,400,{ok:false,error:'আপনার নাম লিখুন (কমপক্ষে ২ অক্ষর)'});
+   if(!phone)return send(res,400,{ok:false,error:'সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)'});
+   if(!email)return send(res,400,{ok:false,error:'সঠিক Email/Gmail address দিন'});
+   const otpKey=clientKey(req)+'|'+email;if(otpBlocked(otpKey))return send(res,429,{ok:false,error:'এই Email-এর জন্য অনেকবার OTP চাওয়া হয়েছে। ১ মিনিট পরে আবার চেষ্টা করুন'});
    let user=await db.findUserByEmail(email);if(user&&user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
    const now=Date.now();if(user?.otp_sent_at&&now-new Date(user.otp_sent_at).getTime()<OTP_COOLDOWN_MS)return send(res,429,{ok:false,error:'আবার OTP চাইতে একটু অপেক্ষা করুন ('+Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)+' সেকেন্ড)',retry_after:Math.ceil((OTP_COOLDOWN_MS-(now-new Date(user.otp_sent_at).getTime()))/1000)});
    if(!acquireOtpLock(email))return send(res,429,{ok:false,error:'OTP ইতিমধ্যে পাঠানো হচ্ছে। একটু অপেক্ষা করুন'});
    recordOtpRequest(otpKey);
    if(!user)user=await db.createUserByEmail(email);
+   try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name,phone});user.name=name;user.phone=phone}catch(e){console.error('profile save on otp request',e.message)}
    try{
      // 1) Supabase Email OTP (সবচেয়ে নির্ভরযোগ্য)
      if(supabaseConfigured()){
@@ -347,8 +355,12 @@ const server=http.createServer(async(req,res)=>{try{
  }
  if(req.method==='POST'&&p==='/api/auth/verify-otp'){
    if(!(await userLoginOtpEnabled()))return send(res,403,{ok:false,error:'User Login / OTP System is currently OFF. Admin Panel থেকে ON করুন।'});
-   const x=await body(req),email=normalizeEmail(x.email),otp=String(x.otp||'').trim();if(!email||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'Email এবং ৬ সংখ্যার OTP দিন'});
+   const x=await body(req),email=normalizeEmail(x.email),otp=String(x.otp||'').trim();
+   const vName=String(x.name||'').trim();
+   const vPhone=normalizeBdPhone(x.phone||x.mobile||'');
+   if(!email||!/^[0-9]{6}$/.test(otp))return send(res,400,{ok:false,error:'Email এবং ৬ সংখ্যার OTP দিন'});
    let user=await db.findUserByEmail(email);if(!user)return send(res,404,{ok:false,error:'অ্যাকাউন্ট পাওয়া যায়নি'});if(user.status!=='active')return send(res,403,{ok:false,error:'এই অ্যাকাউন্টটি বন্ধ আছে'});
+   if(vName||vPhone){try{if(typeof db.updateUserProfile==='function')await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});user=await db.getUserById(user.id)||user}catch(e){console.error('profile save on verify',e.message)}}
    // Supabase verify first when configured
    if(supabaseConfigured()){
      try{

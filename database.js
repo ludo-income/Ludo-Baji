@@ -210,6 +210,28 @@ async function updateUserName(id, name) {
   if (!hasDatabase()) { const users=fallbackUsersRead(); const u=users.find(x=>String(x.id)===String(id)); if(!u) return null; u.name=name; fallbackUsersWrite(users); return u; }
   await init(); const r=await pool.query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2 RETURNING id,user_code,email,phone,name,status,created_at', [name,id]); return r.rows[0]||null;
 }
+async function updateUserProfile(id, fields={}) {
+  const name = fields.name!=null ? String(fields.name).trim() : undefined;
+  const phone = fields.phone!=null ? String(fields.phone).trim() : undefined;
+  if (!hasDatabase()) {
+    const users=fallbackUsersRead();
+    const u=users.find(x=>String(x.id)===String(id));
+    if(!u) return null;
+    if(name!==undefined) u.name=name;
+    if(phone!==undefined) u.phone=phone||null;
+    fallbackUsersWrite(users);
+    return u;
+  }
+  await init();
+  const sets=[]; const params=[];
+  if(name!==undefined){ params.push(name); sets.push('name=$'+params.length); }
+  if(phone!==undefined){ params.push(phone||null); sets.push('phone=$'+params.length); }
+  if(!sets.length) return getUserById(id);
+  params.push(id);
+  const r=await pool.query('UPDATE users SET '+sets.join(',')+', updated_at=NOW() WHERE id=$'+params.length+' RETURNING id,user_code,email,phone,name,status,created_at', params);
+  return r.rows[0]||null;
+}
+
 async function getUserById(id) {
   if (!hasDatabase()) return fallbackUsersRead().find(u=>String(u.id)===String(id))||null;
   await init(); const r=await pool.query('SELECT id,user_code,email,phone,name,status,created_at FROM users WHERE id=$1',[id]); return r.rows[0]||null;
@@ -486,7 +508,7 @@ async function listAdminTransactions(limit=200) {
   return r.rows;
 }
 
-module.exports = { init, getData, saveData, hasDatabase, findUser, findUserByEmail, createUser, createUserByEmail, setUserOtp, setUserOtpByEmail, updateOtpAttempts, updateOtpAttemptsByEmail, clearUserOtp, clearUserOtpByEmail, updateUserName, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, createWithdrawal, listUserWithdrawals, listAdminWithdrawals, reviewWithdrawal, listUserTransactions, listAdminTransactions, getAdminId };
+module.exports = { init, getData, saveData, hasDatabase, findUser, findUserByEmail, createUser, createUserByEmail, setUserOtp, setUserOtpByEmail, updateOtpAttempts, updateOtpAttemptsByEmail, clearUserOtp, clearUserOtpByEmail, updateUserName, updateUserProfile, getUserById, getUserDashboard, ensureUserWallet, createDeposit, listUserDeposits, listAdminDeposits, reviewDeposit, createWithdrawal, listUserWithdrawals, listAdminWithdrawals, reviewWithdrawal, listUserTransactions, listAdminTransactions, getAdminId };
 
 // ===== Ludo Baji feature-complete extensions (Steps 3-35) =====
 async function listUsers(limit=500, q='') {
