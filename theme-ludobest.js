@@ -34,16 +34,27 @@
       '</div>'+
       '<div class="gameCard" id="lbGameCard">'+
         '<div class="gcArt" id="lbMatchArt">🎯</div>'+
-        '<div><b id="lbMatchTitle">Ludo Matches</b><small id="lbMatchSub">REGULAR 1 VS 1</small></div>'+
+        '<div class="gcText"><b id="lbMatchTitle">Ludo Matches</b><small id="lbMatchSub">REGULAR 1 VS 1</small></div>'+
         '<span class="gcCount" id="lbMatchCount">'+(function(){try{var n=sessionStorage.getItem('lb_match_count');if(n!=null&&n!=='')return String(n)}catch(e){}return '0'}())+'</span>'+
       '</div>'+
       '<div id="lbOthersBox" style="display:none"></div>'+
       '<div class="tgCard" id="lbTgCard">'+
-        '<div>✈️</div>'+
+        '<div style="width:42px;height:42px;border-radius:50%;background:#229ED9;display:grid;place-items:center;flex-shrink:0">'+
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>'+
+        '</div>'+
         '<div><b>Telegram</b><small>Get updates & latest news</small></div>'+
         '<button type="button" class="join" id="lbTgJoin">Join Now →</button>'+
       '</div>'+
-      '<div class="safeBox"><div class="tick">✓</div><b>Instant withdrawals</b><div>100% safe payments</div></div>';
+      '<div class="safeBox">'+
+        '<div class="tick">'+
+          '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'+
+            '<path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#fff" fill-opacity=".95"/>'+
+            '<path d="M10.5 14.5l-2.5-2.5 1.4-1.4 1.1 1.1 3.6-3.6 1.4 1.4-5 5z" fill="#16a34a"/>'+
+          '</svg>'+
+        '</div>'+
+        '<b>Instant withdrawals</b>'+
+        '<div>100% safe payments</div>'+
+      '</div>';
 
     if(wallet && wallet.parentNode) wallet.parentNode.insertBefore(hero, wallet);
     else app.insertBefore(hero, app.querySelector('.quick')||null);

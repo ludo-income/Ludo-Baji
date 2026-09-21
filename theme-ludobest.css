@@ -51,15 +51,36 @@ body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;
 .seg button{border:0;background:transparent;color:#8ea6bc;border-radius:999px;padding:14px;font-weight:800;cursor:pointer;font-size:16px}
 .seg button.on{background:#14b8c4;color:#042226}
 
+/* Ludo Matches card — real cover image (Ludo Best style) */
 .gameCard{
   display:flex;align-items:center;gap:14px;
-  background:linear-gradient(90deg,#16324a,#0d1e30);border:1px solid #234864;
-  border-radius:18px;padding:16px;margin:0 12px 14px;cursor:pointer;position:relative
+  border:1px solid rgba(80,40,120,.4);
+  border-radius:18px;padding:14px 16px;margin:0 12px 14px;cursor:pointer;position:relative;
+  min-height:100px;overflow:hidden;
+  background:#1a0a2e url('ludo-match-cover.jpg') center/cover no-repeat;
+  box-shadow:0 8px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08)
 }
-.gameCard .gcArt{width:80px;height:64px;border-radius:14px;background:#102338;display:grid;place-items:center;font-size:32px;flex-shrink:0}
-.gameCard b{display:block;font-size:18px;color:#fff}
-.gameCard small{color:#9bb3c9;font-size:13px}
-.gcCount{position:absolute;right:14px;top:14px;background:#f5c400;color:#1a1400;border-radius:999px;font-size:13px;font-weight:800;padding:4px 10px}
+.gameCard::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(90deg, rgba(8,4,20,.82) 0%, rgba(8,4,20,.55) 42%, rgba(8,4,20,.15) 70%, transparent 100%)
+}
+.gameCard > *{position:relative;z-index:1}
+.gameCard .gcArt{
+  width:56px;height:56px;border-radius:14px;
+  background:rgba(20,10,40,.75);
+  border:1px solid rgba(255,255,255,.18);
+  display:grid;place-items:center;font-size:28px;flex-shrink:0;
+  overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45)
+}
+.gameCard .gcArt img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.gameCard .gcText{flex:1;min-width:0;padding-right:36px}
+.gameCard b{display:block;font-size:17px;color:#fff;font-weight:800;letter-spacing:.2px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.gameCard small{color:#e0d4f0;font-size:12px;font-weight:600;letter-spacing:.3px;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.gcCount{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:#f5c400;color:#1a1400;border-radius:999px;font-size:13px;font-weight:800;
+  padding:5px 11px;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:2
+}
 
 #lbOthersBox{padding:0 14px 10px}
 #lbOthersBox .quickBtn{
@@ -79,9 +100,16 @@ body.lb-skin .lb-badge{position:absolute;top:-4px;right:-4px;background:#e11d48;
 .tgCard small{color:#9bb3c9;font-size:13px}
 .tgCard .join{margin-left:auto;border:0;background:#f5c400;color:#1a1400;font-weight:800;border-radius:999px;padding:12px 16px;cursor:pointer;white-space:nowrap;font-size:14px}
 
-.safeBox{margin:10px 12px 20px;text-align:center;color:#9bb3c9}
-.safeBox .tick{width:56px;height:56px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;margin:0 auto 10px;font-size:26px;font-weight:800}
-.safeBox b{display:block;color:#eaf4ff;font-size:17px}
+/* Instant withdrawals — Ludo Best shield style */
+.safeBox{margin:14px 12px 22px;text-align:center;color:#9bb3c9}
+.safeBox .tick{
+  width:64px;height:64px;border-radius:50%;background:#16a34a;color:#fff;
+  display:grid;place-items:center;margin:0 auto 12px;
+  box-shadow:0 6px 20px rgba(22,163,74,.4), inset 0 1px 0 rgba(255,255,255,.2)
+}
+.safeBox .tick svg{width:32px;height:32px;display:block}
+.safeBox b{display:block;color:#eaf4ff;font-size:18px;font-weight:800;margin-bottom:4px}
+.safeBox > div:last-child{font-size:14px;color:#8aa3bb}
 
 /* Bottom nav — full width mobile */
 .bottomNav{
