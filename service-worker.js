@@ -1,6 +1,6 @@
 /* Ludo Baji Service Worker - PWA Install + Push */
-const CACHE_NAME = 'ludo-baji-v20-admin-users';
-const PRECACHE = ['/', '/index.html', '/admin', '/admin.html', '/manifest.webmanifest', '/admin-manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/7543.jpg', '/logo-ludo-baji.jpg', '/maintenance-banner.jpg'];
+const CACHE_NAME = 'ludo-baji-v21-cover-fix';
+const PRECACHE = ['/', '/index.html', '/admin', '/admin.html', '/manifest.webmanifest', '/admin-manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/7543.jpg', '/logo-ludo-baji.jpg', '/maintenance-banner.jpg', '/ludo-match-cover.jpg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -37,6 +37,18 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
         return res;
       }).catch(() => caches.match(req).then((c) => c || caches.match('/')))
+    );
+    return;
+  }
+
+  // Theme + cover: always network-first so UI updates are not stuck on old cache
+  if (/theme-ludobest\.(css|js)/.test(url.pathname) || url.pathname.endsWith('ludo-match-cover.jpg') || url.pathname.endsWith('features-ui.js')) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req))
     );
     return;
   }

@@ -35,7 +35,7 @@
       '<div class="gameCard" id="lbGameCard">'+
         '<img class="gcCover" src="ludo-match-cover.jpg" alt="" decoding="async">'+
         '<div class="gcShade"></div>'+
-        '<div class="gcArt" id="lbMatchArt"><img src="ludo-match-cover.jpg" alt=""></div>'+
+        '<div class="gcArt" id="lbMatchArt">'+(function(){try{var L=localStorage.getItem('lb_match_logo');if(L&&L.length>4)return '<img src="'+L.replace(/"/g,'&quot;')+'" alt="">';}catch(e){}return '<img src="ludo-match-cover.jpg" alt="">';})()+'</div>'+
         '<div class="gcText"><b id="lbMatchTitle">Ludo Matches</b><small id="lbMatchSub">REGULAR 1 VS 1</small></div>'+
         '<span class="gcCount" id="lbMatchCount">'+(function(){try{var n=sessionStorage.getItem('lb_match_count');if(n!=null&&n!=='')return String(n)}catch(e){}return '0'}())+'</span>'+
       '</div>'+
@@ -88,8 +88,8 @@
   }
 
 
-  // Apply Admin → Main Page Options → "Ludo Matches" logo/name to the home game card
-  // Default left thumb = cover image (never force target emoji over cover)
+  // Apply Admin logo to left thumb; cover image always stays as card background.
+  // Never show target/emoji flash. Cache logo in localStorage for instant next paint.
   window.applyMatchCardLogo = function(){
     try{
       const list = (window._siteCache && window._siteCache.mainOptions) || window.all || [];
@@ -98,29 +98,36 @@
       const title = document.getElementById('lbMatchTitle');
       const sub = document.getElementById('lbMatchSub');
       const defaultCover = 'ludo-match-cover.jpg';
+      function setArtImg(src){
+        if(!art) return;
+        art.innerHTML = '<img src="'+String(src).replace(/"/g,'&quot;')+'" alt="" onerror="this.onerror=null;this.src=\''+defaultCover+'\'">';
+      }
       if(o){
-        const logo = o.logo ? String(o.logo) : '';
-        const icon = o.icon ? String(o.icon) : '';
-        if(art){
-          const isImg = logo && (logo.indexOf('data:')===0 || logo.indexOf('http')===0 || /\.(gif|png|jpe?g|webp|svg)(\?|$)/i.test(logo));
-          if(isImg){
-            art.innerHTML = '<img src="'+logo.replace(/"/g,'&quot;')+'" alt="" onerror="this.src=\''+defaultCover+'\'">';
-          } else if(logo && logo.length <= 4){
-            art.textContent = logo;
-          } else {
-            // keep cover thumb — do not replace with emoji
-            art.innerHTML = '<img src="'+defaultCover+'" alt="">';
-          }
+        const logo = o.logo ? String(o.logo).trim() : '';
+        const isImg = logo && (logo.indexOf('data:')===0 || logo.indexOf('http')===0 || logo.indexOf('/')===0 || /\.(gif|png|jpe?g|webp|svg)(\?|$)/i.test(logo));
+        if(isImg){
+          setArtImg(logo);
+          try{ localStorage.setItem('lb_match_logo', logo); }catch(e){}
+        } else {
+          // no admin image logo — use cached logo if any, else cover (never emoji)
+          var cached='';
+          try{ cached=localStorage.getItem('lb_match_logo')||''; }catch(e){}
+          setArtImg(cached && cached.length>4 ? cached : defaultCover);
         }
         if(title && o.name) title.textContent = o.name;
         if(sub){
-          const s = o.short_name || o.content || 'REGULAR 1 VS 1';
-          sub.textContent = String(s).length > 40 ? 'REGULAR 1 VS 1' : String(s);
+          const s = o.short_name || 'REGULAR 1 VS 1';
+          var ss=String(s);
+          // avoid dumping long content into subtitle
+          if(ss.length>40 || /content|system|এখানে/i.test(ss)) ss='REGULAR 1 VS 1';
+          sub.textContent = ss;
         }
         const card = document.getElementById('lbGameCard');
         if(card && o.visible === false) card.style.display = 'none';
       } else if(art){
-        art.innerHTML = '<img src="'+defaultCover+'" alt="">';
+        var cached2='';
+        try{ cached2=localStorage.getItem('lb_match_logo')||''; }catch(e){}
+        setArtImg(cached2 && cached2.length>4 ? cached2 : defaultCover);
       }
     }catch(e){ console.warn('applyMatchCardLogo', e); }
   };
