@@ -444,18 +444,22 @@ async function listUserWithdrawals(userId, limit=50) {
   return r.rows;
 }
 
-async function listAdminWithdrawals(status='all', limit=100) {
+async function listAdminWithdrawals(status='all', limit=200) {
   if (hasDatabase()) { try{await init();await pool.query('ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS account_name TEXT')}catch{} }
+  const sortPending = (rows)=>{
+    const rank=s=>({pending:0,approved:1,rejected:2}[String(s||'').toLowerCase()]??3);
+    return rows.slice().sort((a,b)=>rank(a.status)-rank(b.status)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  };
   if (!hasDatabase()) {
     const users=fallbackUsersRead(); const map=new Map(users.map(u=>[String(u.id),u]));
-    let rows=fallbackWithdrawalsRead().map(d=>({...d,user_code:d.user_code||map.get(String(d.user_id))?.user_code||'',phone:d.phone||map.get(String(d.user_id))?.phone||'',name:d.name||map.get(String(d.user_id))?.name||''}));
-    if(status!=='all') rows=rows.filter(d=>d.status===status);
-    return rows.slice(0,limit);
+    let rows=fallbackWithdrawalsRead().map(d=>({...d,user_code:d.user_code||map.get(String(d.user_id))?.user_code||'',phone:d.phone||map.get(String(d.user_id))?.phone||'',email:d.email||map.get(String(d.user_id))?.email||'',name:d.name||map.get(String(d.user_id))?.name||'',account_name:d.account_name||''}));
+    if(status&&status!=='all') rows=rows.filter(d=>String(d.status)===String(status));
+    return sortPending(rows).slice(0,limit);
   }
   await init();
-  const where=status==='all'?'':' WHERE w.status=$1';
-  const params=status==='all'?[limit]:[status,limit];
-  const r=await pool.query(`SELECT w.id,w.user_id,u.user_code,u.phone,u.name,w.method,w.account_number,w.account_name,w.amount,w.balance_type,w.status,w.note,w.created_at,w.reviewed_at FROM withdrawals w JOIN users u ON u.id=w.user_id${where} ORDER BY w.created_at DESC LIMIT $${params.length}`,params);
+  const where=status&&status!=='all'?' WHERE w.status=$1':'';
+  const params=status&&status!=='all'?[status,limit]:[limit];
+  const r=await pool.query(`SELECT w.id,w.user_id,u.user_code,u.phone,u.email,u.name,w.method,w.account_number,COALESCE(w.account_name,'') AS account_name,w.amount,w.balance_type,w.status,w.note,w.created_at,w.reviewed_at FROM withdrawals w JOIN users u ON u.id=w.user_id${where} ORDER BY CASE WHEN w.status='pending' THEN 0 WHEN w.status='approved' THEN 1 ELSE 2 END, w.created_at DESC LIMIT $${params.length}`,params);
   return r.rows;
 }
 
