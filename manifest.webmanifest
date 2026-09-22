@@ -1,13 +1,15 @@
 {
+  "id": "/app-user",
   "name": "Ludo Baji",
   "short_name": "Ludo Baji",
   "description": "Play • Win • Earn - Ludo Baji",
-  "start_url": "/",
+  "start_url": "/?pwa=user",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a1628",
   "theme_color": "#0a1628",
+  "lang": "bn",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -210,14 +210,14 @@ body.screen-open #dlAppBtn{display:none!important}
   var mobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) || (screen && screen.width <= 600);
   if(mobileDevice){ document.documentElement.classList.add("mobile-device"); }
 })();</script>
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest?v=20260922-dual-pwa">
 <meta name="theme-color" content="#0a1628">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ludo Baji">
 <link rel="apple-touch-icon" href="/icon-512.png">
-<link rel="stylesheet" href="theme-ludobest.css?v=20260921-COVER-V4"></head><body class="logged-out"><script>(function(){
+<link rel="stylesheet" href="theme-ludobest.css?v=20260922-FIXES20"></head><body class="logged-out"><script>(function(){
 try{var t=localStorage.getItem('ludo_user_token');if(t){document.body.classList.remove('logged-out');document.documentElement.classList.add('has-session');}}catch(e){}
 // INSTANT restore intent — before any paint of Home
 var screen='';
@@ -728,4 +728,4 @@ setInterval(async()=>{try{
     try{const am=document.getElementById('authModal');if(am){am.classList.remove('show');am.style.display='none';}}catch(e){}
   }
 }catch(e){}} ,5000);
-</script><script src="theme-ludobest.js?v=20260921-COVER-V4"></script><script src="features-ui.js?v=20260917-stayfix"></script></body></html>
+</script><script src="theme-ludobest.js?v=20260922-FIXES20"></script><script src="features-ui.js?v=20260917-stayfix"></script><script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/service-worker.js',{scope:'/'}).catch(function(){})})}</script></body></html>

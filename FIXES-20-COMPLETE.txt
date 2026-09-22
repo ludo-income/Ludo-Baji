@@ -1,0 +1,33 @@
+Ludo Baji — 20 problem fix batch
+================================
+
+CODE FIXED / HARDENED:
+1. script2.js — no longer empty (placeholder)
+2. UI language — key alerts clarified in Bangla
+3. Service worker — v21 + network-first for theme (previous batch)
+4. Telegram — clear admin setup message when link missing
+5. Empty states — existing empty messages retained
+6. Admin login — spinner + timeout + retry (previous batch)
+7. Match card cover/logo flash — localStorage logo cache (previous batch)
+8. Deposit screenshots — saved as files under /uploads (max 2MB), not huge base64 in DB
+9. Manual deposit/withdraw — kept (gateway needs merchant keys); validation kept
+10. OTP — production/Render blocks OTP_DEV_MODE; requires real email provider
+11. SMS OTP — Twilio env placeholders in .env.example (enable when keys available)
+12. JSON fallback — warning when DATABASE_URL missing on Render
+13. User token TTL — default 7 days (USER_TOKEN_TTL_DAYS)
+14. Personal numbers — admin UI warning note
+15-16. Payment gateway — env placeholders; real API needs bKash/Nagad merchant account
+17. PostgreSQL — strongly recommended; warning if missing on Render
+18. Legal/compliance — operational (not code); use merchant accounts when possible
+19. OTP_DEV_MODE — cannot be true on Render/production
+20. Secrets — requireSecurityEnv already enforces strong ADMIN_* / USER_SECRET
+
+STILL REQUIRES YOUR ACTION (cannot fully auto-fix in code):
+- Set DATABASE_URL (PostgreSQL) on Render
+- Set SMTP or Brevo/Resend for real OTP email
+- OTP_DEV_MODE=false
+- bKash/Nagad merchant gateway credentials for automatic payments
+- Optional Twilio for SMS OTP
+- Prefer merchant payment numbers over personal
+
+Deploy: upload this package, set env vars, redeploy, hard-refresh browser.

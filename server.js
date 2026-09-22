@@ -22,8 +22,31 @@ const MAX_BODY_BYTES=Math.max(1024*1024,Number(process.env.MAX_BODY_MB||10)*1024
 const ADMIN_TOKEN_TTL_MS=Math.max(15,Number(process.env.ADMIN_TOKEN_TTL_MINUTES||480))*60*1000;
 const ADMIN_LOGIN_WINDOW_MS=15*60*1000,ADMIN_LOGIN_MAX_ATTEMPTS=Math.max(3,Number(process.env.ADMIN_LOGIN_MAX_ATTEMPTS||5));
 const adminSessions=new Map(),adminLoginAttempts=new Map(),otpRequestAttempts=new Map();
-function requireSecurityEnv(){const missing=[];if(!ADMIN_USERNAME||ADMIN_USERNAME.length<3||ADMIN_USERNAME.length>100)missing.push('ADMIN_USERNAME (3-100 characters)');if(!ADMIN_PASSWORD||ADMIN_PASSWORD.length<12||ADMIN_PASSWORD.length>200)missing.push('ADMIN_PASSWORD (12-200 characters)');if(!SECRET||SECRET.length<32)missing.push('ADMIN_SECRET (minimum 32 characters)');if(!USER_SECRET||USER_SECRET.length<32)missing.push('USER_SECRET (minimum 32 characters)');if(SECRET&&USER_SECRET&&SECRET===USER_SECRET)missing.push('USER_SECRET must be different from ADMIN_SECRET');if(missing.length)throw new Error('Required security environment variables are missing/unsafe: '+missing.join(', '));}
+function requireSecurityEnv(){const missing=[];if(!ADMIN_USERNAME||ADMIN_USERNAME.length<3||ADMIN_USERNAME.length>100)missing.push('ADMIN_USERNAME (3-100 characters)');if(!ADMIN_PASSWORD||ADMIN_PASSWORD.length<12||ADMIN_PASSWORD.length>200)missing.push('ADMIN_PASSWORD (12-200 characters)');if(!SECRET||SECRET.length<32)missing.push('ADMIN_SECRET (minimum 32 characters)');if(!USER_SECRET||USER_SECRET.length<32)missing.push('USER_SECRET (minimum 32 characters)');if(SECRET&&USER_SECRET&&SECRET===USER_SECRET)missing.push('USER_SECRET must be different from ADMIN_SECRET');if(missing.length)throw new Error('Required security environment variables are missing/unsafe: '+missing.join(', '));
+const onRender=!!String(process.env.RENDER||process.env.RENDER_SERVICE_ID||'').trim();
+const prodLike=String(process.env.NODE_ENV||'').toLowerCase()==='production'||onRender||String(process.env.FORCE_PRODUCTION||'').toLowerCase()==='true';
+if(prodLike&&String(process.env.OTP_DEV_MODE||'').toLowerCase()==='true'){
+  throw new Error('OTP_DEV_MODE cannot be true in production/Render. Set OTP_DEV_MODE=false');
+}
+if(prodLike&&!String(process.env.DATABASE_URL||'').trim()&&String(process.env.ALLOW_JSON_FALLBACK||'').toLowerCase()!=='true'){
+  console.warn('[SECURITY] DATABASE_URL missing — financial data on JSON files is unsafe. Set DATABASE_URL or ALLOW_JSON_FALLBACK=true to silence.');
+}
+}
 requireSecurityEnv();
+const USER_TOKEN_TTL_MS=Math.max(1,Number(process.env.USER_TOKEN_TTL_DAYS||7))*86400000;
+const UPLOAD_DIR=path.join(ROOT,'uploads');
+try{fs.mkdirSync(UPLOAD_DIR,{recursive:true})}catch(e){}
+function saveUploadBase64(dataUrl,prefix){
+  const m=String(dataUrl||'').match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/i);
+  if(!m)throw new Error('Valid image required');
+  const ext=(m[1].toLowerCase()==='jpg'?'jpeg':m[1].toLowerCase());
+  const buf=Buffer.from(m[2],'base64');
+  if(buf.length>2*1024*1024)throw new Error('Screenshot সর্বোচ্চ 2MB হতে পারবে');
+  const name=prefix+'-'+Date.now()+'-'+crypto.randomBytes(4).toString('hex')+'.'+ext;
+  fs.writeFileSync(path.join(UPLOAD_DIR,name),buf);
+  return '/uploads/'+name;
+}
+
 const OTP_TTL_MS=Math.max(60,Number(process.env.OTP_TTL_SECONDS||600))*1000;
 const OTP_COOLDOWN_MS=Math.max(30,Number(process.env.OTP_COOLDOWN_SECONDS||60))*1000;
 const OTP_MAX_ATTEMPTS=Math.max(3,Number(process.env.OTP_MAX_ATTEMPTS||5));
@@ -132,7 +155,11 @@ async function sendOtpEmail(email,otp){
   const hasBrevo=!!String(process.env.BREVO_API_KEY||'').trim();
   const hasResend=!!String(process.env.RESEND_API_KEY||'').trim();
   const hasSmtp=!!(process.env.SMTP_USER&&process.env.SMTP_PASS);
-  if(devMode && !hasBrevo && !hasResend){
+  if(devMode && !hasBrevo && !hasResend && !hasSmtp){
+    const onRender=!!String(process.env.RENDER||process.env.RENDER_SERVICE_ID||'').trim();
+    if(onRender||String(process.env.NODE_ENV||'').toLowerCase()==='production'){
+      throw new Error('OTP email provider সেট করুন (SMTP/Brevo/Resend). Production-এ DEV OTP বন্ধ।');
+    }
     console.log('[OTP DEV] '+email+': '+otp);
     return {sent:false,dev:true,otp,provider:'dev'};
   }
@@ -434,7 +461,7 @@ const server=http.createServer(async(req,res)=>{try{
        await db.clearUserOtpByEmail(email);
        try{if((vName||vPhone)&&typeof db.updateUserProfile==='function'){await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});}}catch(e){console.error('profile save after otp',e.message)}
        const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);
-       const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);
+       const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+USER_TOKEN_TTL_MS},USER_SECRET);
        return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
      }catch(e){
        // fall through to local OTP if was sent via SMTP/dev
@@ -449,7 +476,7 @@ const server=http.createServer(async(req,res)=>{try{
    if(otpHash(email,otp)!==user.otp_hash){await db.updateOtpAttemptsByEmail(email,Number(user.otp_attempts||0)+1);return send(res,401,{ok:false,error:'OTP সঠিক নয়'});}
    await db.clearUserOtpByEmail(email);
    try{if((vName||vPhone)&&typeof db.updateUserProfile==='function'){await db.updateUserProfile(user.id,{name:vName||user.name||'',phone:vPhone||user.phone||''});}}catch(e){console.error('profile save after otp',e.message)}
-   const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+30*86400000},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
+   const fresh=await db.getUserById(user.id);await db.ensureUserWallet(fresh.id);const userToken=signToken({typ:'user',id:String(fresh.id),e:Date.now()+USER_TOKEN_TTL_MS},USER_SECRET);return send(res,200,{ok:true,token:userToken,user:{id:fresh.id,user_code:fresh.user_code,email:fresh.email||email,phone:fresh.phone||null,name:fresh.name||'',status:fresh.status}});
  }
  if(req.method==='GET'&&p==='/api/auth/me'){const x=await userAuth(req,res);if(!x)return;const user=await db.getUserById(x.id);if(!user)return send(res,404,{ok:false,error:'User not found'});return send(res,200,{ok:true,user:{id:user.id,user_code:user.user_code,email:user.email||'',phone:user.phone||null,name:user.name||'',status:user.status}})}
  if(req.method==='GET'&&p==='/api/user/push/public-key'){return send(res,200,{ok:true,configured:pushConfigured(),public_key:pushConfigured()?VAPID_PUBLIC_KEY:''});}
@@ -470,9 +497,9 @@ const server=http.createServer(async(req,res)=>{try{
    const pd=(await read()).paymentMethods||[], pm=pd.find(m=>m.id===method&&m.enabled!==false);
    if(!pm)return send(res,400,{ok:false,error:'এই Payment Method বর্তমানে বন্ধ'}); if(!Number.isFinite(amount)||amount<Number(pm.min_deposit||0)||amount>Number(pm.max_deposit||1000000))return send(res,400,{ok:false,error:`Deposit amount ৳${pm.min_deposit||0} থেকে ৳${pm.max_deposit||1000000} এর মধ্যে দিন`});
    if(!/^[A-Za-z0-9._-]{3,100}$/.test(transactionId))return send(res,400,{ok:false,error:'সঠিক Transaction ID দিন'});
-   if(!/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(screenshot))return send(res,400,{ok:false,error:'Payment screenshot upload করুন'});
-   const comma=screenshot.indexOf(','),bytes=comma>0?Buffer.byteLength(screenshot.slice(comma+1),'base64'):0;if(bytes>8*1024*1024)return send(res,413,{ok:false,error:'Screenshot সর্বোচ্চ 8MB হতে পারবে'});
-   try{const d=await db.createDeposit(x.id,method,amount,transactionId,screenshot);return send(res,201,{ok:true,message:'Deposit request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',deposit:{id:d.id,method:d.method,amount:Number(d.amount),transaction_id:d.transaction_id,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Deposit failed'})}
+   let shotPath='';
+   try{shotPath=saveUploadBase64(screenshot,'dep')}catch(e){return send(res,400,{ok:false,error:e.message||'Payment screenshot upload করুন'})}
+   try{const d=await db.createDeposit(x.id,method,amount,transactionId,shotPath);return send(res,201,{ok:true,message:'Deposit request জমা হয়েছে। Admin approval-এর অপেক্ষায় আছে।',deposit:{id:d.id,method:d.method,amount:Number(d.amount),transaction_id:d.transaction_id,status:d.status,created_at:d.created_at}})}catch(e){return send(res,400,{ok:false,error:e.message||'Deposit failed'})}
  }
  if(req.method==='GET'&&p==='/api/user/transactions'){
    const x=await userAuth(req,res);if(!x)return;

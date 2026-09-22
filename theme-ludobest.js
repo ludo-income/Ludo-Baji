@@ -193,7 +193,9 @@
     else if(w.whatsapp){
       const phone=String(w.whatsapp).replace(/[^0-9]/g,'');
       window.open('https://wa.me/'+phone,'_blank');
-    } else alert('Telegram লিংক এখনো সেট করা হয়নি');
+    } else {
+      alert('Telegram লিংক এখনো সেট নেই।\nAdmin Panel → Support Widget / Settings থেকে Telegram লিংক যোগ করুন।');
+    }
   };
 
   
