@@ -14,16 +14,21 @@ body.lb-skin .app{
   body.lb-skin .app{max-width:430px!important}
 }
 
-/* Hide old home pieces */
+/* OLD UI deleted from view — never show base wallet/quick/home */
 body.lb-skin .wallet,
 body.lb-skin .promoStrip,
 body.lb-skin .quickHead,
 body.lb-skin .footerHelp,
 body.lb-skin #homeExtras,
+body.lb-skin .homeExtras,
 body.lb-skin header #profileBtn,
-body.lb-skin .headSpacer{display:none!important}
+body.lb-skin .headSpacer,
+body.lb-skin .balance,
+body.lb-skin .balanceSingle,
+body.lb-skin .loginHint,
+body.lb-skin .publicLinkGrid,
 body.lb-skin .quick,
-body.lb-skin #quickGrid{display:none!important}
+body.lb-skin #quickGrid{display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important}
 
 body.lb-skin header{padding:12px 14px 0!important;background:transparent!important;border:0!important;box-shadow:none!important}
 body.lb-skin header .brandWrap .name{display:none!important}

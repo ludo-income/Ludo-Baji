@@ -1,11 +1,21 @@
 <!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Baji</title><style>html,body{background:#0a1628!important;}
-/* Prevent base UI flash before theme-ludobest applies */
-body:not(.lb-skin) .wallet,
-body:not(.lb-skin) .promoStrip,
-body:not(.lb-skin) .quick,
-body:not(.lb-skin) #quickGrid,
-body:not(.lb-skin) .homeExtras,
-body:not(.lb-skin) header .brandWrap .name{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+/* OLD UI permanently hidden — only Ludo Best theme (lb-skin) is visible */
+.wallet,
+.promoStrip,
+.quick,
+.quickHead,
+#quickGrid,
+.homeExtras,
+#homeExtras,
+header .brandWrap .name,
+header #profileBtn,
+.headSpacer,
+.footerHelp,
+.balance,
+.balance.win,
+.balanceSingle,
+.loginHint,
+.publicLinkGrid{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important}
 /* Keep splash solid until ready */
 #appSplash{z-index:99999}
 html.has-session body #authModal{display:none!important;visibility:hidden!important}
@@ -217,7 +227,8 @@ body.screen-open #dlAppBtn{display:none!important}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ludo Baji">
 <link rel="apple-touch-icon" href="/icon-512.png">
-<link rel="stylesheet" href="theme-ludobest.css?v=20260922-FIXES20"></head><body class="logged-out"><script>(function(){
+<link rel="stylesheet" href="theme-ludobest.css?v=20260922-NEWUI-ONLY"></head><body class="logged-out lb-skin"><script>(function(){
+try{document.body.classList.add('lb-skin');}catch(e){}
 try{var t=localStorage.getItem('ludo_user_token');if(t){document.body.classList.remove('logged-out');document.documentElement.classList.add('has-session');}}catch(e){}
 // INSTANT restore intent — before any paint of Home
 var screen='';
@@ -728,4 +739,4 @@ setInterval(async()=>{try{
     try{const am=document.getElementById('authModal');if(am){am.classList.remove('show');am.style.display='none';}}catch(e){}
   }
 }catch(e){}} ,5000);
-</script><script src="theme-ludobest.js?v=20260922-FIXES20"></script><script src="features-ui.js?v=20260917-stayfix"></script><script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/service-worker.js',{scope:'/'}).catch(function(){})})}</script></body></html>
+</script><script src="theme-ludobest.js?v=20260922-NEWUI-ONLY"></script><script src="features-ui.js?v=20260922-NEWUI-ONLY"></script><script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/service-worker.js?v=20260922-NEWUI-ONLY',{scope:'/'}).catch(function(){})})}</script></body></html>
