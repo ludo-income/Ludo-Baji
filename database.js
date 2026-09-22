@@ -840,4 +840,105 @@ async function getUserAdminDetail(userId, limit=200){
   ]);
   return {user,dashboard,transactions,deposits,withdrawals,matches,notifications,support};
 }
-module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail,getAdminFinance,adminWithdraw,debitAdminEntriesOnCancel};
+
+/** User balance → Admin Account (inactive user recovery / seize) */
+async function transferUserBalanceToAdmin(userId, opts={}){
+  const balanceType=String(opts.balance_type||'all').toLowerCase(); // gaming|winning|all
+  let amount=opts.amount!=null?Number(opts.amount):null; // null = full
+  const note=String(opts.note||'Transferred to Admin Account').slice(0,200);
+  if(balanceType!=='gaming'&&balanceType!=='winning'&&balanceType!=='all') throw new Error('balance_type gaming/winning/all দিন');
+
+  async function creditAdmin(d, amt, meta){
+    const fin=ensureFinance(d);
+    fin.balance=Number((Number(fin.balance||0)+amt).toFixed(2));
+    fin.total_profit=Number((Number(fin.total_profit||0)+amt).toFixed(2));
+    fin.commission_balance=fin.balance;
+    fin.total_commission_earned=fin.total_profit;
+    pushFinanceLog(fin,{
+      id:'TF-'+Date.now()+Math.random().toString(36).slice(2,6),
+      type:'user_to_admin_transfer',
+      user_id:String(meta.user_id||''),
+      user_code:meta.user_code||'',
+      amount:amt,
+      balance_type:meta.balance_type||'',
+      balance_after:fin.balance,
+      note:meta.note||note,
+      created_at:new Date().toISOString()
+    });
+    return fin.balance;
+  }
+
+  if(!hasDatabase()){
+    return withFallbackFinancialLock(async()=>{
+      const snapshot=snapshotFallbackFinancialFiles();
+      try{
+        const users=fallbackUsersRead();
+        const u=users.find(x=>String(x.id)===String(userId));
+        if(!u) throw new Error('User not found');
+        const types=balanceType==='all'?['gaming','winning']:[balanceType];
+        let total=0; const details=[];
+        for(const t of types){
+          const key=t+'_balance';
+          const have=Number(u[key]||0);
+          if(have<=0) continue;
+          let take=amount!=null&&balanceType!=='all'?amount:have;
+          if(balanceType==='all'&&amount!=null) take=Math.min(have, Math.max(0, amount-total));
+          take=Number(Math.min(have, take).toFixed(2));
+          if(!(take>0)) continue;
+          const before=have, after=Number((have-take).toFixed(2));
+          u[key]=after;
+          total=Number((total+take).toFixed(2));
+          details.push({balance_type:t,amount:take,before,after});
+          const txs=fallbackTransactionsRead();
+          const ref='TF-'+Date.now()+'-'+t;
+          txs.unshift({id:ref,user_id:u.id,type:'transfer_to_admin',amount:take,balance_type:t,reference:ref,status:'completed',note,balance_before:before,balance_after:after,balance_change:-take,created_at:new Date().toISOString()});
+          fallbackTransactionsWrite(txs);
+        }
+        if(!(total>0)) throw new Error('User-এর কাছে ট্রান্সফার করার মতো Balance নেই');
+        fallbackUsersWrite(users);
+        const d=await getData();
+        const adminAfter=await creditAdmin(d, total, {user_id:u.id,user_code:u.user_code,balance_type:balanceType,note});
+        await saveData(d);
+        try{await notifyUser(u.id,'Balance Transferred','Admin Account-এ ৳'+total.toFixed(2)+' ট্রান্সফার করা হয়েছে।');}catch(e){}
+        return {ok:true,transferred:total,details,admin_balance:adminAfter,user:{id:u.id,user_code:u.user_code,gaming_balance:Number(u.gaming_balance||0),winning_balance:Number(u.winning_balance||0)}};
+      }catch(e){restoreFallbackFinancialFiles(snapshot);throw e;}
+    });
+  }
+
+  await init();
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const ur=await client.query('SELECT id,user_code,name,status FROM users WHERE id=$1 FOR UPDATE',[userId]);
+    if(!ur.rows[0]) throw new Error('User not found');
+    const u=ur.rows[0];
+    await client.query('INSERT INTO wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING',[userId]);
+    const wr=await client.query('SELECT gaming_balance,winning_balance FROM wallets WHERE user_id=$1 FOR UPDATE',[userId]);
+    let g=Number(wr.rows[0]?.gaming_balance||0), w=Number(wr.rows[0]?.winning_balance||0);
+    const types=balanceType==='all'?['gaming','winning']:[balanceType];
+    let total=0; const details=[];
+    for(const t of types){
+      const have=t==='gaming'?g:w;
+      if(have<=0) continue;
+      let take=amount!=null&&balanceType!=='all'?amount:have;
+      if(balanceType==='all'&&amount!=null) take=Math.min(have, Math.max(0, amount-total));
+      take=Number(Math.min(have, take).toFixed(2));
+      if(!(take>0)) continue;
+      const before=have, after=Number((have-take).toFixed(2));
+      if(t==='gaming') g=after; else w=after;
+      total=Number((total+take).toFixed(2));
+      details.push({balance_type:t,amount:take,before,after});
+      await client.query('INSERT INTO transactions(user_id,type,amount,balance_type,reference,status,note,balance_before,balance_after,balance_change) VALUES($1,\'transfer_to_admin\',$2,$3,$4,\'completed\',$5,$6,$7,$8)',[userId,take,t,'TF-'+Date.now()+'-'+t,note,before,after,-take]);
+    }
+    if(!(total>0)) throw new Error('User-এর কাছে ট্রান্সফার করার মতো Balance নেই');
+    await client.query('UPDATE wallets SET gaming_balance=$1,winning_balance=$2,updated_at=NOW() WHERE user_id=$3',[g,w,userId]);
+    await client.query('COMMIT');
+    const d=await getData();
+    const adminAfter=await creditAdmin(d, total, {user_id:u.id,user_code:u.user_code,balance_type:balanceType,note});
+    await saveData(d);
+    try{await notifyUser(u.id,'Balance Transferred','Admin Account-এ ৳'+total.toFixed(2)+' ট্রান্সফার করা হয়েছে।');}catch(e){}
+    return {ok:true,transferred:total,details,admin_balance:adminAfter,user:{id:u.id,user_code:u.user_code,gaming_balance:g,winning_balance:w}};
+  }catch(e){try{await client.query('ROLLBACK')}catch{};throw e}finally{client.release()}
+}
+
+module.exports={...module.exports,notifyUser,listUsers,setUserStatus,adjustBalance,transferUserBalanceToAdmin,createFeatureMatch,listFeatureMatches,getFeatureMatch,updateFeatureMatch,joinFeatureMatch,setFeatureRoom,setFeatureWinner,approveFeaturePrize,submitFeatureResult,approveFeatureResult,rejectFeatureResult,listUserFeatureMatches,listNotifications,markNotificationsRead,supportList,supportSend,adminSupport,getUserAdminDetail,getAdminFinance,adminWithdraw,debitAdminEntriesOnCancel};

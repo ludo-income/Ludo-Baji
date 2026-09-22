@@ -631,6 +631,19 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='GET'&&p==='/api/admin/users'){const q=String(u.query.q||'');return send(res,200,{ok:true,users:await db.listUsers(500,q)});}
  if(req.method==='POST'&&p.startsWith('/api/admin/users/')&&p.endsWith('/status')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{const user=await db.setUserStatus(id,b.status);await addAudit('user_status',id,b.status);return send(res,200,{ok:true,user});}catch(e){return send(res,400,{ok:false,error:e.message})}}
  if(req.method==='POST'&&p.startsWith('/api/admin/users/')&&p.endsWith('/balance')){const id=decodeURIComponent(p.split('/')[4]),b=await body(req);try{const r=await db.adjustBalance(id,b.balance_type,b.amount,b.note);await addAudit('balance_adjustment',id,b);return send(res,200,{ok:true,result:r});}catch(e){return send(res,400,{ok:false,error:e.message})}}
+ if(req.method==='POST'&&p.startsWith('/api/admin/users/')&&p.endsWith('/transfer-to-admin')){
+   const id=decodeURIComponent(p.split('/')[4]),b=await body(req);
+   try{
+     const r=await db.transferUserBalanceToAdmin(id,{
+       balance_type:String(b.balance_type||'all'),
+       amount:b.amount!=null&&b.amount!==''?Number(b.amount):null,
+       note:String(b.note||'Admin transferred user balance to Admin Account')
+     });
+     await addAudit('user_transfer_to_admin',id,{amount:r.transferred,balance_type:b.balance_type||'all'});
+     return send(res,200,{ok:true,message:'৳'+Number(r.transferred).toFixed(2)+' Admin Account-এ ট্রান্সফার হয়েছে',...r});
+   }catch(e){return send(res,400,{ok:false,error:e.message||'Transfer failed'})}
+ }
+
  if(req.method==='GET'&&p==='/api/admin/payment-methods'){const d=await read();return send(res,200,{ok:true,methods:d.paymentMethods||[]});}
  if(req.method==='POST'&&p==='/api/admin/payment-methods'){const b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];const id=String(b.id||('PAY-'+Date.now().toString(36)));if(d.paymentMethods.some(x=>String(x.id)===id))return send(res,409,{ok:false,error:'Payment Method ID already exists'});const m={id,provider:String(b.provider||'Payment'),account_type:String(b.account_type||'Personal'),name:String(b.name||'Deposit Method'),number:String(b.number||''),account_name:String(b.account_name||''),logo:String(b.logo||''),enabled:b.enabled!==false,order:Number(b.order||d.paymentMethods.length+1),min_deposit:Number(b.min_deposit||0),max_deposit:Number(b.max_deposit||1000000),instructions:String(b.instructions||'')};if(!m.name||!m.number)return send(res,400,{ok:false,error:'Method Name ও Number required'});d.paymentMethods.push(m);await write(d);await addAudit('payment_method_create',id,m);return send(res,201,{ok:true,method:m});}
  if(req.method==='PUT'&&p.startsWith('/api/admin/payment-methods/')){const id=decodeURIComponent(p.split('/').pop()),b=await body(req),d=await read();d.paymentMethods=Array.isArray(d.paymentMethods)?d.paymentMethods:[];let m=d.paymentMethods.find(x=>x.id===id);if(!m){m={id,name:id};d.paymentMethods.push(m)}Object.assign(m,{provider:String(b.provider??m.provider??(String(id).toLowerCase().includes('nagad')?'Nagad':'Payment')),account_type:String(b.account_type??m.account_type??(String(m.name||'').match(/merchant/i)?'Merchant':String(m.name||'').match(/agent/i)?'Agent':String(m.name||'').match(/debit/i)?'Debit':'Personal')),name:String(b.name??m.name),number:String(b.number??m.number),account_name:String((b.account_name??m.account_name)??''),logo:String((b.logo??m.logo)??''),enabled:b.enabled!==undefined?!!b.enabled:m.enabled!==false,min_deposit:Number((b.min_deposit??m.min_deposit)??0),max_deposit:Number((b.max_deposit??m.max_deposit)??1000000),instructions:String((b.instructions??m.instructions)??'')});await write(d);await addAudit('payment_method_update',id,m);return send(res,200,{ok:true,method:m});}
