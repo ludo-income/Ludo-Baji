@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Top Ludo - Withdraw</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(180deg, #0a0a1a 0%, #0d1b2a 50%, #000 100%);
+      color: #fff; min-height: 100vh; padding: 20px 16px 40px;
+    }
+    .box {
+      max-width: 440px; margin: 20px auto;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 16px; padding: 24px 18px;
+    }
+    h1 {
+      text-align: center; font-size: 22px; margin-bottom: 4px;
+      background: linear-gradient(90deg, #FFD700, #FFA500);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { text-align: center; color: #888; font-size: 13px; margin-bottom: 16px; }
+    .bal {
+      text-align: center; background: #0f0f1a; border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 12px; padding: 12px; margin-bottom: 16px; color: #FFD700; font-weight: 700;
+    }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; margin-top: 12px; }
+    input, select {
+      width: 100%; padding: 14px; border-radius: 10px; border: 1px solid rgba(255,215,0,0.25);
+      background: #0f0f1a; color: #fff; font-size: 16px;
+    }
+    input:focus, select:focus { outline: none; border-color: #FFD700; }
+    .btn {
+      width: 100%; padding: 16px; margin-top: 18px; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(90deg, #FFD700, #FFA500); color: #000;
+    }
+    .btn:disabled { opacity: 0.5; }
+    .btn-secondary {
+      background: transparent; border: 1px solid rgba(255,215,0,0.4); color: #FFD700; margin-top: 10px;
+    }
+    .msg { margin-top: 14px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+    .msg.error { background: #7f1d1d; display: block; }
+    .msg.success { background: #14532d; display: block; }
+    .list { margin-top: 22px; }
+    .list h3 { font-size: 15px; color: #FFD700; margin-bottom: 10px; }
+    .item {
+      background: #0f0f1a; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 12px; margin-bottom: 8px; font-size: 13px;
+    }
+    .item .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .st { font-weight: 700; text-transform: capitalize; }
+    .st.pending { color: #fbbf24; }
+    .st.approved { color: #4ade80; }
+    .st.rejected { color: #f87171; }
+    .back { text-align: center; margin-top: 8px; }
+    .back a { color: #FFD700; text-decoration: none; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Withdraw</h1>
+    <p class="sub">টাকা তুলতে রিকোয়েস্ট পাঠান। Admin Approve করলে টাকা যাবে।</p>
+    <div class="bal">ব্যালেন্স: ৳ <span id="bal">0.00</span></div>
+
+    <label>পরিমাণ (সর্বনিম্ন ৳50)</label>
+    <input type="number" id="amount" min="50" placeholder="50">
+
+    <label>মেথড</label>
+    <select id="method">
+      <option value="bkash">bKash</option>
+      <option value="nagad">Nagad</option>
+      <option value="rocket">Rocket</option>
+    </select>
+
+    <label>অ্যাকাউন্ট নাম্বার</label>
+    <input type="text" id="account" placeholder="01XXXXXXXXX">
+
+    <button class="btn" id="sendBtn" onclick="sendWithdraw()">Withdraw Request পাঠান</button>
+    <button class="btn btn-secondary" onclick="location.href='/'">হোমে ফিরুন</button>
+    <div class="msg" id="msg"></div>
+
+    <div class="list">
+      <h3>আপনার Withdraw Request</h3>
+      <div id="history">লোড হচ্ছে...</div>
+    </div>
+  </div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) {
+  window.location.href = '/login';
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + type;
+  el.textContent = text;
+}
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/wallet/withdraws', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('bal').textContent = Number(data.balance || 0).toFixed(2);
+    const list = data.withdraws || [];
+    const box = document.getElementById('history');
+    if (!list.length) {
+      box.innerHTML = '<div class="item">এখনো কোনো রিকোয়েস্ট নেই</div>';
+      return;
+    }
+    box.innerHTML = list.map(w => `
+      <div class="item">
+        <div class="row"><span>৳${w.amount}</span><span class="st ${w.status}">${w.status}</span></div>
+        <div class="row"><span>${w.method || ''} • ${w.accountNumber || ''}</span>
+        <span>${w.createdAt ? new Date(w.createdAt).toLocaleString() : ''}</span></div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('history').textContent = 'লোড করা যায়নি';
+  }
+}
+
+async function sendWithdraw() {
+  const amount = Number(document.getElementById('amount').value);
+  const accountNumber = document.getElementById('account').value.trim();
+  const method = document.getElementById('method').value;
+  if (!amount || amount < 50) return showMsg('মিনিমাম উইথড্র ৳50', 'error');
+  if (!accountNumber) return showMsg('অ্যাকাউন্ট নাম্বার দিন', 'error');
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/wallet/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ amount, accountNumber, method })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg(data.message || 'রিকোয়েস্ট পাঠানো যায়নি', 'error');
+    } else {
+      showMsg(data.message || 'রিকোয়েস্ট পাঠানো হয়েছে। Admin Panel-এ যাবে।', 'success');
+      document.getElementById('amount').value = '';
+      document.getElementById('account').value = '';
+      loadData();
+    }
+  } catch (e) {
+    showMsg('নেটওয়ার্ক এরর', 'error');
+  }
+  btn.disabled = false;
+}
+
+loadData();
+</script>
+</body>
+</html>

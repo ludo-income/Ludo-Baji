@@ -1,57 +1,46 @@
-# Ludo Baji V9.1
+# Top Ludo - Real Money Ludo (Render Ready)
 
-Play • Win • Earn — Ludo match platform with wallet, deposit, withdrawal and admin panel.
-
-## Deploy on Render
-
-- **Root Directory:** empty (repo root)
-- **Build Command:** `npm install`
-- **Start Command:** `npm start`
+## Render Settings
+- **Root Directory**: (leave EMPTY)
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
 
 ## Required Environment Variables
 
-```
-ADMIN_USERNAME=your_admin_username
-ADMIN_PASSWORD=use_a_strong_unique_password
-ADMIN_SECRET=replace_with_a_random_secret_at_least_32_characters
-USER_SECRET=replace_with_a_different_random_secret_at_least_32_characters
-ADMIN_ROLE=super_admin
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MONGODB_URI` | MongoDB Atlas connection string | `mongodb+srv://...` |
+| `JWT_SECRET` | Any random long text | `mySuperSecretKey123` |
+| `ADMIN_EMAIL` | Admin panel login email | `admin@gmail.com` |
+| `ADMIN_PASSWORD` | Admin panel password | `yourStrongPassword` |
+| `EMAIL_USER` | Your Gmail address | `yourname@gmail.com` |
+| `EMAIL_PASS` | Gmail **App Password** (16 characters) | `abcd efgh ijkl mnop` |
 
-Optional but recommended for production:
+### Optional
+| Variable | Description |
+|----------|-------------|
+| `ALLOW_DEV_OTP` | Set to `true` **only** for local testing. Never use in production. |
 
-```
-DATABASE_URL=postgresql://...
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=yourgmail@gmail.com
-SMTP_PASS=your_gmail_app_password
-SMTP_FROM=yourgmail@gmail.com
-OTP_DEV_MODE=false
-CORS_ORIGIN=
-TRUST_PROXY=true
-BKASH_PERSONAL_NUMBER=
-BKASH_MERCHANT_NUMBER=
-NAGAD_PERSONAL_NUMBER=
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@example.com
-```
+---
 
-## Routes
+## How to get Gmail App Password (Real OTP)
 
-| Path | Description |
-|------|-------------|
-| `/` | User app (index.html) |
-| `/admin` | Admin panel |
-| `/health` | Health check JSON |
-| `/api/site` | Public site config |
-| `/ws/matches` | Real-time match WebSocket |
+1. Go to your Google Account → **Security**
+2. Enable **2-Step Verification** (if not already)
+3. Search for **App passwords**
+4. Create a new App Password for "Mail"
+5. Copy the 16-character password
+6. Paste it in Render as `EMAIL_PASS` (spaces are automatically removed)
 
-## Notes
+**Important**:
+- Do **NOT** use your normal Gmail password
+- Do **NOT** set `ALLOW_DEV_OTP=true` on Render (production)
+- After setting variables, **Redeploy** the service
 
-- Use **PostgreSQL** (`DATABASE_URL`) in production. JSON files are local/testing fallback only.
-- Never enable `OTP_DEV_MODE` in production.
-- `ADMIN_SECRET` and `USER_SECRET` must be different and at least 32 characters.
-- See `.env.example` for the full list of variables.
+---
+
+## URLs
+- Home: `/`
+- Login / Register: `/login.html`
+- Admin Panel: `/admin.html`
+- Health Check: `/health`
