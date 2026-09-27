@@ -1,7 +1,7 @@
 /* Steps 3-35 UI: focused implementation, preserving the existing app shell. */
 (function(){
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function F(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};const ut=localStorage.getItem('ludo_user_token');const at=localStorage.getItem('lb_admin_token');if(ut)h.Authorization='Bearer '+ut;if(at)h.Authorization='Bearer '+at;const ctrl=new AbortController();const ms=Number((opt&&opt.timeout)||15000);const to=setTimeout(()=>ctrl.abort(),ms);try{const r=await fetch(path,{...opt,headers:h,signal:ctrl.signal});const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{j={error:raw&&raw.slice(0,120)||'Invalid response'}}if(!r.ok)throw Error(j.error||j.message||('Request failed '+r.status));return j}catch(e){if(e&&e.name==='AbortError')throw Error('সার্ভার ধীর / timeout — আবার চেষ্টা করুন');throw e}finally{clearTimeout(to)}}
+async function F(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};const ut=localStorage.getItem('ludo_user_token');const at=localStorage.getItem('lb_admin_token');const isAdminPath=String(path||'').indexOf('/api/admin')===0;if(isAdminPath){if(at)h.Authorization='Bearer '+at;else if(ut)h.Authorization='Bearer '+ut}else{if(ut)h.Authorization='Bearer '+ut;else if(at)h.Authorization='Bearer '+at}const ctrl=new AbortController();const ms=Number((opt&&opt.timeout)||15000);const to=setTimeout(()=>ctrl.abort(),ms);try{const r=await fetch(path,{...opt,headers:h,signal:ctrl.signal});const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{j={error:raw&&raw.slice(0,120)||'Invalid response'}}if(!r.ok)throw Error(j.error||j.message||('Request failed '+r.status));return j}catch(e){if(e&&e.name==='AbortError')throw Error('সার্ভার ধীর / timeout — আবার চেষ্টা করুন');throw e}finally{clearTimeout(to)}}
 function file64(file){return new Promise((resolve,reject)=>{if(!file)return resolve('');if(file.size>4*1024*1024)return reject(Error('Image/GIF max 4MB'));const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(Error('Read failed'));r.readAsDataURL(file)})}
 function toast(msg){try{const t=document.createElement('div');t.textContent=String(msg||'');t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d2a22;color:#fff;padding:10px 16px;border-radius:12px;z-index:99999;font-size:14px;box-shadow:0 8px 24px #0006';document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}catch(e){alert(msg)}}
 
@@ -162,7 +162,30 @@ window.showMatches=async function(){
 };
 window.startLudoUserAutoRefresh=function(){clearInterval(window._ludoUserTimer);window._ludoUserTimer=setInterval(async()=>{if(!document.getElementById('matchList'))return;try{let matches=[],myIds=window._myMatchIds||[];if(typeof authToken==='function'&&authToken()){try{const [j,mj]=await Promise.all([F('/api/user/matches'),F('/api/user/matches/mine')]);matches=j.matches||[];window._myMatches=mj.matches||[];myIds=window._myMatches.map(m=>m.id)}catch{const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(r=>r.json());matches=pub.matches||[]}}else{const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(r=>r.json());matches=pub.matches||[]}window._myMatchIds=myIds;window._ludoMatches=(matches||[]).map(m=>({...m,_joined:myIds.map(String).includes(String(m.id))}));const active=document.querySelector('.lm-tabs button.active');const type=active&&active.textContent.includes('MY')?'my':active&&active.textContent.includes('SMALL')?'small':active&&active.textContent.includes('BIG')?'big':'all';filterLudoMatches(type,active)}catch{}},5000)};
 window.filterLudoMatches=function(type,el){document.querySelectorAll('.lm-tabs button').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');let a=(window._ludoMatches||[]).filter(m=>String(m.status||'').toLowerCase()!=='cancelled');if(type==='my'){const mineIds=new Set((window._myMatchIds||[]).map(String));a=a.filter(m=>mineIds.has(String(m.id)))}if(type==='small')a=a.filter(m=>Number(m.entry_fee||0)<=50);if(type==='big')a=a.filter(m=>Number(m.entry_fee||0)>50);a=a.slice().sort((x,y)=>String(y.created_at||'').localeCompare(String(x.created_at||'')));const box=document.getElementById('matchList');if(box)box.innerHTML=a.map(m=>ludoMatchCard(m,false)).join('')||'<p class="muted">এখনো কোনো Match নেই। Admin নতুন Match তৈরি করলে এখানে দেখা যাবে।</p>'};
-window.joinUserMatch=async function(id){if(typeof authToken==='function'&&!authToken()){if(typeof openAuth==='function')openAuth();else alert('JOIN করতে Login করুন');return}try{const j=await F('/api/user/matches/'+encodeURIComponent(id)+'/join',{method:'POST'});alert(j.message||'Joined');try{await refreshDashboard()}catch{};showMatches()}catch(e){alert(e.message)}};
+window.joinUserMatch=async function(id){
+  const hasUserToken=!!(localStorage.getItem('ludo_user_token')||'');
+  if(!hasUserToken){
+    if(typeof openAuth==='function')openAuth();
+    else alert('JOIN করতে আগে Login করুন');
+    return;
+  }
+  try{
+    const j=await F('/api/user/matches/'+encodeURIComponent(id)+'/join',{method:'POST'});
+    alert(j.message||'Joined');
+    try{await refreshDashboard()}catch{};
+    showMatches();
+  }catch(e){
+    const msg=String(e&&e.message||'');
+    if(/login required|account not found|session|token/i.test(msg)){
+      try{localStorage.removeItem('ludo_user_token')}catch{}
+      try{document.body.classList.add('logged-out');document.documentElement.classList.remove('has-session')}catch{}
+      if(typeof openAuth==='function')openAuth();
+      else alert('সেশন শেষ। আবার Login করুন।');
+      return;
+    }
+    alert(msg||'Join failed');
+  }
+};
 window.submitMatchResult=async function(id){const input=document.getElementById('result_'+id);if(!input||!input.files||!input.files[0]){alert('Winner screenshot নির্বাচন করুন');return}const file=input.files[0];if(!/^image\/(jpeg|png|webp)$/i.test(file.type)){alert('শুধু JPG, PNG অথবা WEBP screenshot দিন');return}if(file.size>8*1024*1024){alert('Screenshot সর্বোচ্চ 8MB হতে পারবে');return}const fr=new FileReader();fr.onload=async()=>{try{await F('/api/user/matches/'+encodeURIComponent(id)+'/result',{method:'POST',body:JSON.stringify({screenshot:fr.result})});alert('Winner screenshot জমা হয়েছে');showMyMatches()}catch(e){alert(e.message)}};fr.readAsDataURL(file)};
 window.showMyMatches=async function(){if(!authToken()){openAuth();return}setupPhonePush();try{connectMatchSocket()}catch{};try{if(typeof setPageState==='function')setPageState('mymatch')}catch{}try{sessionStorage.setItem('lb_last_screen','mymatch')}catch{}const v=document.getElementById('view');document.body.classList.add('screen-open');v.classList.add('show');window.scrollTo(0,0);v.innerHTML='<div class="lm-head"><button onclick="closeLudoScreen()">‹</button><h3> My Match</h3><span>🎯</span></div><div id="mine" class="ludo-match-list">Loading...</div>';try{const j=await F('/api/user/matches/mine');window._myMatches=j.matches||[];window._myMatchIds=window._myMatches.map(m=>m.id);v.querySelector('#mine').innerHTML=window._myMatches.map(m=>ludoMatchCard(m,true)).join('')||'<p class="muted">No joined matches.</p>'}catch(e){v.querySelector('#mine').innerHTML='<div class="err">'+E(e.message)+'</div>'}};
 window.showNotifications=async function(){
