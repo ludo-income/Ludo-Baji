@@ -766,9 +766,8 @@ async function submitFeatureResult(id,userId,screenshot){
     const m=d.matches.find(a=>String(a.id)===String(id));
     if(!m) throw new Error('Match not found');
     if(!Array.isArray(m.players)||!m.players.some(p=>String(p.user_id)===String(userId))) throw new Error('You have not joined this match');
-    if(m.players.length<2) throw new Error('Match is not full yet');
-    if(m.status!=='started' && m.status!=='full') throw new Error('Match result submission is not available yet');
-    if(m.winner_user_id) throw new Error('Winner already selected');
+    if(String(m.status||'').toLowerCase()==='cancelled') throw new Error('Match cancelled');
+    if(m.winner_user_id || String(m.status||'').toLowerCase()==='completed') throw new Error('Winner already selected');
     const s=String(screenshot||'');
     if(!/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(s)) throw new Error('Valid screenshot upload করুন');
     const comma=s.indexOf(',');
