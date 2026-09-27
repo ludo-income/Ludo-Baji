@@ -14,7 +14,8 @@
       const actions=document.createElement('div');
       actions.id='lbTopActions';
       actions.className='lb-top-actions';
-      actions.innerHTML='<button type="button" class="lb-ico-btn" id="lbBell" onclick="if(typeof showNotifications===\'function\')showNotifications()">🔔<span class="lb-badge" id="lbBellCount" style="display:none">0</span></button><button type="button" class="lb-wallet-chip" id="lbChip" onclick="openWalletSkin()">🪙 <span id="lbChipBal">0</span></button>';
+      var _cachedBal='0';try{var _cb=localStorage.getItem('lb_bal_cache');if(_cb!=null&&_cb!==''&&!isNaN(Number(_cb)))_cachedBal=String(Math.round(Number(_cb)))}catch(e){}
+      actions.innerHTML='<button type="button" class="lb-ico-btn" id="lbBell" onclick="if(typeof showNotifications===\'function\')showNotifications()">🔔<span class="lb-badge" id="lbBellCount" style="display:none">0</span></button><button type="button" class="lb-wallet-chip" id="lbChip" onclick="openWalletSkin()">🪙 <span id="lbChipBal">'+_cachedBal+'</span></button>';
       header.appendChild(actions);
     }
 
@@ -495,8 +496,11 @@
   window.refreshDashboard=async function(){
     if(typeof oldRefresh==='function') await oldRefresh();
     const chip=$('lbChipBal');
-    const tot=Number(window._gamingBal||0)+Number(window._winningBal||0);
-    if(chip) chip.textContent=String(Math.round(tot));
+    let tot=Number(window._gamingBal||0)+Number(window._winningBal||0);
+    try{if(!(tot>0)){var c=localStorage.getItem('lb_bal_cache');if(c!=null&&Number(c)>0)tot=Number(c)}}catch(e){}
+    if(chip && (tot>0 || !(typeof authToken==='function' && authToken()))) chip.textContent=String(Math.round(tot));
+    else if(chip && tot>=0 && typeof authToken==='function' && authToken()){ /* keep previous chip if still 0 until server answers */ if(window._gamingBal!=null||window._winningBal!=null) chip.textContent=String(Math.round(tot)); }
+    try{if(tot>=0)localStorage.setItem('lb_bal_cache',String(tot))}catch(e){}
     try{
       const pub=await fetch('/api/matches?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;});
       if(pub && Array.isArray(pub.matches)){
