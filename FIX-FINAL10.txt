@@ -1,0 +1,21 @@
+Ludo Baji — FINAL10 complete fix
+================================
+
+Fixed in this package:
+1. Login required on JOIN — user API never sends admin token
+2. User profile saved on OTP login (for match ownership / screenshot)
+3. Screenshot upload always shows on joined matches (even 1/2 players)
+4. Backend allows screenshot submit after join (not only when full)
+5. Match list no longer sends huge screenshot base64 (faster load)
+6. Loading timeouts + Retry on My Match / Notifications
+7. Service Worker cache v26-final10 + asset ?v=FINAL10 (forces new JS/CSS)
+8. Logout clears profile token
+
+Deploy on Render:
+- Upload this full folder / zip
+- Redeploy
+- On phone: Chrome → site settings → Clear data / Cookies once
+- Hard refresh or re-open app
+- Login again, JOIN a match, open MY tab → Screenshot box must show
+
+Admin: Match Management → Results → Approve & Credit → winner Winning Balance auto credit

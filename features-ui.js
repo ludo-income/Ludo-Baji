@@ -1,7 +1,7 @@
 /* Steps 3-35 UI: focused implementation, preserving the existing app shell. */
 (function(){
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function F(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};const ut=localStorage.getItem('ludo_user_token');const at=localStorage.getItem('lb_admin_token');const isAdminPath=String(path||'').indexOf('/api/admin')===0;if(isAdminPath){if(at)h.Authorization='Bearer '+at;else if(ut)h.Authorization='Bearer '+ut}else{if(ut)h.Authorization='Bearer '+ut;else if(at)h.Authorization='Bearer '+at}const ctrl=new AbortController();const ms=Number((opt&&opt.timeout)||15000);const to=setTimeout(()=>ctrl.abort(),ms);try{const r=await fetch(path,{...opt,headers:h,signal:ctrl.signal});const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{j={error:raw&&raw.slice(0,120)||'Invalid response'}}if(!r.ok)throw Error(j.error||j.message||('Request failed '+r.status));return j}catch(e){if(e&&e.name==='AbortError')throw Error('সার্ভার ধীর / timeout — আবার চেষ্টা করুন');throw e}finally{clearTimeout(to)}}
+async function F(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};const ut=localStorage.getItem('ludo_user_token');const at=localStorage.getItem('lb_admin_token');const isAdminPath=String(path||'').indexOf('/api/admin')===0;if(isAdminPath){if(at)h.Authorization='Bearer '+at}else{if(ut)h.Authorization='Bearer '+ut}const ctrl=new AbortController();const ms=Number((opt&&opt.timeout)||12000);const to=setTimeout(()=>ctrl.abort(),ms);try{const r=await fetch(path,{...opt,headers:h,signal:ctrl.signal});const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{j={error:raw&&raw.slice(0,120)||'Invalid response'}}if(!r.ok)throw Error(j.error||j.message||('Request failed '+r.status));return j}catch(e){if(e&&e.name==='AbortError')throw Error('সার্ভার ধীর / timeout — আবার চেষ্টা করুন');throw e}finally{clearTimeout(to)}}
 function file64(file){return new Promise((resolve,reject)=>{if(!file)return resolve('');if(file.size>4*1024*1024)return reject(Error('Image/GIF max 4MB'));const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(Error('Read failed'));r.readAsDataURL(file)})}
 function toast(msg){try{const t=document.createElement('div');t.textContent=String(msg||'');t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d2a22;color:#fff;padding:10px 16px;border-radius:12px;z-index:99999;font-size:14px;box-shadow:0 8px 24px #0006';document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}catch(e){alert(msg)}}
 
@@ -192,6 +192,7 @@ window.joinUserMatch=async function(id){
   try{
     const j=await F('/api/user/matches/'+encodeURIComponent(id)+'/join',{method:'POST'});
     alert(j.message||'Joined');
+    try{window._myMatchIds=window._myMatchIds||[];if(!window._myMatchIds.map(String).includes(String(id)))window._myMatchIds.push(id)}catch(e){}
     try{await refreshDashboard()}catch{};
     showMatches();
   }catch(e){
