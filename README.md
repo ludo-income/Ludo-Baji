@@ -1,57 +1,49 @@
-# Ludo Baji V9.1
+# Ludo Best - Complete App Clone
 
-Play • Win • Earn — Ludo match platform with wallet, deposit, withdrawal and admin panel.
+ভিডিও অনুযায়ী তৈরি করা সম্পূর্ণ ওয়েব অ্যাপ।
 
-## Deploy on Render
+## Features (সব কাজ করে)
 
-- **Root Directory:** empty (repo root)
-- **Build Command:** `npm install`
-- **Start Command:** `npm start`
+### Home Screen
+- Play Now বাটন → Tournament স্ক্রিনে নিয়ে যায়
+- Games / Others ট্যাব সুইচ
+- Ludo Matches কার্ড → Matches লিস্টে যায়
+- Telegram Join
+- Instant Withdrawals সেকশন
+- CHAT বাটন
 
-## Required Environment Variables
+### Refer Screen
+- রেফারেল কোড কপি (TAP TO COPY)
+- Total Refers & Total Earning
+- How it Works (বাংলায়)
+- Share on WhatsApp
 
-```
-ADMIN_USERNAME=your_admin_username
-ADMIN_PASSWORD=use_a_strong_unique_password
-ADMIN_SECRET=replace_with_a_random_secret_at_least_32_characters
-USER_SECRET=replace_with_a_different_random_secret_at_least_32_characters
-ADMIN_ROLE=super_admin
-```
+### Profile Screen
+- ইউজার ইনফো (Edit করা যায়)
+- Available Balance + Add Money
+- Matches / Refers / Winnings স্ট্যাটস
+- My Wallet, Statements, Top Players
+- Share App, Terms, Developer Profile
+- Logout
 
-Optional but recommended for production:
+### Ludo Matches
+- Special Matches লিস্ট
+- Prize & Entry Fee
+- JOIN বাটন (ব্যালেন্স চেক করে)
 
-```
-DATABASE_URL=postgresql://...
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=yourgmail@gmail.com
-SMTP_PASS=your_gmail_app_password
-SMTP_FROM=yourgmail@gmail.com
-OTP_DEV_MODE=false
-CORS_ORIGIN=
-TRUST_PROXY=true
-BKASH_PERSONAL_NUMBER=
-BKASH_MERCHANT_NUMBER=
-NAGAD_PERSONAL_NUMBER=
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@example.com
-```
+### Tournament
+- Free Tournament Join
 
-## Routes
+### Bottom Navigation
+- Home / Refer / Profile সুইচ
 
-| Path | Description |
-|------|-------------|
-| `/` | User app (index.html) |
-| `/admin` | Admin panel |
-| `/health` | Health check JSON |
-| `/api/site` | Public site config |
-| `/ws/matches` | Real-time match WebSocket |
+## কিভাবে চালাবেন
 
-## Notes
+1. `index.html` ফাইলটি ব্রাউজারে খুলুন
+2. অথবা লাইভ সার্ভার ব্যবহার করুন
 
-- Use **PostgreSQL** (`DATABASE_URL`) in production. JSON files are local/testing fallback only.
-- Never enable `OTP_DEV_MODE` in production.
-- `ADMIN_SECRET` and `USER_SECRET` must be different and at least 32 characters.
-- See `.env.example` for the full list of variables.
+## Mobile View
+মোবাইলের মতো দেখতে Chrome DevTools → Toggle Device Toolbar (Ctrl+Shift+M) ব্যবহার করুন।
+
+## Version
+1.0.6 (ভিডিও অনুযায়ী)
